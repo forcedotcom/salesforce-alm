@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as fsx from 'fs-extra';
@@ -30,11 +30,11 @@ import * as sourceState from './sourceState';
 import * as SourceUtil from './sourceUtil';
 import { MetadataTypeFactory } from './metadataTypeFactory';
 import { ForceIgnore } from './forceIgnore';
-import { LightningComponentBundleMetadataType } from "./metadataTypeImpl/lightningComponentBundleMetadataType";
+import { LightningComponentBundleMetadataType } from './metadataTypeImpl/lightningComponentBundleMetadataType';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
-import { SfdxError } from '@salesforce/core';
 import { ManifestEntry } from './types';
-import {getFileName} from './sourcePathUtil';
+import { getFileName } from './sourcePathUtil';
+import { SfdxError } from '@salesforce/core';
 
 const fsx_ensureDir = BBPromise.promisify(fsx.ensureDir);
 
@@ -89,8 +89,12 @@ const _processFile = function(metadataType, pathWithPackage, fullName, sourceWor
     const metadataRegistry = sourceWorkspaceAdapter.metadataRegistry;
     const typeDefObj = metadataRegistry.getTypeDefinitionByMetadataName(metadataType.getMetadataName());
     const bundle = new LightningComponentBundleMetadataType(typeDefObj);
-    const definitionFileProperty = bundle.getCorrespondingLWCDefinitionFileProperty(retrieveRoot, fileProperties.fileName,
-        metadataType.getMetadataName(), sourceWorkspaceAdapter.metadataRegistry);
+    const definitionFileProperty = bundle.getCorrespondingLWCDefinitionFileProperty(
+      retrieveRoot,
+      fileProperties.fileName,
+      metadataType.getMetadataName(),
+      sourceWorkspaceAdapter.metadataRegistry
+    );
     bundleDefinitionProperty.push(definitionFileProperty);
   }
 
@@ -296,24 +300,23 @@ class MdapiConvertApi {
     for (let md of validMetatdata) {
       const [mdType, mdName] = md.split(':');
       if (!mdName && typDef) {
-        if (mdType === (typDef.metadataName)) {
+        if (mdType === typDef.metadataName) {
           return true;
         }
-      }
-      else if (mdName) {
+      } else if (mdName) {
         if (itemPath.includes(mdName) || this.isFolder(itemPath, mdName)) {
-         return true;
+          return true;
         }
       }
     }
     return false;
-}
+  }
 
   /**
    * @param itemPath the path to the file in the local project
    * @param validMetatdata a filter against which the paths would be checked to see if the file needs to be converted
    */
-  checkMetadataFromPath(itemPath: string, validMetatdata:string[]): boolean {
+  checkMetadataFromPath(itemPath: string, validMetatdata: string[]): boolean {
     for (let path of validMetatdata) {
       if (itemPath.includes(path)) {
         return true;
@@ -325,7 +328,7 @@ class MdapiConvertApi {
   /**
    * @param typeNamePairs  type name pairs from manifest
    * @param itemPath the path to the file in the local project
-   * @param metadataRegistry 
+   * @param metadataRegistry
    * @returns  {boolean} true if the metadata type or, file name is present in the manifest
    */
   checkMetadataFromManifest(typeNamePairs: ManifestEntry[], itemPath: string, metadataRegistry: MetadataRegistry) {
@@ -340,9 +343,8 @@ class MdapiConvertApi {
       }
       if (metadataName === entry.name) {
         foundInManifest = true;
-      }
-     /** For folder type structure  */
-      else if (itemPath.includes(entry.name)) {
+      } else if (itemPath.includes(entry.name)) {
+      /** For folder type structure  */
         foundInManifest = true;
       }
     });
@@ -370,28 +372,30 @@ class MdapiConvertApi {
 
           if (context.metadata) {
             return context.metadata.split(',');
-          }
-          else if (context.metadatapath) {
+          } else if (context.metadatapath) {
             return context.metadatapath.split(',');
           }
         }
       })
-      .then((result) => {
+      .then(result => {
         validMetatdata = result;
       })
-      .then(() => SourceWorkspaceAdapter.create({
-        org: org,
-        metadataRegistryImpl: MetadataRegistry,
-        defaultPackagePath: path.relative(this.projectPath, this.outputDirectory),
-        fromConvert: true
-      }))
+      .then(() =>
+        SourceWorkspaceAdapter.create({
+          org: org,
+          metadataRegistryImpl: MetadataRegistry,
+          defaultPackagePath: path.relative(this.projectPath, this.outputDirectory),
+          fromConvert: true
+        })
+      )
       .then((sourceWorkspaceAdapter: SourceWorkspaceAdapter) => {
         if (this.logger.isDebugEnabled()) {
-          [{ name: 'root', value: this.root }, { name: 'outputdir', value: this._outputDirectory }].forEach(
-            attribute => {
-              this.logger.debug(`Processing mdapi convert with ${attribute.name}: ${attribute.value}`);
-            }
-          );
+          [
+            { name: 'root', value: this.root },
+            { name: 'outputdir', value: this._outputDirectory }
+          ].forEach(attribute => {
+            this.logger.debug(`Processing mdapi convert with ${attribute.name}: ${attribute.value}`);
+          });
         }
 
         this.logger.debug(`Processing mdapi convert with package root: ${this._package_root}`);
@@ -409,24 +413,21 @@ class MdapiConvertApi {
                 if (this.isValidSourcePath(item.path)) {
                   if (!validMetatdata) {
                     _processPath.call(this, item, metadataRegistry, sourceWorkspaceAdapter, aggregateSourceElements);
-                  }
-                  else if (context.metadatapath) {
+                  } else if (context.metadatapath) {
                     const isValidMetatadataPath = this.checkMetadataFromPath(item.path, validMetatdata);
-                     if(isValidMetatadataPath) {
+                    if (isValidMetatadataPath) {
                       _processPath.call(this, item, metadataRegistry, sourceWorkspaceAdapter, aggregateSourceElements);
-                     }
-                  }
-                  else if (context.manifest) {
+                    }
+                  } else if (context.manifest) {
                     const foundInManifest = this.checkMetadataFromManifest(validMetatdata, item.path, metadataRegistry);
-                      if(foundInManifest) {
-                        _processPath.call(this, item, metadataRegistry, sourceWorkspaceAdapter, aggregateSourceElements);
-                      }
-                  }
-                  else if (context.metadata) {
+                    if (foundInManifest) {
+                      _processPath.call(this, item, metadataRegistry, sourceWorkspaceAdapter, aggregateSourceElements);
+                    }
+                  } else if (context.metadata) {
                     const validMetatdataType = this.checkMetadataFromType(item.path, validMetatdata, metadataRegistry);
-                      if(validMetatdataType) {
-                        _processPath.call(this, item, metadataRegistry, sourceWorkspaceAdapter, aggregateSourceElements);
-                      }
+                    if (validMetatdataType) {
+                      _processPath.call(this, item, metadataRegistry, sourceWorkspaceAdapter, aggregateSourceElements);
+                    }
                   }
                 }
               } catch (e) {
@@ -435,10 +436,8 @@ class MdapiConvertApi {
                 if (e.name === 'Missing metadata file' || e.name === 'Missing content file') {
                   reject(e);
                 } else {
-                  const message =
-                    messages.getMessage('errorProcessingPath', [item.path], 'mdapiConvertApi');
-                  const error =
-                    new SfdxError(message, 'errorProcessingPath', undefined, undefined, e);
+                  const message = messages.getMessage('errorProcessingPath', [item.path], 'mdapiConvertApi');
+                  const error = new SfdxError(message, 'errorProcessingPath', undefined, undefined, e);
                   reject(error);
                 }
               }

@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 import * as Error from '../force-cli/force-cli-error';
 import * as Messages from '../force-cli/force-cli-messages';
 import * as TextUtil from '../force-cli/force-cli-textutils';

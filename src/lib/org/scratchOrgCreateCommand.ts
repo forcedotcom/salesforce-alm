@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import VarargsCommand from '../core/varargsCommand';
@@ -30,7 +30,7 @@ import * as scratchOrgInfoGenerator from './scratchOrgInfoGenerator';
 import logApi = require('../core/logApi');
 import * as Url from 'url';
 
-import { Org as CoreOrg, StreamingClient, PollingClient, StatusResult ,SfdxError } from '@salesforce/core';
+import { Org as CoreOrg, StreamingClient, PollingClient, StatusResult, SfdxError } from '@salesforce/core';
 
 import { JsonMap, ensureString, asJsonMap, getString } from '@salesforce/ts-types';
 import { Duration } from '@salesforce/kit';
@@ -306,14 +306,14 @@ class OrgCreateCommand extends VarargsCommand {
           let result;
           try {
             result = await scratchOrgInfoApi.retrieveScratchOrgInfo(this.scratchOrgInfoId);
-          } catch(e) {
-              if (e.name === 'UnexpectedSignupStatus') {
-                appLogger.debug('Unexpected signup status encountered. Let\'s keep trying..');
-                return { completed: false }
-              } else {
-                appLogger.debug('Signup response contained an error. Re-throwing');
-                throw e
-              }
+          } catch (e) {
+            if (e.name === 'UnexpectedSignupStatus') {
+              appLogger.debug("Unexpected signup status encountered. Let's keep trying..");
+              return { completed: false };
+            } else {
+              appLogger.debug('Signup response contained an error. Re-throwing');
+              throw e;
+            }
           }
           appLogger.debug(`polling client result: ${JSON.stringify(result, null, 4)}`);
           if (result.Status === 'Active') {
@@ -331,7 +331,7 @@ class OrgCreateCommand extends VarargsCommand {
     );
     options.timeoutErrorName = 'ScratchOrgCreatePollingTimout';
     if (useCliWait) {
-      options.timeout = Duration.minutes(parseInt(cliContext.wait))
+      options.timeout = Duration.minutes(parseInt(cliContext.wait));
     }
     options.frequency = OrgCreateCommand.DEFAULT_POLLING_FREQ;
     appLogger.debug(`PollingTimeout in minutes: ${options.timeout.minutes}`);
@@ -362,7 +362,7 @@ class OrgCreateCommand extends VarargsCommand {
     let scratchOrgInfoId: string;
     try {
       scratchOrgInfoId = await this.signupOrgWithStreaming(scratchOrgInfoApi, cliContext);
-      appLogger.debug("Streaming for signup events complete");
+      appLogger.debug('Streaming for signup events complete');
     } catch (e) {
       appLogger.debug(
         `An error was encountered during streaming; code: ${e.code} message: ${e.message} name: ${e.name}`
@@ -431,8 +431,11 @@ class OrgCreateCommand extends VarargsCommand {
       try {
         const defFileContents = await fs_readFile(context.definitionfile);
         // definitionjson and varargs override file input
-        scratchOrgInfoPayload = Object.assign({},
-          JSON.parse(defFileContents ? defFileContents.toString() : ""), orgConfigInput);
+        scratchOrgInfoPayload = Object.assign(
+          {},
+          JSON.parse(defFileContents ? defFileContents.toString() : ''),
+          orgConfigInput
+        );
       } catch (err) {
         err = srcDevUtil.processReadAndParseJsonFileError(err, context.definitionfile);
         throw err;
@@ -481,9 +484,14 @@ class OrgCreateCommand extends VarargsCommand {
     return messageToParse.match(/[A-Z]-[0-9]{4}/);
   }
 
-  private async updateRevisionNumToNull(scratchOrgApi: Org, orgData :any) {
+  private async updateRevisionNumToNull(scratchOrgApi: Org, orgData: any) {
     const revisionFieldName = getRevisionFieldName();
-    const queryResult = await this.force.toolingFind(scratchOrgApi, 'SourceMember', { [revisionFieldName]: { $gt: 0 } }, ['Id']);
+    const queryResult = await this.force.toolingFind(
+      scratchOrgApi,
+      'SourceMember',
+      { [revisionFieldName]: { $gt: 0 } },
+      ['Id']
+    );
     if (!_.isEmpty(queryResult)) {
       let requestBody: any = [];
       const TOOLING_UPDATE_URI = `services/data/v${this.org.force.config.getApiVersion()}/tooling/composite/batch`;
@@ -501,9 +509,8 @@ class OrgCreateCommand extends VarargsCommand {
       };
       try {
         this.force.request(scratchOrgApi, 'POST', _url, headers, bodyStr);
-      }
-      catch (err) {
-        let message = messages.getMessage('SourceStatusResetFailure' ,[orgData.orgId, orgData.username]);
+      } catch (err) {
+        let message = messages.getMessage('SourceStatusResetFailure', [orgData.orgId, orgData.username]);
         throw new SfdxError(message, 'SourceStatusResetFailure');
       }
     }

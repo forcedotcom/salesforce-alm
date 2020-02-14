@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -81,7 +81,10 @@ class PackageVersionCreateRequestReportCommand {
 
         this.logger.styledHeader(this.logger.color.blue('Package Version Create Request'));
         this.logger.table(data, {
-          columns: [{ key: 'key', label: 'Name' }, { key: 'value', label: 'Value' }]
+          columns: [
+            { key: 'key', label: 'Name' },
+            { key: 'value', label: 'Value' }
+          ]
         });
 
         if (record.Error && record.Error.length > 0) {

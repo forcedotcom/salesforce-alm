@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 import * as util from 'util';
 import { Config } from '../../lib/core/configApi';
 
@@ -16,6 +23,7 @@ const ApexSettingsApi = 'apexSettings';
 const ChatterSettingsApi = 'chatterSettings';
 const ContractSettingsApi = 'contractSettings';
 const CommunitiesSettingsApi = 'communitiesSettings';
+const DevHubSettingsApi = 'devhubSettings';
 const EmailAdministrationSettingsApi = 'emailAdministrationSettings';
 const EnhancedNotesSettingsApi = 'enhancedNotesSettings';
 const EntitlementSettingsApi = 'entitlementSettings';
@@ -30,14 +38,15 @@ const MobileSettingsApi = 'mobileSettings';
 const NameSettingsApi = 'nameSettings';
 const OpportunitySettingsApi = 'opportunitySettings';
 const OrderSettingsApi = 'orderSettings';
-const OrgPreferenceSettingsApi = 'orgPreferenceSettings';
 const PardotSettingsApi = 'pardotSettings';
 const PartyDataModelSettingsApi = 'partyDataModelSettings';
 const ProductSettingsApi = 'productSettings';
+const OrgPreferenceSettingsApi = 'orgPreferenceSettings';
 const QuoteSettingsApi = 'quoteSettings';
+const SecuritySessionSettingsApi = 'securitySettings.sessionSettings';
 const SearchSettingsApi = 'searchSettings';
 const SharingSettingsApi = 'sharingSettings';
-const SocialProfileSettingsApi = "socialProfileSettings";
+const SocialProfileSettingsApi = 'socialProfileSettings';
 const OrganizationSettingsDetailApi = 'orgPreferenceSettings';
 const Territory2SettingsApi = 'territory2Settings';
 const PathAssistantSettingsApi = 'pathAssistantSettings';
@@ -380,7 +389,7 @@ const orgPreferenceMdMap = new Map([
   ['ApexApprovalLockUnlock', 'enableApexApprovalLockUnlock']
 ]);
 
-// this maps the old orgPreferenceSettings preference names to the 
+// this maps the old orgPreferenceSettings preference names to the
 // new preference names
 const orgPreferenceSettingsPrefNameMigrateMap = new Map([
   ['apexApprovalLockUnlock', 'enableApexApprovalLockUnlock'],
@@ -389,14 +398,18 @@ const orgPreferenceSettingsPrefNameMigrateMap = new Map([
   ['chatterEnabled', 'enableChatter'],
   ['compileOnDeploy', 'enableCompileOnDeploy'],
   ['consentManagementEnabled', 'enableConsentManagement'],
+  ['contentSniffingProtection', 'enableContentSniffingProtection'],
   ['deleteMonitoringDataEnabled', 'enableDeleteMonitoringData'],
   ['disableParallelApexTesting', 'enableDisableParallelApexTesting'],
   ['enhancedEmailEnabled', 'enableEnhancedEmailEnabled'],
   ['eventLogWaveIntegEnabled', 'enableEventLogWaveIntegration'],
+  ['hstsSitesCommunities', 'hstsOnForecomSites'],
+  ['localNames', 'enableLocalNamesForStdObjects'],
   ['loginForensicsEnabled', 'enableLoginForensics'],
   ['networksEnabled', 'enableNetworksEnabled'],
   ['notesReservedPref01', 'enableEnhancedNotes'],
   ['offlineDraftsEnabled', 'enableOfflineDraftsEnabled'],
+  ['packaging2', 'enablePackaging2'],
   ['pathAssistantsEnabled', 'pathAssistantEnabled'],
   ['pRMAccRelPref', 'enablePRMAccRelPref'],
   ['pardotAppV1Enabled', 'enablePardotAppV1Enabled'],
@@ -407,14 +420,19 @@ const orgPreferenceSettingsPrefNameMigrateMap = new Map([
   ['s1OfflinePref', 'enableS1OfflinePref'],
   ['s1DesktopEnabled', 'enableS1DesktopEnabled'],
   ['s1EncryptedStoragePref2', 'enableS1EncryptedStoragePref2'],
-  ['selfSetPasswordInApi','enableSetPasswordInApi'],
+  ['scratchOrgManagementPref', 'enableScratchOrgManagementPref'],
+  ['shapeExportPref', 'enableShapeExportPref'],
+  ['selfSetPasswordInApi', 'enableSetPasswordInApi'],
   ['sendThroughGmailPref', 'enableSendThroughGmailPref'],
   ['socialProfilesEnable', 'enableSocialProfiles'],
   ['territoryManagement2Enable', 'enableTerritoryManagement2'],
   ['translation', 'enableTranslationWorkbench'],
+  ['upgradeInsecureRequestsPref', 'enableUpgradeInsecureRequestsPref'],
   ['useLanguageFallback', 'useLanguageFallback'],
   ['usePathCollapsedUserPref', 'canOverrideAutoPathCollapseWithUserPref'],
   ['usersAreLightningOnly', 'enableUsersAreLightningOnly'],
+  ['verifyOn2faRegistration', 'identityConfirmationOnTwoFactorRegistrationEnabled'],
+  ['verifyOnEmailChange', 'identityConfirmationOnEmailChange'],
   ['voiceCallListEnabled', 'enableVoiceCallList'],
   ['voiceCallRecordingEnabled', 'enableVoiceCallRecording'],
   ['voiceCoachingEnabled', 'enableVoiceCoaching'],
@@ -422,69 +440,70 @@ const orgPreferenceSettingsPrefNameMigrateMap = new Map([
   ['voiceEnabled', 'voiceEnabled'],
   ['voiceLocalPresenceEnabled', 'enableVoiceLocalPresence'],
   ['voiceMailDropEnabled', 'enableVoiceMailDrop'],
-  ['voiceMailEnabled', 'enableVoiceMail']
+  ['voiceMailEnabled', 'enableVoiceMail'],
+  ['xssProtection', 'enableXssProtection']
 ]);
 
 // this maps the old orgPreferenceSettings preferences
 // (using their new names) to their proper settings types
 const orgPreferenceSettingsTypeMigrateMap = new Map([
-  ['activityAnalyticsEnabled',DeprecatedSettingsApi],
-  ['analyticsSharingEnable',OrgPreferenceSettingsApi],
-  ['canOverrideAutoPathCollapseWithUserPref',PathAssistantSettingsApi],
-  ['channelAccountHierarchyPref',DeprecatedSettingsApi],
-  ['contentSniffingProtection',OrgPreferenceSettingsApi],
-  ['dialerBasicEnabled',OrgPreferenceSettingsApi],
-  ['enableApexApprovalLockUnlock',ApexSettingsApi],
-  ['enableB2bmaAppEnabled',PardotSettingsApi],
-  ['enableCallDisposition',VoiceSettingsApi],
-  ['enableChatter',ChatterSettingsApi],
-  ['enableCompileOnDeploy',ApexSettingsApi],
-  ['enableConsentManagement',PartyDataModelSettingsApi],
-  ['enableDeleteMonitoringData',EventSettingsApi],
-  ['enableDisableParallelApexTesting',ApexSettingsApi],
+  ['activityAnalyticsEnabled', DeprecatedSettingsApi],
+  ['analyticsSharingEnable', DeprecatedSettingsApi],
+  ['canOverrideAutoPathCollapseWithUserPref', PathAssistantSettingsApi],
+  ['channelAccountHierarchyPref', DeprecatedSettingsApi],
+  ['dialerBasicEnabled', DeprecatedSettingsApi],
+  ['enableApexApprovalLockUnlock', ApexSettingsApi],
+  ['enableB2bmaAppEnabled', PardotSettingsApi],
+  ['enableCallDisposition', VoiceSettingsApi],
+  ['enableChatter', ChatterSettingsApi],
+  ['enableCompileOnDeploy', ApexSettingsApi],
+  ['enableConsentManagement', PartyDataModelSettingsApi],
+  ['enableContentSniffingProtection', SecuritySessionSettingsApi],
+  ['enableDeleteMonitoringData', EventSettingsApi],
+  ['enableDisableParallelApexTesting', ApexSettingsApi],
   ['enableEngagementHistoryDashboards', PardotSettingsApi],
   ['enableEnhancedEmailEnabled', EmailAdministrationSettingsApi],
-  ['enableEnhancedNotes',EnhancedNotesSettingsApi],
-  ['enableEventLogWaveIntegration',EventSettingsApi],
-  ['enableLoginForensics',EventSettingsApi],
-  ['enableNetworksEnabled',CommunitiesSettingsApi],
-  ['enablePardotAppV1Enabled',PardotSettingsApi],
-  ['enablePardotEnabled',PardotSettingsApi],
-  ['enablePortalUserCaseSharing',SharingSettingsApi],
-  ['enablePRMAccRelPref',CommunitiesSettingsApi],
-  ['enableRemoveThemeBrandBanner',LightningExperienceSettingsApi],
-  ['enableOfflineDraftsEnabled',MobileSettingsApi],
-  ['enableS1OfflinePref',MobileSettingsApi],
-  ['enableS1DesktopEnabled',LightningExperienceSettingsApi],
-  ['enableS1EncryptedStoragePref2',MobileSettingsApi],
-  ['enableSendThroughGmailPref',EmailAdministrationSettingsApi],
+  ['enableEnhancedNotes', EnhancedNotesSettingsApi],
+  ['enableEventLogWaveIntegration', EventSettingsApi],
+  ['enableLocalNamesForStdObjects', LanguageSettingsApi],
+  ['enableLoginForensics', EventSettingsApi],
+  ['enableNetworksEnabled', CommunitiesSettingsApi],
+  ['enablePackaging2', DevHubSettingsApi],
+  ['enablePardotAppV1Enabled', PardotSettingsApi],
+  ['enablePardotEnabled', PardotSettingsApi],
+  ['enablePortalUserCaseSharing', SharingSettingsApi],
+  ['enablePRMAccRelPref', CommunitiesSettingsApi],
+  ['enableRemoveThemeBrandBanner', LightningExperienceSettingsApi],
+  ['enableOfflineDraftsEnabled', MobileSettingsApi],
+  ['enableS1OfflinePref', MobileSettingsApi],
+  ['enableS1DesktopEnabled', LightningExperienceSettingsApi],
+  ['enableS1EncryptedStoragePref2', MobileSettingsApi],
+  ['enableScratchOrgManagementPref', DevHubSettingsApi],
+  ['enableShapeExportPref', DevHubSettingsApi],
+  ['enableSendThroughGmailPref', EmailAdministrationSettingsApi],
   ['enableSetPasswordInApi', SecuritySettingsPasswordPoliciesApi],
-  ['enableSocialProfiles',SocialProfileSettingsApi],
-  ['expandedSourceTrackingPref',DeprecatedSettingsApi],
+  ['enableSocialProfiles', SocialProfileSettingsApi],
+  ['expandedSourceTrackingPref', DeprecatedSettingsApi],
   ['enableTerritoryManagement2', Territory2SettingsApi],
-  ['enableTranslationWorkbench',LanguageSettingsApi],
-  ['enableUsersAreLightningOnly',LightningExperienceSettingsApi],
-  ['enableVoiceCallList',VoiceSettingsApi],
-  ['enableVoiceCallRecording',VoiceSettingsApi],
-  ['enableVoiceCoaching',VoiceSettingsApi],
-  ['enableVoiceConferencing',VoiceSettingsApi],
-  ['enableVoiceLocalPresence',VoiceSettingsApi],
-  ['enableVoiceMailDrop',VoiceSettingsApi],
-  ['enableVoiceMail',VoiceSettingsApi],
-  ['hstsSitesCommunities',OrgPreferenceSettingsApi],
-  ['localNames',OrgPreferenceSettingsApi],
+  ['enableTranslationWorkbench', LanguageSettingsApi],
+  ['enableUpgradeInsecureRequestsPref', SecuritySessionSettingsApi],
+  ['enableUsersAreLightningOnly', LightningExperienceSettingsApi],
+  ['enableVoiceCallList', VoiceSettingsApi],
+  ['enableVoiceCallRecording', VoiceSettingsApi],
+  ['enableVoiceCoaching', VoiceSettingsApi],
+  ['enableVoiceConferencing', VoiceSettingsApi],
+  ['enableVoiceLocalPresence', VoiceSettingsApi],
+  ['enableVoiceMailDrop', VoiceSettingsApi],
+  ['enableVoiceMail', VoiceSettingsApi],
+  ['enableXssProtection', SecuritySessionSettingsApi],
+  ['hstsOnForecomSites', SecuritySessionSettingsApi],
+  ['identityConfirmationOnEmailChange', SecuritySessionSettingsApi],
+  ['identityConfirmationOnTwoFactorRegistrationEnabled', SecuritySessionSettingsApi],
   ['pathAssistantEnabled', PathAssistantSettingsApi],
-  ['packaging2', OrgPreferenceSettingsApi],
-  ['redirectionWarning', OrgPreferenceSettingsApi],
-  ['referrerPolicy', OrgPreferenceSettingsApi],
-  ['scratchOrgManagementPref', OrgPreferenceSettingsApi],
-  ['shapeExportPref', OrgPreferenceSettingsApi],
-  ['upgradeInsecureRequestsPref', OrgPreferenceSettingsApi],
+  ['redirectionWarning', SecuritySessionSettingsApi],
+  ['referrerPolicy', SecuritySessionSettingsApi],
   ['useLanguageFallback', LanguageSettingsApi],
-  ['verifyOn2faRegistration', OrgPreferenceSettingsApi],
-  ['verifyOnEmailChange', OrgPreferenceSettingsApi],
-  ['voiceEnabled', OrgPreferenceSettingsApi],
-  ['xssProtection', OrgPreferenceSettingsApi]
+  ['voiceEnabled', DeprecatedSettingsApi]
 ]);
 
 // P U B L I C
@@ -496,6 +515,7 @@ export = {
   CHATTER_SETTINGS_API: ChatterSettingsApi,
   CONTRACT_SETTINGS_API: ContractSettingsApi,
   COMMUNITIES_SETTINGS_API: CommunitiesSettingsApi,
+  DEV_HUB_SETTINGS_API: DevHubSettingsApi,
   EMAIL_ADMINISTRATION_SETTINGS_API: EmailAdministrationSettingsApi,
   ENHANCED_NOTE_SETTINGS_API: EnhancedNotesSettingsApi,
   ENTITLEMENT_SETTINGS_API: EntitlementSettingsApi,
@@ -513,9 +533,10 @@ export = {
   ORG_PREFERENCE_SETTINGS: OrgPreferenceSettingsApi,
   PRODUCT_SETTINGS_API: ProductSettingsApi,
   QUOTE_SETTINGS_API: QuoteSettingsApi,
+  SECURITY_SETTINGS_API: SecuritySessionSettingsApi,
   SEARCH_SETTINGS_API: SearchSettingsApi,
   SOCIAL_PROFILE_SETTINGS_API: SocialProfileSettingsApi,
-  ORGANIZATION_SETTINGS_DETAIL_API: OrganizationSettingsDetailApi,  
+  ORGANIZATION_SETTINGS_DETAIL_API: OrganizationSettingsDetailApi,
   TERRITORY2_SETTINGS_API: Territory2SettingsApi,
   PATH_ASSISTANT_SETTINGS_API: PathAssistantSettingsApi,
   SECURITY_SETTINGS_PASSWORD_POLICY_API: SecuritySettingsPasswordPoliciesApi,
@@ -525,24 +546,24 @@ export = {
    *  only if it is being migrated from the org preference settings
    *  to a new object.
    */
-  newPrefNameForOrgSettingsMigration(prefName) : string {
+  newPrefNameForOrgSettingsMigration(prefName): string {
     return orgPreferenceSettingsPrefNameMigrateMap.get(prefName);
   },
 
   /**
    * Does a lookup for the proper apiName for
-   * the given final pref name. 
+   * the given final pref name.
    */
-  whichApiFromFinalPrefName(prefName) : string {
+  whichApiFromFinalPrefName(prefName): string {
     return orgPreferenceSettingsTypeMigrateMap.get(prefName);
   },
 
   /**
-   * 
+   *
    * Return true if this preference was deprected in the migration from org preference settings to concreate settings types.
-   * @param apiVersion 
+   * @param apiVersion
    */
-  isMigrationDeprecated(prefType) : boolean {
+  isMigrationDeprecated(prefType): boolean {
     return DeprecatedSettingsApi == prefType;
   },
 
@@ -553,7 +574,7 @@ export = {
    */
   forMdApi(prefName, apiVersion?) {
     if (util.isNullOrUndefined(apiVersion)) {
-        apiVersion = currentApiVersion;
+      apiVersion = currentApiVersion;
     }
     if (apiVersion >= 47.0) {
       return orgPreferenceMdMap.get(prefName);

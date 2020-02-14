@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -41,6 +41,7 @@ const DESCRIPTOR_FILE = 'package2-descriptor.json';
 let logger;
 
 const POLL_INTERVAL_SECONDS = 30;
+const POLL_INTERVAL_WITHOUT_VALIDATION_SECONDS = 5;
 
 class PackageVersionCreateCommand {
   // TODO: proper property typing
@@ -139,11 +140,7 @@ class PackageVersionCreateCommand {
 
           const buildNumber = records[0].expr0;
           const branchString = _.isNil(branch) ? 'null' : `'${branch}'`;
-          const query = `SELECT SubscriberPackageVersionId FROM Package2Version WHERE Package2Id = '${
-            dependency.packageId
-          }' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${
-            versionNumber[2]
-          } AND BuildNumber = ${buildNumber} AND Branch = ${branchString}`;
+          const query = `SELECT SubscriberPackageVersionId FROM Package2Version WHERE Package2Id = '${dependency.packageId}' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]} AND BuildNumber = ${buildNumber} AND Branch = ${branchString}`;
           return this.force.toolingQuery(this.org, query).then(pkgVerQueryResult => {
             const subRecords = pkgVerQueryResult.records;
             if (!subRecords || subRecords.length !== 1) {
@@ -173,9 +170,7 @@ class PackageVersionCreateCommand {
       if (versionNumber[3] === pkgUtils.LATEST_BUILD_NUMBER_TOKEN) {
         // branch?
         const branchString = _.isNil(branch) ? 'null' : `'${branch}'`;
-        const query = `SELECT MAX(BuildNumber) FROM Package2Version WHERE Package2Id = '${packageId}' AND MajorVersion = ${
-          versionNumber[0]
-        } AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]} AND branch=${branchString}`;
+        const query = `SELECT MAX(BuildNumber) FROM Package2Version WHERE Package2Id = '${packageId}' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]} AND branch=${branchString}`;
         return this.force.toolingQuery(this.org, query);
       } else {
         // The build number is already specified so just return it using the tooling query result obj structure
@@ -194,7 +189,8 @@ class PackageVersionCreateCommand {
       InstallKey: context.flags.installationkey,
       Instance: context.flags.buildinstance,
       SourceOrg: context.flags.sourceorg,
-      CalculateCodeCoverage: context.flags.codecoverage
+      CalculateCodeCoverage: context.flags.codecoverage,
+      SkipValidation: context.flags.skipvalidation
     };
 
     if (preserveFiles) {
@@ -502,9 +498,7 @@ class PackageVersionCreateCommand {
         if (this._isStatusEqualTo(results, [STATUS_SUCCESS])) {
           // success
           if (!process.env.SFDX_PROJECT_AUTOUPDATE_DISABLE_FOR_PACKAGE_VERSION_CREATE) {
-            const query = `SELECT MajorVersion, MinorVersion, PatchVersion, BuildNumber FROM Package2Version WHERE Id = '${
-              results[0].Package2VersionId
-            }'`;
+            const query = `SELECT MajorVersion, MinorVersion, PatchVersion, BuildNumber FROM Package2Version WHERE Id = '${results[0].Package2VersionId}'`;
             const package2VersionVersionString = await this.force.toolingQuery(this.org, query).then(pkgQueryResult => {
               const record = pkgQueryResult.records[0];
               return `${record.MajorVersion}.${record.MinorVersion}.${record.PatchVersion}-${record.BuildNumber}`;
@@ -535,7 +529,9 @@ class PackageVersionCreateCommand {
           }
           logger.log(
             `Request in progress. Sleeping ${this.pollInterval} seconds. Will wait a total of ${this.pollInterval *
-              retries} more seconds before timing out. Current Status='${pkgUtils.convertCamelCaseStringToSentence(currentStatus)}'`
+              retries} more seconds before timing out. Current Status='${pkgUtils.convertCamelCaseStringToSentence(
+              currentStatus
+            )}'`
           );
           return BBPromise.delay(this.pollInterval * 1000).then(() =>
             this._pollForStatus(context, id, retries - 1, packageId)
@@ -729,10 +725,12 @@ class PackageVersionCreateCommand {
     this.org = context.org;
     this.force = this.org.force;
     this.packageVersionCreateRequestApi = new PackageVersionCreateRequestApi(this.force, this.org);
-    this.profileApi = new ProfileApi(this.org);
 
     if (context.flags.wait) {
-      this.maxRetries = (60 / POLL_INTERVAL_SECONDS) * context.flags.wait;
+      if (context.flags.skipvalidation === true) {
+        this.pollInterval = POLL_INTERVAL_WITHOUT_VALIDATION_SECONDS;
+      }
+      this.maxRetries = (60 / this.pollInterval) * context.flags.wait;
     }
 
     // This command requires either the ID flag or path flag. The
@@ -751,6 +749,27 @@ class PackageVersionCreateCommand {
       error['name'] = 'requiredFlagMissing';
       return BBPromise.reject(error);
     }
+
+    // This command does not allow --codecoverage and --skipvalidation at the same time
+    if (context.flags.skipvalidation && context.flags.codecoverage) {
+      const codeCovFlag = context.command.flags.find(x => x.name === 'codecoverage');
+      const skipValFlag = context.command.flags.find(x => x.name === 'skipvalidation');
+
+      const errorString = messages.getMessage(
+        'errorCannotSupplyCodeCoverageAndSkipValidation',
+        [
+          `--${codeCovFlag.name} (-${codeCovFlag.char})`,
+          `--${skipValFlag.name}`,
+          `--${codeCovFlag.name} (-${codeCovFlag.char})`,
+          `--${skipValFlag.name}`
+        ],
+        'package_version_create'
+      );
+      const error = new Error(errorString);
+      error['name'] = 'requiredFlagMissing';
+      return BBPromise.reject(error);
+    }
+
     // This command also requires either the installationkey flag or installationkeybypass flag
     if (!context.flags.installationkey && !context.flags.installationkeybypass) {
       const installationKeyFlag = context.command.flags.find(x => x.name === 'installationkey');
@@ -885,6 +904,30 @@ class PackageVersionCreateCommand {
         throw new Error(`Directory '${context.flags.path}' does not exist`);
       }
 
+      // Check for an includeProfileUserLiceneses flag in the packageDirectory
+      const includeProfileUserLicenses = this._getConfigPackageDirectoriesValue(
+        context,
+        this.packageDirs,
+        'includeProfileUserLicenses',
+        canonicalPackageProperty,
+        context.flags.package,
+        packageFlag
+      );
+      if (
+        includeProfileUserLicenses !== undefined &&
+        includeProfileUserLicenses !== true &&
+        includeProfileUserLicenses !== false
+      ) {
+        throw new Error(
+          messages.getMessage(
+            'errorProfileUserLicensesInvalidValue',
+            [includeProfileUserLicenses],
+            'package_version_create'
+          )
+        );
+      }
+      this.profileApi = new ProfileApi(this.org, includeProfileUserLicenses);
+
       return MetadataRegistry.initializeMetadataTypeInfos(this.org).then(() =>
         this._createPackageVersionCreateRequestFromOptions(context, resolvedPackageId)
           .then(request => this.force.toolingCreate(this.org, 'Package2VersionCreateRequest', request))
@@ -919,13 +962,21 @@ class PackageVersionCreateCommand {
   getHumanSuccessMessage(result) {
     switch (result.Status) {
       case 'Error':
-        return result.Error.length > 0 ? result.Error.join('\n')
-            : messages.getMessage('unknownError', [], 'package_version_create');
+        return result.Error.length > 0
+          ? result.Error.join('\n')
+          : messages.getMessage('unknownError', [], 'package_version_create');
       case 'Success':
-        return messages.getMessage(result.Status, [result.Id, result.SubscriberPackageVersionId,
-          pkgUtils.INSTALL_URL_BASE, result.SubscriberPackageVersionId], 'package_version_create');
+        return messages.getMessage(
+          result.Status,
+          [result.Id, result.SubscriberPackageVersionId, pkgUtils.INSTALL_URL_BASE, result.SubscriberPackageVersionId],
+          'package_version_create'
+        );
       default:
-        return messages.getMessage('InProgress', [pkgUtils.convertCamelCaseStringToSentence(result.Status), result.Id], 'package_version_create');
+        return messages.getMessage(
+          'InProgress',
+          [pkgUtils.convertCamelCaseStringToSentence(result.Status), result.Id],
+          'package_version_create'
+        );
     }
   }
 
@@ -935,6 +986,9 @@ class PackageVersionCreateCommand {
   _cleanPackageDescriptorJson(packageDescriptorJson) {
     if (typeof packageDescriptorJson.default !== 'undefined') {
       delete packageDescriptorJson.default; // for client-side use only, not needed
+    }
+    if (typeof packageDescriptorJson.includeProfileUserLicenses !== 'undefined') {
+      delete packageDescriptorJson.includeProfileUserLicenses; // for client-side use only, not needed
     }
   }
 
@@ -971,15 +1025,27 @@ class PackageVersionCreateCommand {
     if (context.flags.releasenotesurl) {
       packageDescriptorJson.releaseNotesUrl = context.flags.releasenotesurl;
     }
-    if (packageDescriptorJson.releaseNotesUrl &&!pkgUtils.validUrl(packageDescriptorJson.releaseNotesUrl)) {
-      throw new Error(messages.getMessage('malformedUrl', ['releaseNotesUrl', packageDescriptorJson.releaseNotesUrl], 'package_version_create'));
+    if (packageDescriptorJson.releaseNotesUrl && !pkgUtils.validUrl(packageDescriptorJson.releaseNotesUrl)) {
+      throw new Error(
+        messages.getMessage(
+          'malformedUrl',
+          ['releaseNotesUrl', packageDescriptorJson.releaseNotesUrl],
+          'package_version_create'
+        )
+      );
     }
 
     if (context.flags.postinstallurl) {
       packageDescriptorJson.postInstallUrl = context.flags.postinstallurl;
     }
     if (packageDescriptorJson.postInstallUrl && !pkgUtils.validUrl(packageDescriptorJson.postInstallUrl)) {
-      throw new Error(messages.getMessage('malformedUrl', ['postInstallUrl', packageDescriptorJson.postInstallUrl], 'package_version_create'));
+      throw new Error(
+        messages.getMessage(
+          'malformedUrl',
+          ['postInstallUrl', packageDescriptorJson.postInstallUrl],
+          'package_version_create'
+        )
+      );
     }
 
     if (context.flags.postinstallscript) {

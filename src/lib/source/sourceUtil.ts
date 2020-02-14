@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { AnyJson } from '@salesforce/ts-types';
@@ -13,7 +13,7 @@ import * as os from 'os';
 import { isNil, get as _get } from 'lodash';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { SfdxError, SfdxErrorConfig, fs, Logger, Messages} from '@salesforce/core';
+import { SfdxError, SfdxErrorConfig, fs, Logger, Messages } from '@salesforce/core';
 import { MdRetrieveApi } from '../mdapi/mdapiRetrieveApi';
 import { MetadataType } from './metadataType';
 import { InFolderMetadataType } from './metadataTypeImpl/inFolderMetadataType';
@@ -24,12 +24,12 @@ import consts = require('../core/constants');
 import MdapiPackage = require('../source/mdapiPackage');
 import { XmlLineError } from './xmlMetadataDocument';
 import * as PathUtil from '../source/sourcePathUtil';
-import { NondecomposedTypesWithChildrenMetadataType } from '../source/metadataTypeImpl/nondecomposedTypesWithChildrenMetadataType';
 import SourceMetadataMemberRetrieveHelper = require('./sourceMetadataMemberRetrieveHelper');
+import { NondecomposedTypesWithChildrenMetadataType } from '../source/metadataTypeImpl/nondecomposedTypesWithChildrenMetadataType';
 import { Config } from '../core/configApi';
 import { Env } from '@salesforce/kit';
 import { get } from '@salesforce/ts-types';
-import { CustomLabelsMetadataType } from "./metadataTypeImpl/customLabelsMetadataType";
+import { CustomLabelsMetadataType } from './metadataTypeImpl/customLabelsMetadataType';
 
 Messages.importMessagesDirectory(__dirname);
 
@@ -219,6 +219,9 @@ export const loadSourceElement = function(
     const mdName = rest.join('__');
 
     const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(mdType, metadataRegistry);
+    if (!metadataType) {
+      throw SfdxError.create('salesforce-alm', 'source', 'MetadataTypeDoesNotExist', [mdType]);
+    }
     const hasParentType = metadataType.getMetadataName() !== metadataType.getAggregateMetadataName();
     if (hasParentType) {
       //In this case, we are dealing with a decomposed subtype, so need to check for a parent
@@ -235,16 +238,16 @@ export const loadSourceElement = function(
       return loadSourceElement(sourceElements, `${mdType}__${mdName}`, metadataRegistry);
     } else if (metadataType instanceof NondecomposedTypesWithChildrenMetadataType) {
       const mdType = metadataType.getMetadataName();
-      let name = `${mdType}__${mdName.split('.')[0]}`
+      let name = `${mdType}__${mdName.split('.')[0]}`;
 
-      if(metadataType instanceof CustomLabelsMetadataType) {
+      if (metadataType instanceof CustomLabelsMetadataType) {
         // for now, all CustomLabels are in CustomLabels.labels.meta-xml.
         // the key for the ASE is then CustomLabels_CustomLabels
         // it will deploy all CustomLabels, regardless of what is specified in the manifest
-        name = `${mdType}__${mdType}`
+        name = `${mdType}__${mdType}`;
       }
-      return loadSourceElement(sourceElements,  name, metadataRegistry);
-    } else{
+      return loadSourceElement(sourceElements, name, metadataRegistry);
+    } else {
       const errConfig = new SfdxErrorConfig('salesforce-alm', 'source_deploy', 'SourceElementDoesNotExist');
       errConfig.setErrorTokens([mdType, mdName]);
       throw SfdxError.create(errConfig);
@@ -321,7 +324,7 @@ export const parseManifestEntries = function(entries: string): ManifestEntry[] |
     return mdParamArray.map(md => {
       const [mdType, ...rest] = md.split(':');
       const mdName = rest.length ? rest.join(':') : '*';
-      return { type: mdType.trim(), name: PathUtil.replaceForwardSlashes(mdName.trim())  };
+      return { type: mdType.trim(), name: PathUtil.replaceForwardSlashes(mdName.trim()) };
     });
   }
   return null;
@@ -383,9 +386,12 @@ export const createManifest = async function(
  * @param error The error to inspect.
  */
 export const checkForXmlParseError = function(path: string, error: Error) {
-  if (path && (error instanceof SfdxError) && (error.name === `xmlParseErrorsReported`)) {
-    const data = error.data as XmlLineError[] || [];
-    const message = `${path}:${os.EOL}${data.reduce((messages: string, message: XmlLineError) => `${messages}${os.EOL}${message.message}`, '')}`;
+  if (path && error instanceof SfdxError && error.name === `xmlParseErrorsReported`) {
+    const data = (error.data as XmlLineError[]) || [];
+    const message = `${path}:${os.EOL}${data.reduce(
+      (messages: string, message: XmlLineError) => `${messages}${os.EOL}${message.message}`,
+      ''
+    )}`;
     return SfdxError.create('salesforce-alm', 'source', 'XmlParsingError', [message]);
   }
   return error;
@@ -395,10 +401,12 @@ export const checkForXmlParseError = function(path: string, error: Error) {
  * @param option containing the metadata type, and sourcepaths if not metadata
  */
 export const containsMdBundle = function(options: any): boolean {
-  const isRetrieveFromMetadata = (options.metadata) ? true : false;
-  if (isRetrieveFromMetadata) { // for retreiveFromMetadata
+  const isRetrieveFromMetadata = options.metadata ? true : false;
+  if (isRetrieveFromMetadata) {
+    // for retreiveFromMetadata
     return options.metadata.indexOf('Bundle') >= 0 ? true : false;
-  }else{ // for retrieveFromSourcepath
+  } else {
+    // for retrieveFromSourcepath
     for (let pair of options) {
       if (pair.type.indexOf('Bundle') >= 0) {
         return true;
@@ -417,7 +425,7 @@ export const containsMdBundle = function(options: any): boolean {
  * This check exists as a workaround for types that may not nullify the RevisionNum
  * when a push is executed.
  */
-export const updateMaxRevision = async function(org, metadataRegistry, members=[]) {
+export const updateMaxRevision = async function(org, metadataRegistry, members = []) {
   const maxRevisionFile = org.getMaxRevision();
   const smmHelper = new SourceMetadataMemberRetrieveHelper(metadataRegistry);
   let newMaxRev: number;
@@ -437,7 +445,6 @@ export const updateMaxRevision = async function(org, metadataRegistry, members=[
   return maxRevisionFile.write(newMaxRev);
 };
 
-
 interface PushSuccess {
   fullName: string;
   [key: string]: any;
@@ -449,9 +456,9 @@ export const getMemberNamesFromPushResult = async function(metadataRegistry, pus
   const successes = get(pushResult, 'details.componentSuccesses', []) as PushSuccess[];
   const pushedMembers = successes.filter(c => !c.fullName.includes('.xml')).map(c => c.fullName);
   const members = pushedMembers.filter(m => allMembers.includes(m));
-  const uniqMembers = [... new Set(members)];
+  const uniqMembers = [...new Set(members)];
   return uniqMembers;
-}
+};
 
 /**
  * Determine based on the apiVersion which field is used for tracking the revision number.

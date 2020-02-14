@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import _ = require('lodash');
 import almError = require('../core/almError');
@@ -89,7 +89,10 @@ export class UserDisplayCommand extends Command {
     const uiLogger = logApi.child(this.loggerName);
     uiLogger.styledHeader(uiLogger.color.blue('User Description'));
     const columnData = {
-      columns: [{ key: 'key', label: 'Key' }, { key: 'value', label: 'Value' }]
+      columns: [
+        { key: 'key', label: 'Key' },
+        { key: 'value', label: 'Value' }
+      ]
     };
     const userDisplayData = _.chain(userData)
       .map((value, k) => {

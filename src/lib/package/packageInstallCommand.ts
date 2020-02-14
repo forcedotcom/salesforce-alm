@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /**
@@ -116,9 +116,11 @@ class PackageInstallCommand {
 
   async _waitForApvReplication(remainingRetries) {
     const QUERY_NO_KEY =
-      'SELECT Id, SubscriberPackageId, InstallValidationStatus FROM SubscriberPackageVersion' + ` WHERE Id ='${this.allPackageVersionId}'`;
+      'SELECT Id, SubscriberPackageId, InstallValidationStatus FROM SubscriberPackageVersion' +
+      ` WHERE Id ='${this.allPackageVersionId}'`;
 
-    const escapedInstallationKey = this.installationKey != null ? this.installationKey.replace(/\\/g, "\\\\").replace(/\'/g, "\\'") : null;
+    const escapedInstallationKey =
+      this.installationKey != null ? this.installationKey.replace(/\\/g, '\\\\').replace(/\'/g, "\\'") : null;
     const QUERY_W_KEY =
       'SELECT Id, SubscriberPackageId, InstallValidationStatus FROM SubscriberPackageVersion' +
       ` WHERE Id ='${this.allPackageVersionId}' AND InstallationKey ='${escapedInstallationKey}'`;
@@ -155,8 +157,7 @@ class PackageInstallCommand {
       // error message being displayed.
       if (installValidationStatus == 'UNINSTALL_IN_PROGRESS') {
         return null;
-      }
-      else {
+      } else {
         throw new Error(messages.getMessage('errorApvIdNotPublished', [], 'package_install'));
       }
     }
@@ -233,8 +234,10 @@ class PackageInstallCommand {
     // If the user has specified --upgradetype Delete, then prompt for confirmation
     // unless the noprompt option has been included
     if (context.flags.upgradetype == UPGRADE_TYPE_KEY_DELETE) {
-      const accepted = await this._prompt(context.flags.noprompt,
-          messages.getMessage('promptUpgradeType', [], 'package_install'));
+      const accepted = await this._prompt(
+        context.flags.noprompt,
+        messages.getMessage('promptUpgradeType', [], 'package_install')
+      );
       if (!accepted) {
         throw new Error(messages.getMessage('promptUpgradeTypeDeny', [], 'package_install'));
       }
@@ -246,8 +249,10 @@ class PackageInstallCommand {
     let enableExternalSites = false;
 
     if (externalSiteData.trustedSites && externalSiteData.trustedSites.length > 0) {
-      const accepted = await this._prompt(context.flags.noprompt,
-          messages.getMessage('promptRss', externalSiteData.trustedSites.join('\n'), 'package_install'));
+      const accepted = await this._prompt(
+        context.flags.noprompt,
+        messages.getMessage('promptRss', externalSiteData.trustedSites.join('\n'), 'package_install')
+      );
       if (accepted) {
         enableExternalSites = true;
       }
@@ -281,11 +286,9 @@ class PackageInstallCommand {
   }
 
   async _prompt(noninteractive, message) {
-    const answer = noninteractive
-      ? 'YES'
-      : await this.stdinPrompt(message);
+    const answer = noninteractive ? 'YES' : await this.stdinPrompt(message);
     // print a line of white space after the prompt is entered for separation
-    this.logger.log("");
+    this.logger.log('');
     return answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y';
   }
 
@@ -306,7 +309,8 @@ class PackageInstallCommand {
       'FROM SubscriberPackageVersion ' +
       `WHERE Id ='${allPackageVersionId}'`;
 
-    const escapedInstallationKey = this.installationKey != null ? this.installationKey.replace(/\\/g, "\\\\").replace(/\'/g, "\\'") : null;
+    const escapedInstallationKey =
+      this.installationKey != null ? this.installationKey.replace(/\\/g, '\\\\').replace(/\'/g, "\\'") : null;
     const query_w_key =
       'SELECT RemoteSiteSettings, CspTrustedSites ' +
       'FROM SubscriberPackageVersion ' +

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -21,7 +21,6 @@ import logger = require('../core/logApi');
 import Messages = require('../../lib/messages');
 import { getRevisionFieldName } from './sourceUtil';
 const messages = Messages();
-
 
 /**
  * private helper to ensure the revision is a valid int.
@@ -122,14 +121,10 @@ class SourceMetadataMemberRetrieveHelper {
   }
 
   shouldAddMember(mdApiItem, obsoleteNames) {
-    return mdApiItem !== null &&
-      !_shouldExcludeFromMetadataPackage.call(
-        this,
-        mdApiItem,
-        obsoleteNames,
-        this.metadataRegistry,
-        this.forceIgnore
-      );
+    return (
+      mdApiItem !== null &&
+      !_shouldExcludeFromMetadataPackage.call(this, mdApiItem, obsoleteNames, this.metadataRegistry, this.forceIgnore)
+    );
   }
 
   /**
@@ -185,7 +180,6 @@ class SourceMetadataMemberRetrieveHelper {
             this.logger.log(messages.getMessage('metadataTypeNotSupported', [memberType, memberType]));
             return null;
           }
-
         });
         return BBPromise.all(parsePromises);
       })

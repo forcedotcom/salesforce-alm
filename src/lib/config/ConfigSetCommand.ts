@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import VarargsCommand from '../core/varargsCommand';
@@ -102,7 +102,7 @@ class SetCommand extends VarargsCommand {
           this.successes.push({ name, value });
         })
         .catch(err => {
-          CONFIG_ERROR_EXIT_CODE =1;
+          CONFIG_ERROR_EXIT_CODE = 1;
           this.failures.push({ name, message: err.message });
         });
     });
@@ -118,7 +118,10 @@ class SetCommand extends VarargsCommand {
     if (this.successes.length > 0) {
       uiLogger.styledHeader(uiLogger.color.blue('Set Config'));
       uiLogger.table(this.successes, {
-        columns: [{ key: 'name', label: 'Name' }, { key: 'value', label: 'Value' }]
+        columns: [
+          { key: 'name', label: 'Name' },
+          { key: 'value', label: 'Value' }
+        ]
       });
     }
 
@@ -129,7 +132,10 @@ class SetCommand extends VarargsCommand {
 
       uiLogger.styledHeader(uiLogger.color.red('Failures'));
       uiLogger.table(this.failures, {
-        columns: [{ key: 'name', label: 'Name' }, { key: 'message', label: 'Message' }]
+        columns: [
+          { key: 'name', label: 'Name' },
+          { key: 'message', label: 'Message' }
+        ]
       });
       process.exitCode = CONFIG_ERROR_EXIT_CODE;
     }

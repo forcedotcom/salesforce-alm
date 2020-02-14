@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -26,7 +26,8 @@ import * as crypto from 'crypto';
 import * as almError from './almError';
 import * as keyChainImpls from './keyChainImpl';
 import logApi = require('./logApi');
-
+const { Messages } = require('@salesforce/core');
+import srcDevUtil = require('./srcDevUtil');
 const logger = logApi.child('crypto');
 
 const TAG_DELIMITER = ':';
@@ -229,6 +230,9 @@ class Crypto {
       dec = decipher.update(secret, 'hex', 'utf8');
       dec += decipher.final('utf8');
     } catch (e) {
+      if (os.platform() === 'darwin' && !srcDevUtil.useGenericUnixKeychain()) {
+        e.message += Messages.loadMessages('salesforce-alm', 'crypto').getMessage('MacKeychainOutOfSync');
+      }
       throw almError('authDecryptFailed', [e.message]);
     }
     return dec;

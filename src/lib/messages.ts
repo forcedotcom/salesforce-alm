@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as os from 'os';
@@ -18,7 +18,8 @@ const messages = {
       // common
       actionRequiredHeader: 'Action Required!',
       // errors
-      WildCardError: 'ERROR: This command doesn\'t support wildcards. Remove the wildcard, and run the command again.\nSee --help for examples.',
+      WildCardError:
+        "ERROR: This command doesn't support wildcards. Remove the wildcard, and run the command again.\nSee --help for examples.",
       GeneralCommandFailure: 'This command failed.',
       InvalidProjectWorkspace: 'This directory does not contain a valid Salesforce DX project.',
       MissingClientConfig: 'Missing a client configuration. Please run the config command.',
@@ -139,6 +140,10 @@ const messages = {
       unrecognizedScratchOrgOption: '%s is not a supported option for scratch org configuration.',
 
       herokuNamespaceDescription: 'tools for the Salesforce developer',
+
+      communityTopicDescription: 'create and publish a community',
+      communityTopicLongDescription:
+        'Use the community commands to create and publish a community, and view a list of available templates in you org.',
 
       jsonOutputOption: 'format output as json',
       jsonOutputOptionLong: 'Format output as JSON.',
@@ -288,8 +293,6 @@ const messages = {
       mdDeployCommandCliInvalidJobIdError: 'The job for [%s] doesn’t exist. Try again with a valid job ID.',
       mdDeployCommandCliInvalidRequestIdError:
         'The value [%s] provided for ID is not valid. It should be 15 or 18 characters long.',
-      mdDeployCommandCliInvalidRollbackError:
-        'The rollbackonerror parameter cannot be %s. Specify either "true" or "false"',
       mdDeployCommandCliNoRestDeploy:
         'REST deploy is not available for this org. This feature is currently for internal Salesforce use only.',
 
@@ -399,9 +402,7 @@ const messages = {
       openCommandCliPathLong: 'Navigation URL path (not including domain).',
       openCommandUrlonly: 'display navigation URL, but don’t launch browser',
       openCommandUrlonlyLong: 'Displays a navigation URL, but doesn’t launch your browser.',
-      openCommandContainerAction: `You are in a headless environment. To access the org %s, open this URL in a browser:${
-        os.EOL
-      }${os.EOL}%s`,
+      openCommandContainerAction: `You are in a headless environment. To access the org %s, open this URL in a browser:${os.EOL}${os.EOL}%s`,
       openCommandHumanSuccess: 'Access org %s as user %s with the following URL: %s',
       openCommandDomainWaiting: 'Waiting to resolve the Lightning Experience-enabled custom domain...',
       openCommandDomainTimeoutError: 'The Lightning Experience-enabled custom domain is unavailable.',
@@ -472,10 +473,12 @@ const messages = {
       package1VersionCreateCommandVersion: 'package version in major.minor format, for example, 3.2',
       package1VersionCreateCommandVersionLong: 'Package version in major.minor format, for example, 3.2.',
       package1VersionCreateCommandReleaseNotes: 'release notes URL',
-      package1VersionCreateCommandReleaseNotesLong: 'The release notes URL. This link is displayed in the package installation UI to provide release notes ' +
+      package1VersionCreateCommandReleaseNotesLong:
+        'The release notes URL. This link is displayed in the package installation UI to provide release notes ' +
         'for this package version to subscribers.',
       package1VersionCreateCommandPostInstall: 'post install URL',
-      package1VersionCreateCommandPostInstallLong: 'The post-install instructions URL. The contents of the post-installation instructions URL are displayed ' +
+      package1VersionCreateCommandPostInstallLong:
+        'The post-install instructions URL. The contents of the post-installation instructions URL are displayed ' +
         'in the UI after installation of the package version.',
       package1VersionCreateCommandManagedReleased: 'create a managed package version',
       package1VersionCreateCommandManagedReleasedLong:
@@ -613,8 +616,8 @@ const messages = {
       notSpecified: '<Not Specified>',
       warnApiVersion: 'apiVersion configuration overridden at %s',
       metadataTypeNotSupported:
-        'ERROR: No source format support for type %s. Although the Metadata Coverage report indicates the Metadata API supports source format for this metadata type %s, Salesforce CLI doesn’t.\n'+
-        'Salesforce CLI skips this unsupported metadata type but deploys or retrieves supported metadata types. We are working on closing these gaps.\n'+
+        'ERROR: No source format support for type %s. Although the Metadata Coverage report indicates the Metadata API supports source format for this metadata type %s, Salesforce CLI doesn’t.\n' +
+        'Salesforce CLI skips this unsupported metadata type but deploys or retrieves supported metadata types. We are working on closing these gaps.\n' +
         'In the meantime, use mdapi:deploy and mdapi:retrieve to deploy or retrieve any unsupported metadata types; however, using a mix of source commands may make source tracking results unreliable.\n'
     }
   },
@@ -624,9 +627,7 @@ const messages = {
       apiMisMatchAction:
         'Run "sfdx force" to see if the locally configured apiVersion is same or less than the org’s supported max apiVersion.' +
         `${os.EOL}Run "sfdx force:config:list" to determine if apiVersion is overridden.` +
-        `${
-          os.EOL
-        }Install the latest version of the salesforcedx plug-in by running sfdx plugins:install salesforcedx@latest.`,
+        `${os.EOL}Install the latest version of the salesforcedx plug-in by running sfdx plugins:install salesforcedx@latest.`,
       server500:
         'The salesforce.com servers are temporarily unable to respond to your request. We apologize for the inconvenience.' +
         `${os.EOL}Thank you for your patience, and please try again in a few moments.`,
@@ -768,7 +769,8 @@ const messages = {
       setAliasLong: 'Sets an alias for the authenticated org.',
       instanceUrl: 'the login URL of the instance the org lives on',
       instanceUrlLong: 'The login URL of the Salesforce instance that the org lives on.',
-      deviceWarning: 'force:auth:web:login doesn\'t work when authorizing to a headless environment. Use force:auth:device:login instead.'
+      deviceWarning:
+        "force:auth:web:login doesn't work when authorizing to a headless environment. Use force:auth:device:login instead."
     }
   },
 
@@ -1064,14 +1066,16 @@ const messages = {
       tableNameDups: 'Duplicates',
       dupsExplanation:
         'Review any duplicate files (.dup) in the destination directory. You may need to merge the files. Otherwise, delete the unneeded one. Duplicate files are ignored by the force:source commands.',
-      manifestLongDescription: 'The complete path to the manifest (package.xml) file that specifies the metadata types to convert.' +
+      manifestLongDescription:
+        'The complete path to the manifest (package.xml) file that specifies the metadata types to convert.' +
         '\nIf you specify this parameter, don’t specify --metadata or --sourcepath.',
       manifestDescription: 'file path to manifest (package.xml) of metadata types to convert.',
       sourcePathDescription: 'comma-separated list of paths to the local source files to convert',
-      sourcePathLongDescription: 'A comma-separated list of paths to the local source files to convert. ' +
+      sourcePathLongDescription:
+        'A comma-separated list of paths to the local source files to convert. ' +
         'The supplied paths can be to a single file (in which case the operation is applied to only one file) or to a folder ' +
         '(in which case the operation is applied to all metadata types in the directory and its sub-directories).' +
-        '\nIf you specify this parameter, don’t specify --manifest or --metadata.'+
+        '\nIf you specify this parameter, don’t specify --manifest or --metadata.' +
         'If the comma-separated list you’re supplying contains spaces, enclose the entire comma-separated list in one set of double quotes.',
       metadataParamDescription: 'comma-separated list of metadata component names to convert',
       metadataParamLongDescription: 'A comma-separated list of metadata component names to convert.'
@@ -1412,6 +1416,8 @@ const messages = {
         'The ancestor versionNumber must be in the format major.minor.patch but the value found is [%s].',
       errorInvalidPackageId: "The provided package ID '%s' is invalid.",
       errorNoMatchingAncestor: "The ancestorId for ancestorVersion [%s] can't be found. Package ID [%s].",
+      errorAncestorNotReleased:
+        'The ancestor package version [%s] specified in the sfdx-project.json file hasn’t been promoted and released. Release the ancestor package version before specifying it as the ancestor in a new package or patch version.',
       errorAncestorIdVersionMismatch:
         'The ancestorVersion in sfdx-project.json is not the version expected for the ancestorId you supplied. ancestorVersion [%s]. ancestorID [%s].',
       errorpackageAncestorIdsKeyNotSupported:
@@ -1476,7 +1482,7 @@ const messages = {
       packageTypeLong:
         'Package type for the package.' +
         '\nThe options for package type are Managed and Unlocked ' +
-        '(Managed=DeveloperManagedSubscriberManaged, Unlocked=DeveloperControlledSubscriberEditable). ' +
+        '(Managed=DeveloperManagedSubscriberManaged, Unlocked=DeveloperControlledSubscriberEditable).' +
         '\nThese options determine upgrade and editability rules.',
       path: 'path to directory that contains the contents of the package',
       longPath: 'The path to the directory that contains the contents of the package.',
@@ -1542,7 +1548,8 @@ const messages = {
         '\n\nExamples:' +
         '\n   $ sfdx force:package:version:create -d common -k password123' +
         '\n   $ sfdx force:package:version:create -p "Your Package Alias" -k password123' +
-        '\n   $ sfdx force:package:version:create -p 0Ho... -k password123',
+        '\n   $ sfdx force:package:version:create -p 0Ho... -k password123' +
+        '\n   $ sfdx force:package:version:create -d common -k password123 --skipvalidation',
       package: 'ID (starts with 0Ho) or alias of the package to create a version of',
       longPackage: 'The ID (starts with 0Ho) or alias of the package to create a version of.',
       path: 'path to directory that contains the contents of the package',
@@ -1593,22 +1600,32 @@ const messages = {
       versiondescription: 'the description of the package version to be created',
       longVersiondescription:
         'The description of the package version to be created. Overrides the sfdx-project.json value.',
-      codeCoverage: 'calculate the code coverage by running the packaged Apex tests. ' +
+      codeCoverage:
+        'calculate the code coverage by running the packaged Apex tests. ' +
         'Note: Managed packages must use this option and meet the code coverage requirements to promote the version.',
       longCodeCoverage:
         'Calculate and store the code coverage percentage by running the Apex tests included in this package version. ' +
         'Managed packages must use this option and meet the code coverage requirements to promote the version.',
       releaseNotesUrl: 'release notes URL',
-      releaseNotesUrlLong: 'The release notes URL. This link is displayed in the package installation UI to provide release notes ' +
+      releaseNotesUrlLong:
+        'The release notes URL. This link is displayed in the package installation UI to provide release notes ' +
         'for this package version to subscribers.',
+      skipValidation:
+        'skip validation during package version creation; package versions created without validation can’t be promoted',
+      skipValidationLong:
+        'Skips validation of dependencies, package ancestors, and metadata during package version creation. Skipping validation reduces ' +
+        'the time it takes to create a new package version, but package versions created without validation can’t be promoted.',
       postInstallUrl: 'post-install URL',
-      postInstallUrlLong: 'The post-install instructions URL. The contents of the post-installation instructions URL are displayed ' +
+      postInstallUrlLong:
+        'The post-install instructions URL. The contents of the post-installation instructions URL are displayed ' +
         'in the UI after installation of the package version.',
       postInstallScript: 'post-install script name',
-      postInstallScriptLong: 'The post-install script name. The post-install script is an Apex class within this package that is run ' +
+      postInstallScriptLong:
+        'The post-install script name. The post-install script is an Apex class within this package that is run ' +
         'in the installing org after installations or upgrades of this package version.',
       uninstallScript: 'uninstall script name',
-      uninstallScriptLong: 'The uninstall script name. The uninstall script is an Apex class within this package that is run in the ' +
+      uninstallScriptLong:
+        'The uninstall script name. The uninstall script is an Apex class within this package that is run in the ' +
         'installing org after uninstallations of this package.',
       defaultVersionName:
         'versionName is blank in sfdx-project.json, so it will be set to this default value based on the versionNumber: %s',
@@ -1620,6 +1637,9 @@ const messages = {
         '\nAs an alternative, you can use the "sfdx force:package:install" command.',
       errorMissingFlags:
         'Include either a %s value or a %s value. The value must match one of the packageDirectories specified in sfdx-project.json.',
+      errorCannotSupplyCodeCoverageAndSkipValidation:
+        'We couldn’t create this package version because both %s and %s parameters were specified. Code coverage ' +
+        'can’t be calculated when validation is skipped. Specify either %s or %s and try again.',
       errorMissingFlagsInstallationKey: 'A required parameter is missing. Include either an %s value or %s.',
       errorNoMatchingPackageDirectory:
         'The %s value [%s], doesn’t match the %s value in any packageDirectories specified in sfdx-project.json.',
@@ -1640,8 +1660,11 @@ const messages = {
         'Add it to the packageDirectories section and add the alias to packageAliases with its 0Ho ID.',
       errorEmptyPackageDirs:
         'sfdx-project.json must contain a packageDirectories entry for a package. You can run the force:package:create command to auto-populate such an entry.',
+      errorProfileUserLicensesInvalidValue:
+        "The value specified for includeProfileUserLicenses '%s' is invalid.  It must be a boolean true/false value.",
       unknownError: 'Package version creation failed with unknown error.',
-      malformedUrl: 'The %s value "%s" from the command line or sfdx-project.json is not in the correct format for a URL. It must be a valid URL in the ' +
+      malformedUrl:
+        'The %s value "%s" from the command line or sfdx-project.json is not in the correct format for a URL. It must be a valid URL in the ' +
         'format "http://salesforce.com". More information: https://nodejs.org/api/url.html#url_url_strings_and_url_objects'
     }
   },
@@ -1774,7 +1797,8 @@ const messages = {
       installUrl: 'Installation URL',
       installKey: 'Installation Key',
       codeCoverage: 'Code Coverage',
-      hasPassedCodeCoverageCheck: 'Code Coverage Met'
+      hasPassedCodeCoverageCheck: 'Code Coverage Met',
+      validationSkipped: 'Validation Skipped'
     }
   },
 
@@ -2140,9 +2164,7 @@ const messages = {
         'or the --targetusername parameter. Defaults to the defaultusername.',
       help:
         'Generates and sets a random password for one or more scratch org users.' +
-        `${os.EOL}${
-          os.EOL
-        }If you haven’t set a default Dev Hub, or if your scratch org isn’t associated with your default Dev Hub, ` +
+        `${os.EOL}${os.EOL}If you haven’t set a default Dev Hub, or if your scratch org isn’t associated with your default Dev Hub, ` +
         '--targetdevhubusername is required.' +
         `${os.EOL}${os.EOL}To see a password that was previously generated, run "sfdx force:user:display".` +
         `${os.EOL}${os.EOL}Examples:` +
@@ -2188,9 +2210,7 @@ const messages = {
       duplicateUsername:
         'The username "%s" already exists in this or another Salesforce org. Usernames must be unique across all Salesforce orgs.',
       profileNameNotFound: 'Profile name "%s" not found in target org.  Do you need to push source?',
-      success: `Successfully created user "%s" with ID [%s] for org %s.${
-        os.EOL
-      }You can see more details about this user by running "sfdx force:user:display -u %s".`
+      success: `Successfully created user "%s" with ID [%s] for org %s.${os.EOL}You can see more details about this user by running "sfdx force:user:display -u %s".`
     }
   },
 
@@ -2255,11 +2275,13 @@ const messages = {
         'The output directory to store the Metadata API–formatted metadata files in.',
       packageNameParam: 'name of the package to associate with the metadata-formatted files',
       packageNameParamLongDescription: 'The name of the package to associate with the metadata-formatted files.',
-      manifestLongDescription: 'The complete path to the manifest (package.xml) file that specifies the metadata types to convert.' +
-      '\nIf you specify this parameter, don’t specify --metadata or --sourcepath.',
+      manifestLongDescription:
+        'The complete path to the manifest (package.xml) file that specifies the metadata types to convert.' +
+        '\nIf you specify this parameter, don’t specify --metadata or --sourcepath.',
       manifestDescription: 'file path to manifest (package.xml) of metadata types to convert.',
       sourcePathDescription: 'comma-separated list of paths to the local source files to convert',
-      sourcePathLongDescription: 'A comma-separated list of paths to the local source files to convert. ' +
+      sourcePathLongDescription:
+        'A comma-separated list of paths to the local source files to convert. ' +
         'The supplied paths can be to a single file (in which case the operation is applied to only one file) or to a folder ' +
         '(in which case the operation is applied to all metadata types in the directory and its sub-directories).' +
         '\nIf you specify this parameter, don’t specify --manifest or --metadata.',

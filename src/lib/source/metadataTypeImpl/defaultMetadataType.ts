@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2017, Salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -326,7 +326,7 @@ export class DefaultMetadataType implements MetadataType {
     return metadataType === this.getAggregateMetadataName();
   }
 
-  protected debug(message: () => string ) {
+  protected debug(message: () => string) {
     if (this._debug.enabled) {
       this._debug(message());
     }

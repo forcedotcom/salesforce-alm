@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -29,7 +29,6 @@ export interface MdRetrieveOptions {
   retrievetargetdir?: string;
   unpackaged?: string;
   autoUpdatePackage?: boolean;
-  rollbackOnError?: boolean;
   runTest?: boolean;
   unzip?: boolean;
   disableLogging?: boolean;
@@ -121,7 +120,6 @@ export class MdRetrieveApi {
   static getDefaultOptions(): MdRetrieveOptions {
     return {
       autoUpdatePackage: true,
-      rollbackOnError: true,
       runTest: false,
       unzip: true,
       disableLogging: true,
@@ -212,8 +210,7 @@ export class MdRetrieveApi {
   validate(context) {
     const options = context.flags;
     const validationPromises = [];
-    const willCreateManifestFromArtifact =
-      options.sourcedir || (!options.packagenames && !options.jobid && !options.unpackaged);
+    const willCreateManifestFromArtifact = options.sourcedir || (!options.packagenames && !options.unpackaged);
     let insideProjectWorkspace = true;
 
     try {

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2019, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -13,7 +13,6 @@ import { getFileName, getParentDirectoryName, getPathToDir } from '../sourcePath
 import MetadataRegistry = require('../metadataRegistry');
 
 export class BotSubtypeMetadataType extends DefaultMetadataType {
-
   getAggregateMetadataName(): string {
     return this.typeDefObj.parent.metadataName;
   }
@@ -34,7 +33,10 @@ export class BotSubtypeMetadataType extends DefaultMetadataType {
     const aggregateFullName = this.getAggregateFullNameFromFilePath(filePath);
     const pathToDefaultDir = getPathToDir(filePath, this.typeDefObj.parent.defaultDirectory);
     const fileName = `${aggregateFullName}.${this.typeDefObj.parent.ext}${MetadataRegistry.getMetadataFileExt()}`;
-    super.debug(() => `getAggregateMetadataFilePathFromWorkspacePath aggregateFullName: ${aggregateFullName} pathToDefaultDir: ${pathToDefaultDir} fileName: ${fileName}`);
+    super.debug(
+      () =>
+        `getAggregateMetadataFilePathFromWorkspacePath aggregateFullName: ${aggregateFullName} pathToDefaultDir: ${pathToDefaultDir} fileName: ${fileName}`
+    );
     return path.join(pathToDefaultDir, fileName);
   }
 

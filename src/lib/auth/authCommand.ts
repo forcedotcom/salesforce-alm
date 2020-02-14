@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { Dictionary } from '@salesforce/ts-types';
@@ -232,7 +232,7 @@ class AuthCommand {
         /* If the user already has a valid config file in place
          * then we want to notify them that they need to run
          * sfdx force:auth:logout to remove the existing authorization.
-        */
+         */
 
         // Also Gotta read the auth file directly so the return auth token is encrypted
         return srcDevUtil.getGlobalConfig(`${authConfig.username}.json`);

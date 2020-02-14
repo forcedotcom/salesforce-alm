@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -26,7 +26,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
   public maxRevisionFile: any;
   public locallyChangedWorkspaceElements: any[];
   public localChanges: any[];
-  public remoteChanges:  any[];
+  public remoteChanges: any[];
   public forceIgnore: any;
   private logger!: Logger;
 
@@ -98,13 +98,13 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
       .getMaxRevision(this.maxRevisionFile.path)
       .then(maxRevision => {
         this.logger.debug(`populateServerChanges maxrevision: ${maxRevision}`);
-        return this.force.toolingFind(this.scratchOrg, 'SourceMember',
-          { [getRevisionFieldName()]: { $gt: maxRevision } }, [
-          'MemberType',
-          'MemberName',
-          'IsNameObsolete'
-        ])}
-      )
+        return this.force.toolingFind(
+          this.scratchOrg,
+          'SourceMember',
+          { [getRevisionFieldName()]: { $gt: maxRevision } },
+          ['MemberType', 'MemberName', 'IsNameObsolete']
+        );
+      })
       .then(sourceMembers => {
         sourceMembers.forEach(sourceMember => {
           const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
@@ -222,12 +222,16 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
                 workspaceElement.getMetadataName(),
                 this.swa.metadataRegistry
               );
-              return workspaceElementMetadataType.sourceMemberFullNameCorrespondsWithWorkspaceFullName(
-                sourceMember.MemberName,
-                workspaceElement.getFullName()
-              ) || workspaceElementMetadataType.sourceMemberFullNameCorrespondsWithWorkspaceFullName(
-                `${sourceMember.MemberType}s`, //for nonDecomposedTypesWithChildrenMetadataTypes we need to check their type
-                workspaceElement.getFullName());
+              return (
+                workspaceElementMetadataType.sourceMemberFullNameCorrespondsWithWorkspaceFullName(
+                  sourceMember.MemberName,
+                  workspaceElement.getFullName()
+                ) ||
+                workspaceElementMetadataType.sourceMemberFullNameCorrespondsWithWorkspaceFullName(
+                  `${sourceMember.MemberType}s`, //for nonDecomposedTypesWithChildrenMetadataTypes we need to check their type
+                  workspaceElement.getFullName()
+                )
+              );
             });
           }
         }
@@ -314,7 +318,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
 
 export namespace SrcStatusApi {
   export interface Options {
-    org: any,
-    adapter?: SourceWorkspaceAdapter
+    org: any;
+    adapter?: SourceWorkspaceAdapter;
   }
 }

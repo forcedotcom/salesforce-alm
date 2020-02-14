@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -15,7 +15,7 @@ import logger = require('../core/logApi');
 import pkgUtils = require('./packageUtils');
 
 const QUERY =
-  'SELECT Id, Package2Id, SubscriberPackageVersionId, Name, Description, Tag, Branch, ' +
+  'SELECT Id, Package2Id, SubscriberPackageVersionId, Name, Description, Tag, Branch, AncestorId, ValidationSkipped, ' +
   'MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, CodeCoverage, HasPassedCodeCoverageCheck ' +
   'FROM Package2Version ' +
   "WHERE Id = '%s' " +
@@ -55,12 +55,31 @@ class PackageVersionReportCommand {
     // lookup the 05i ID, if needed
     packageVersionId = await pkgUtils.getPackageVersionId(packageVersionId, this.force, this.org);
 
-    return this.force.toolingQuery(this.org, util.format(QUERY, packageVersionId)).then(queryResult => {
+    return this.force.toolingQuery(this.org, util.format(QUERY, packageVersionId)).then(async queryResult => {
       const results = [];
       const records = queryResult.records;
       if (records && records.length > 0) {
         const record = records[0];
         record.Version = [record.MajorVersion, record.MinorVersion, record.PatchVersion, record.BuildNumber].join('.');
+
+        let ancestorVersion = null;
+        if (record.AncestorId) {
+          // lookup AncestorVersion value
+          const ancestorVersionMap = await pkgUtils.getPackageVersionStrings([record.AncestorId], this.force, this.org);
+          ancestorVersion = ancestorVersionMap.get(record.AncestorId);
+        } else {
+          // otherwise display 'N/A' if package is Unlocked Packages
+          const containerOptions = await pkgUtils.getContainerOptions([record.Package2Id], this.force, this.org);
+          if (containerOptions.get(record.Package2Id) !== 'Managed') {
+            ancestorVersion = 'N/A';
+            record.AncestorId = 'N/A';
+          }
+        }
+        if (context.flags.json) {
+          // add AncestorVersion to the json record
+          record.AncestorVersion = ancestorVersion;
+        }
+
         const retRecord = context.flags.json
           ? record
           : [
@@ -95,8 +114,14 @@ class PackageVersionReportCommand {
               },
               { key: 'Released', value: record.IsReleased.toString() },
               {
-                key: messages.getMessage('codeCoverage',[], 'package_version_list'),
-                value: (record.CodeCoverage == null ? ' ' : `${record.CodeCoverage['apexCodeCoveragePercentage']}%`)
+                key: messages.getMessage('validationSkipped', [], 'package_version_list'),
+                value: record.ValidationSkipped
+              },
+              { key: 'Ancestor', value: record.AncestorId },
+              { key: 'Ancestor Version', value: ancestorVersion },
+              {
+                key: messages.getMessage('codeCoverage', [], 'package_version_list'),
+                value: record.CodeCoverage == null ? ' ' : `${record.CodeCoverage['apexCodeCoveragePercentage']}%`
               },
               {
                 key: messages.getMessage('hasPassedCodeCoverageCheck', [], 'package_version_list'),
@@ -124,7 +149,10 @@ class PackageVersionReportCommand {
    */
   getColumnData() {
     this.logger.styledHeader(this.logger.color.blue('Package Version'));
-    return [{ key: 'key', label: 'Name' }, { key: 'value', label: 'Value' }];
+    return [
+      { key: 'key', label: 'Name' },
+      { key: 'value', label: 'Value' }
+    ];
   }
 }
 

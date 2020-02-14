@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -29,7 +29,6 @@ import * as optional from 'optional-js';
 import * as _ from 'lodash';
 import * as requestModule from 'request';
 const { AuthInfo, Connection } = require('@salesforce/core');
-import TelemetryReporter from '@salesforce/telemetry';
 
 const dns = BBPromise.promisifyAll(require('dns'));
 const fsReadFile = BBPromise.promisify(fs.readFile);
@@ -42,9 +41,7 @@ import * as almError from './almError';
 import messages = require('../messages');
 import srcDevUtil = require('./srcDevUtil');
 import consts = require('./constants');
-
-const PROJECT = 'force-com-toolbelt';
-const APP_INSIGHTS_KEY = '2ca64abb-6123-4c7b-bd9e-4fe73e71fe9c';
+import { SfdxError } from '@salesforce/core';
 
 const defaultConnectedAppInfo = require('./defaultConnectedApp');
 const describeMetadataResponse = path.join(__dirname, '..', '..', '..', 'metadata', 'describe.json');
@@ -240,7 +237,10 @@ Force.prototype.jwtAuthorize = function(oauthConfig) {
         }
       );
     })
-    .then(token => BBPromise.resolve(_jwtAuthorize.call(this, token, oauthConfig.loginUrl)));
+    .then(token => BBPromise.resolve(_jwtAuthorize.call(this, token, oauthConfig.loginUrl)))
+    .catch(error => {
+      throw SfdxError.create('salesforce-alm', 'auth', 'JwtGrantError', [error.message]);
+    });
 };
 
 Force.prototype.refreshTokenAuthorize = function(orgApi, oauthConfig) {
@@ -888,22 +888,6 @@ Force.prototype._getConnection = function(org, config, oauthConfig) {
       }
     })
     .then(conn => _configJsforceLogger.call(this, conn));
-};
-
-Force.prototype.logServerError = function(logData) {
-  return this.logOnServer(logData, 'ERROR');
-};
-
-Force.prototype.logOnServer = async function(logData, logType) {
-  const reporter = await TelemetryReporter.create({ project: PROJECT, key: APP_INSIGHTS_KEY });
-  try {
-    reporter.sendTelemetryEvent(logType, logData);
-    this.logger.info(`Logged ${logType} on server for command: ${logData[0].commandName}`);
-    return BBPromise.resolve();
-  } catch (err) {
-    this.logger.info(err.message);
-    return BBPromise.resolve();
-  }
 };
 
 export = Force;

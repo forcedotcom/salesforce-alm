@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -146,6 +146,12 @@ export class PackageVersionCreateCommand extends ToolbeltCommand {
       description: messages.getMessage('uninstallScript', [], 'package_version_create'),
       longDescription: messages.getMessage('uninstallScriptLong', [], 'package_version_create'),
       required: false
+    }),
+    skipvalidation: flags.boolean({
+      description: messages.getMessage('skipValidation', [], 'package_version_create'),
+      longDescription: messages.getMessage('skipValidationLong', [], 'package_version_create'),
+      required: false,
+      default: false
     })
   };
 

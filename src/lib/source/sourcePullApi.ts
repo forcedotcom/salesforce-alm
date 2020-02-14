@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // 3pp
@@ -23,11 +23,10 @@ import { BundleMetadataType } from './metadataTypeImpl/bundleMetadataType';
 import * as pathUtil from './sourcePathUtil';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AsyncCreatable } from '@salesforce/kit';
-import { Logger } from '@salesforce/core';
+import { Logger, Messages, SfdxError } from '@salesforce/core';
 import { SrcStatusApi } from './srcStatusApi';
 
 export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
-
   public smmHelper: SourceMetadataMemberRetrieveHelper;
   public maxRevisionFile: any;
   public obsoleteNames: any[];
@@ -222,6 +221,17 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     return statusApi
       .doStatus({ local: true, remote: true }) // rely on status so that we centralize the logic
       .then(() => statusApi.getLocalConflicts())
+      .catch(err => {
+        let errorMessage;
+        if (err.errorCode === 'INVALID_TYPE') {
+          const messages: Messages = Messages.loadMessages('salesforce-alm', 'source_pull');
+          errorMessage = messages.getMessage('NonScratchOrgPull');
+        } else {
+          errorMessage = err.message;
+        }
+        const sfdxError = (SfdxError.wrap(err).message = errorMessage);
+        throw sfdxError;
+      })
       .then(conflicts => {
         if (conflicts.length > 0) {
           const error = new Error('Conflicts found during sync down');
@@ -235,7 +245,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
 
 export namespace MdapiPullApi {
   export interface Options {
-    adapter?: SourceWorkspaceAdapter,
-    org: any
+    adapter?: SourceWorkspaceAdapter;
+    org: any;
   }
 }

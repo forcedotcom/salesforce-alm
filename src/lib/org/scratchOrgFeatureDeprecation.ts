@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 /**
  * Certain Org Features require a translation or should be deprecated.
  * Encapsulates feature mappings and deprecated features.
@@ -14,16 +21,16 @@ import { isString } from '@salesforce/ts-types';
 
 const FEATURE_TYPES = {
   //simpleFeatureMapping holds a set of direct replacement values for features.
-  simpleFeatureMapping: { 
-    SALESWAVE : ['DEVELOPMENTWAVE'],
-    SERVICEWAVE : ['DEVELOPMENTWAVE']
+  simpleFeatureMapping: {
+    SALESWAVE: ['DEVELOPMENTWAVE'],
+    SERVICEWAVE: ['DEVELOPMENTWAVE']
   },
   quantifiedFeatureMapping: {},
   deprecatedFeatures: ['EXPANDEDSOURCETRACKING']
 };
 
 interface FeatureTypes {
-  simpleFeatureMapping: {[key: string]: string []};
+  simpleFeatureMapping: { [key: string]: string[] };
   quantifiedFeatureMapping: object;
   deprecatedFeatures: string[];
 }
@@ -71,7 +78,7 @@ export class ScratchOrgFeatureDeprecation {
           featureWarningMessages.push(
             messages.getMessage(
               'mappedFeatureWarning',
-              [key, '[' + this.featureTypes.simpleFeatureMapping[key].map(v => '\'' + v + '\'').join(',') + ']' ],
+              [key, '[' + this.featureTypes.simpleFeatureMapping[key].map(v => "'" + v + "'").join(',') + ']'],
               'signup'
             )
           );
@@ -99,9 +106,8 @@ export class ScratchOrgFeatureDeprecation {
       /* If deprecated feature is specified, remove feature from the request. */
       if (this.featureTypes.deprecatedFeatures.includes(_feature)) {
         return;
-      }
+      } else if (this.featureTypes.simpleFeatureMapping[_feature]) {
       /* If a simply mapped feature is specified, then perform the mapping.  */
-      else if (this.featureTypes.simpleFeatureMapping[_feature]) {
         this.featureTypes.simpleFeatureMapping[_feature].forEach(f => {
           _features.push(f);
         });

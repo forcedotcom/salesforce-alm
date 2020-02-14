@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2017, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -27,7 +27,7 @@ import * as almError from '../core/almError';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import * as SourceUtil from './sourceUtil';
-import { SfdxError} from '@salesforce/core';
+import { SfdxError } from '@salesforce/core';
 import { SourceElementsResolver } from './sourceElementsResolver';
 
 // Takes an array of strings, surrounds each string with single quotes, then joins the values.
@@ -48,7 +48,7 @@ class SourceConvertApi {
     this.forceIgnore = new ForceIgnore();
   }
 
-  private async initWorkspaceAdapter() {
+  private async initWorkspaceAdapter(): Promise<void> {
     if (!this.sourceWorkspaceAdapter) {
       const options: SourceWorkspaceAdapter.Options = {
         org: this.scratchOrg,
@@ -56,63 +56,56 @@ class SourceConvertApi {
         defaultPackagePath: this.scratchOrg.config.getAppConfig().defaultPackagePath,
         fromConvert: true
       };
-      this.sourceWorkspaceAdapter = await SourceWorkspaceAdapter.create(options)
+      this.sourceWorkspaceAdapter = await SourceWorkspaceAdapter.create(options);
     }
   }
 
-  doConvert(context) {
-      let aggregateSourceElements = new Map<string, AggregateSourceElement>();
+  // Convert files in source format to mdapi format and create a package.xml.
+  public async doConvert(context): Promise<any[]> {
+    const { rootDir, manifest, metadata, sourcepath, outputDir, packagename, unsupportedMimeTypes } = context;
 
-      return this.initWorkspaceAdapter()
-        .then(() => {
-          return fs.access(context.rootDir, fs.constants.R_OK);
-        })
-        .catch((err) => {
-          if (err.code === 'ENOENT') {
-            throw new SfdxError(messages.getMessage('invalidRootDirectory', [context.rootDir], 'sourceConvertCommand'));
-          }
-        })
-        .then(() => {
-          const sourceElementsResolver = new SourceElementsResolver(this.scratchOrg , this.sourceWorkspaceAdapter);
-          if (context.manifest) {
-            return sourceElementsResolver.getSourceElementsFromManifest(context.manifest);
-          }
-          else if (context.sourcepath) {
-            return SourceUtil.getSourceElementsFromSourcePath(context.sourcepath, this.sourceWorkspaceAdapter);
-          }
-          else if (context.metadata) {
-            return sourceElementsResolver.getSourceElementsFromMetadata(context,
-              aggregateSourceElements);
-          }
-          else {
-            return this.sourceWorkspaceAdapter.getAggregateSourceElements(false, context.rootDir);
-          }
-        })
-        .then(sourceElementsMap => {
-          if (sourceElementsMap.size === 0) {
-            throw new Error(messages.getMessage('noSourceInRootDirectory', [], 'sourceConvertCommand'));
-          }
-          return sourceElementsMap;
-        })
-        .then(sourceElementsMap => 
-          this.convertSourceToMdapi(
-            context.outputDir,
-            context.packagename,
-            sourceElementsMap,
-            false,
-            context.unsupportedMimeTypes
-          )
-        );
+    await this.initWorkspaceAdapter();
+
+    try {
+      await fs.access(rootDir, fs.constants.R_OK);
+    } catch (err) {
+      // Throw a more helpful error when the rootDir is invalid; otherwise rethrow.
+      if (err.code === 'ENOENT') {
+        throw new SfdxError(messages.getMessage('invalidRootDirectory', [rootDir], 'sourceConvertCommand'));
+      }
+      throw err;
     }
-  
 
-  async convertSourceToMdapi(
-    targetPath,
-    packageName,
-    aggregateSourceElementsMap,
-    createDestructiveChangesManifest,
+    const sourceElementsResolver = new SourceElementsResolver(this.scratchOrg, this.sourceWorkspaceAdapter);
+    let sourceElements = new Map<string, AggregateSourceElement>();
+
+    if (manifest) {
+      sourceElements = await sourceElementsResolver.getSourceElementsFromManifest(manifest);
+    } else if (sourcepath) {
+      sourceElements = await SourceUtil.getSourceElementsFromSourcePath(sourcepath, this.sourceWorkspaceAdapter);
+    } else if (metadata) {
+      sourceElements = await sourceElementsResolver.getSourceElementsFromMetadata(
+        context,
+        new Map<string, AggregateSourceElement>()
+      );
+    } else {
+      sourceElements = await this.sourceWorkspaceAdapter.getAggregateSourceElements(false, rootDir);
+    }
+
+    if (sourceElements.size === 0) {
+      throw new Error(messages.getMessage('noSourceInRootDirectory', [], 'sourceConvertCommand'));
+    }
+
+    return this.convertSourceToMdapi(outputDir, packagename, sourceElements, false, unsupportedMimeTypes);
+  }
+
+  public async convertSourceToMdapi(
+    targetPath: string,
+    packageName: string,
+    aggregateSourceElementsMap: Map<string, AggregateSourceElement>,
+    createDestructiveChangesManifest: boolean,
     unsupportedMimeTypes,
-    isSourceDelete?
+    isSourceDelete?: boolean
   ) {
     let destructiveChangesTypeNamePairs = [];
     let sourceElementsForMdDir;
@@ -280,6 +273,10 @@ class SourceConvertApi {
       if (this.revert !== undefined) {
         srcDevUtil.deleteDirIfExistsSync(targetPath);
         throw this.err;
+      }
+      /** MD types like static resources might have a zip file created which need to be deleted after conversion to MD format*/
+      if (srcDevUtil.getZipDirPath()) {
+        srcDevUtil.deleteIfExistsSync(srcDevUtil.getZipDirPath());
       }
       return sourceUtil.cleanupOutputDir(decompositionDir);
     });

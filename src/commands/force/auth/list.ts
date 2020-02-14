@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { FlagsConfig, SfdxCommand } from '@salesforce/command';
@@ -16,7 +16,7 @@ Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('salesforce-alm', 'auth');
 
 export type AuthListInfo = {
-  alias: string,
+  alias: string;
   username: string;
   orgId: string;
   instanceUrl: string;
@@ -33,7 +33,7 @@ export class AuthListCommand extends SfdxCommand {
 
   public async run(): Promise<AuthListInfo[]> {
     const auths = await this.computeAuthList();
-    const columns = ['alias','username', 'orgId', 'instanceUrl', 'oauthMethod'];
+    const columns = ['alias', 'username', 'orgId', 'instanceUrl', 'oauthMethod'];
     if (this.errors) {
       columns.push('error');
     }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -45,7 +45,7 @@ export class MdDescribemetadataApi {
     let result = await this.retrieveDescribemetadata(this.org, retrieveOptions);
 
     if (options.filterknown) {
-      result = await this.filterResult(result)
+      result = await this.filterResult(result);
     }
 
     if (this.retrieveTargetPath) {
@@ -66,19 +66,19 @@ export class MdDescribemetadataApi {
     const registry = new MetadataRegistry(this.org);
     const registeredTypeDefs: DescribeMetadataResult = registry.getMetadataTypeDefs();
 
-    const map: Map<string,MetadataObject> = new Map();
+    const map: Map<string, MetadataObject> = new Map();
     // Begin O2n Perf
     result.metadataObjects.forEach((mdObject: MetadataObject) => {
       map.set(mdObject.xmlName, mdObject);
     });
 
-    Object.keys(registeredTypeDefs).forEach((key) => {
+    Object.keys(registeredTypeDefs).forEach(key => {
       map.delete(key);
     });
     // End O2n Perf
     result.metadataObjects = [];
     for (let key of map.keys()) {
-      result.metadataObjects.push(map.get(key))
+      result.metadataObjects.push(map.get(key));
     }
 
     return result;

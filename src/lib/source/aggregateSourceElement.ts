@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2017, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as fs from 'fs-extra';
@@ -30,6 +30,7 @@ import { FolderMetadataType } from './metadataTypeImpl/folderMetadataType';
 
 import * as PathUtils from './sourcePathUtil';
 import { checkForXmlParseError } from './sourceUtil';
+import { SfdxError } from '@salesforce/core';
 
 /**
  * Class used to manage top-level metadata
@@ -517,6 +518,9 @@ export class AggregateSourceElement {
             this.aggregateFullName,
             mdDir
           );
+          if (!originContentPath && this.metadataType.hasContent()) {
+            throw SfdxError.create('salesforce-alm', 'source', 'MissingComponentOrResource', [mdapiContentPath]);
+          }
           return this.createTranslation(originContentPath, mdapiContentPath);
         })
       );
@@ -576,7 +580,7 @@ export class AggregateSourceElement {
         container = this.decompStrategy.newContainerDocument(this.metadataType.getMetadataName());
         try {
           container.setRepresentation(fs.readFileSync(containerPath, 'utf8'));
-        } catch(e) {
+        } catch (e) {
           throw checkForXmlParseError(containerPath, e);
         }
       }
@@ -590,7 +594,7 @@ export class AggregateSourceElement {
           const decomposition = this.decompStrategy.newDecompositionDocument(decomposedSubtypeConfig.metadataName);
           try {
             decomposition.setRepresentation(fs.readFileSync(decompositionPath, 'utf8'));
-          } catch(e) {
+          } catch (e) {
             throw checkForXmlParseError(decompositionPath, e);
           }
           if (_.isNil(decompositions.get(decomposedSubtypeConfig))) {
@@ -601,10 +605,7 @@ export class AggregateSourceElement {
       }
     }
 
-    const composed = this.decompStrategy.compose(
-      container,
-      decompositions
-    );
+    const composed = this.decompStrategy.compose(container, decompositions);
     const composedPath = this.getComposedFilePath(tmpDir);
     srcDevUtil.ensureDirectoryExistsSync(path.dirname(composedPath));
     fs.writeFileSync(composedPath, composed.getRepresentation());
@@ -642,7 +643,7 @@ export class AggregateSourceElement {
     const composed = this.decompStrategy.newComposedDocument(this.metadataType.getDecompositionConfig().metadataName);
     try {
       composed.setRepresentation(fs.readFileSync(sourceFilePath, 'utf8'));
-    } catch(e) {
+    } catch (e) {
       throw checkForXmlParseError(sourceFilePath, e);
     }
 

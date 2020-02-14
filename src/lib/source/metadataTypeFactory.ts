@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2017, Salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { SharingRulesMetadataType } from './metadataTypeImpl/sharingRulesMetadataType';
@@ -36,7 +36,7 @@ import { FlowMetadataType } from './metadataTypeImpl/flowMetadataType';
 import { ExperienceBundleMetadataType } from './metadataTypeImpl/experienceBundleMetadataType';
 import { BotMetadataType } from './metadataTypeImpl/botMetadataType';
 import { BotSubtypeMetadataType } from './metadataTypeImpl/botSubtypeMetadataType';
-import { WorkflowMetadataType } from "./metadataTypeImpl/workflowMetadataType";
+import { WorkflowMetadataType } from './metadataTypeImpl/workflowMetadataType';
 
 export class MetadataTypeFactory {
   static getMetadataTypeFromSourcePath(sourcePath: string, metadataRegistry): MetadataType {
@@ -64,8 +64,7 @@ export class MetadataTypeFactory {
       const metadataType = typeDefObj.metadataName.toLowerCase();
       if (!fullFileName.endsWith(metadataType) && (metadataType === 'report' || metadataType === 'dashboard')) {
         return typeDefObj.folderTypeDef;
-      }
-      else if (fileProperty.fullName.split(path.sep).length === 1) {
+      } else if (fileProperty.fullName.split(path.sep).length === 1) {
         return typeDefObj.folderTypeDef;
       }
     }
@@ -87,6 +86,9 @@ export class MetadataTypeFactory {
   private static getTypeDefName(metadataName: string): string {
     let typeDefName;
     switch (metadataName) {
+      case 'LightningComponentResource':
+        typeDefName = 'LightningComponentBundle';
+        break;
       case 'AuraDefinition':
         typeDefName = 'AuraDefinitionBundle';
         break;
@@ -111,6 +113,7 @@ export class MetadataTypeFactory {
         break;
       case 'SharingOwnerRule':
       case 'SharingCriteriaRule':
+      case 'SharingGuestRule':
       case 'SharingTerritoryRule':
         typeDefName = 'SharingRules';
         break;
@@ -248,13 +251,11 @@ export class MetadataTypeFactory {
             typeDef = inFolderType.folderTypeDef;
           }
           // reports nand dashboards could be nested in sub folders
-          else if (type === 'reports' && !(file.endsWith('report'))) {
+          else if (type === 'reports' && !file.endsWith('report')) {
             typeDef = inFolderType.folderTypeDef;
-          }
-          else if (type === 'dashboards' && !(file.endsWith('dashboard'))) {
+          } else if (type === 'dashboards' && !file.endsWith('dashboard')) {
             typeDef = inFolderType.folderTypeDef;
-          }
-          else {
+          } else {
             typeDef = inFolderType;
           }
         } else {

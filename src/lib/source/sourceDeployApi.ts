@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import cli from 'cli-ux';
@@ -55,7 +55,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
     this.isDelete = options.delete;
     this.logger = await Logger.child('SourceDeployApi');
 
-    this.isAsync = options.wait === consts.MIN_SRC_DEPLOY_WAIT_MINUTES
+    this.isAsync = options.wait === consts.MIN_SRC_DEPLOY_WAIT_MINUTES;
 
     // Only put SWA in stateless mode when sourcepath param is used.
     const mode = options.sourcepath && SourceWorkspaceAdapter.modes.STATELESS;
@@ -75,7 +75,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
     let tmpOutputDir: string = await SourceUtil.createOutputDir('sourceDeploy');
 
     try {
-      const sourceElementsResolver = new SourceElementsResolver(this.orgApi , this.swa);
+      const sourceElementsResolver = new SourceElementsResolver(this.orgApi, this.swa);
       if (options.sourcepath) {
         this.logger.info(`Deploying metadata in sourcepath '${options.sourcepath}' from org: '${this.orgApi.name}'`);
         aggregateSourceElements = await SourceUtil.getSourceElementsFromSourcePath(options.sourcepath, this.swa);
@@ -124,7 +124,9 @@ export class SourceDeployApi extends SourceDeployApiBase {
           options.deploydir = tmpOutputDir;
 
           options.ignorewarnings = options.ignorewarnings || this.isDelete;
-          await this._doLocalDelete(aggregateSourceElements);
+          if (!options.checkonly) {
+            await this._doLocalDelete(aggregateSourceElements);
+          }
 
           const result = await this.convertAndDeploy(options, this.swa, aggregateSourceElements, this.isDelete);
 
@@ -171,16 +173,17 @@ export class SourceDeployApi extends SourceDeployApiBase {
   private async _handleDelete(noprompt: boolean, ases: Map<string, AggregateSourceElement>, sourcepath: string) {
     let pendingDelPathsForPrompt = [];
     const typedefObj = MetadataTypeFactory.getMetadataTypeFromSourcePath(sourcepath, this.swa.metadataRegistry);
-    const metadataType = typedefObj? typedefObj.getMetadataName() : null;
+    const metadataType = typedefObj ? typedefObj.getMetadataName() : null;
 
-    /**delete of static resources file is not supported by cli */  
-      if (this.DELETE_NOT_SUPPORTED_IN_CONTENT.includes(metadataType)) {
-        const data = fsExtra.statSync(sourcepath);
-        if (data.isFile()) {
-          throw SfdxError.create('salesforce-alm', 'source', 'StaticResourceDeleteError');
-        }
+    /**delete of static resources file is not supported by cli */
+
+    if (this.DELETE_NOT_SUPPORTED_IN_CONTENT.includes(metadataType)) {
+      const data = fsExtra.statSync(sourcepath);
+      if (data.isFile()) {
+        throw SfdxError.create('salesforce-alm', 'source', 'StaticResourceDeleteError');
       }
-    
+    }
+
     ases.forEach(ase => {
       ase.getWorkspaceElements().some(we => {
         const type = we.getMetadataName();

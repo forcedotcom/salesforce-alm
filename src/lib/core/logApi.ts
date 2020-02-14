@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root  or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -34,7 +34,6 @@ const almError = require('./almError');
 const _constants = require('./constants');
 import Messages = require('../messages');
 const messages = Messages();
-const pjson = require('../../../package.json');
 
 import stripAnsi = require('strip-ansi');
 import chalkStyles = require('ansi-styles');
@@ -274,6 +273,10 @@ class Logger extends bunyan {
       // This should be an adequate solution for a force-com-toolbelt logger in the context of running a command.
       // This however shouldn't be used in say sfdx-core where the logger could be used in a persistent service.
       process.setMaxListeners(100);
+
+      // to debug 'Possible EventEmitter memory leak detected', add the following to top of index.js or, for
+      // log tests, top of logApi.js
+      // https://git.soma.salesforce.com/ALMSourceDrivenDev/force-com-toolbelt/compare/cwall/logs-for-EventEmitter-memory-leak
 
       // ensure that uncaughtException is logged
       process.on('uncaughtException', uncaughtExceptionHandler);
@@ -531,7 +534,7 @@ class Logger extends bunyan {
         }
         context.warnings.push(message);
         // Also log the message if valid stderr with json going to stdout.
-        if (env.getBoolean('SFDX_JSON_TO_STDOUT')) {
+        if (env.getBoolean('SFDX_JSON_TO_STDOUT', true)) {
           console.error(warning, message); // eslint-disable-line no-console
         }
       } else {
@@ -583,7 +586,7 @@ class Logger extends bunyan {
   error(...args) {
     const consoleLog = args.length && args.length > 1 && _.isBoolean(args[0]) ? args[0] : true;
 
-    if (consoleLog && (this.humanConsumable || env.getBoolean('SFDX_JSON_TO_STDOUT'))) {
+    if (consoleLog && (this.humanConsumable || env.getBoolean('SFDX_JSON_TO_STDOUT', true))) {
       console.error(...this.formatError(args)); // eslint-disable-line no-console
     }
 
@@ -703,62 +706,6 @@ class Logger extends bunyan {
 
   getEOL() {
     return os.EOL;
-  }
-
-  /**
-   * Gathers data about the CLI, command, error, and environment
-   * and calls force.logServerError.
-   *
-   * @param err
-   * @param force
-   * @param context
-   * @returns {*|BBPromise.<T>}
-   */
-  logServerError(err, force, context) {
-    // require here to avoid circular dependency
-    const Org = require('./scratchOrgApi'); // eslint-disable-line global-require
-
-    const hubOrgApi = new Org(undefined, Org.Defaults.DEVHUB);
-    const orgApi = context.org;
-    const commandParams =
-      context.flags && _.reduce(context.flags, (res, val, key) => `${res} ${key}=${val}`, '').trim();
-
-    let cmdName = context.cmd;
-    if (!cmdName) {
-      if (context.command && context.command.command) {
-        cmdName = `${context.command.topic}:${context.command.command}`;
-      } else {
-        cmdName = 'n/a';
-      }
-    }
-
-    // If the context doesn't have an org, resolve an empty config to still send
-    // the error to the server using the master org.
-    return (orgApi ? orgApi.getConfig() : BBPromise.resolve({}))
-      .then(() => ({
-        commandName: cmdName,
-        commandParams,
-        commandTimestamp: Date.now(), // TODO: should be a formatted date but server field type needs to change
-        // operationTime: // TODO: need instrumentation for this
-        toolbeltVersion: `${context.version} ${_.trim(pjson.version)}`,
-        sourceApiVersion: force.config.getApiVersion(),
-        origin: 'CLI', // TODO: could come from env var?
-        artifactName: context.cwd, // TODO: cwd isn't the artifact name but ok for now
-        orgType: orgApi && orgApi.type, // TODO This is either master or workspace. What we really want here is sandbox, prod, scratch, etc.
-        errorName: err.name,
-        errorMessage: err.message,
-        errorStack: err.stack,
-        __errorWhitelist__: err.errWhitelist
-      }))
-      .then(logData => hubOrgApi.getConfig().then(hubConfig => Object.assign(logData, { hubOrgId: hubConfig.orgId })))
-      .then(logData => force.logServerError([logData]))
-      .catch(promiseError => {
-        if (promiseError.name === 'InvalidProjectWorkspace' || promiseError.name === 'NoOrgFound') {
-          return BBPromise.resolve();
-        } else {
-          return BBPromise.reject(promiseError);
-        }
-      });
   }
 }
 

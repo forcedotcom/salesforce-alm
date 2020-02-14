@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -16,16 +16,24 @@ const messages = Messages();
 import logger = require('../core/logApi');
 import pkgUtils = require('./packageUtils');
 
+// Stripping CodeCoverage, HasPassedCodeCoverageCheck as they are causing a perf issue in 47.0+ W-6997762
 const DEFAULT_SELECT =
   'SELECT Id, Package2Id, SubscriberPackageVersionId, Name, Package2.Name, Package2.NamespacePrefix, ' +
   'Description, Tag, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, ' +
-  'CreatedDate, LastModifiedDate, IsPasswordProtected, CodeCoverage, HasPassedCodeCoverageCheck ' +
+  'CreatedDate, LastModifiedDate, IsPasswordProtected, AncestorId, ValidationSkipped ' +
+  'FROM Package2Version';
+
+const VERBOSE_SELECT =
+  'SELECT Id, Package2Id, SubscriberPackageVersionId, Name, Package2.Name, Package2.NamespacePrefix, ' +
+  'Description, Tag, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, ' +
+  'CreatedDate, LastModifiedDate, IsPasswordProtected, CodeCoverage, HasPassedCodeCoverageCheck, AncestorId, ValidationSkipped ' +
   'FROM Package2Version';
 
 const DEFAULT_ORDER_BY_FIELDS = 'Package2Id, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber';
 
 class PackageVersionListCommand {
   static DEFAULT_SELECT = DEFAULT_SELECT;
+  static VERBOSE_SELECT = VERBOSE_SELECT;
   static DEFAULT_ORDER_BY_FIELDS = DEFAULT_ORDER_BY_FIELDS;
 
   // TODO: proper property typing
@@ -52,9 +60,34 @@ class PackageVersionListCommand {
     this.verbose = context.flags.verbose;
     this.concise = context.flags.concise;
 
-    return this.force.toolingQuery(this.org, this._constructQuery(context.flags)).then(queryResult => {
+    return this.force.toolingQuery(this.org, this._constructQuery(context.flags)).then(async queryResult => {
       const records = queryResult.records;
       if (records && records.length > 0) {
+        let ancestorVersionsMap;
+        let containerOptionsMap;
+        // lookup ancestorVersions if ancestorIds are present
+        const ancestorIds = records
+          .filter(record => {
+            return record.AncestorId;
+          })
+          .map(record => record.AncestorId);
+        if (ancestorIds && ancestorIds.length > 0) {
+          ancestorVersionsMap = await pkgUtils.getPackageVersionStrings(ancestorIds, this.force, this.org);
+        }
+        // lookup container options for records that don't have an ancestorId; we'll need this to display N/A for Unlocked Packages
+        const idsWithoutAncestor = [
+          ...new Set(
+            records
+              .filter(record => {
+                return !record.AncestorId;
+              })
+              .map(record => record.Package2Id)
+          )
+        ];
+        if (idsWithoutAncestor && idsWithoutAncestor.length > 0) {
+          containerOptionsMap = await pkgUtils.getContainerOptions(idsWithoutAncestor, this.force, this.org);
+        }
+
         records.forEach(record => {
           const ids = [record.Id, record.SubscriberPackageVersionId];
           const aliases = [];
@@ -65,6 +98,16 @@ class PackageVersionListCommand {
             }
           });
           const AliasStr = aliases.length > 0 ? aliases.join() : '';
+
+          // set Ancestor display values
+          let ancestorVersion = null;
+          if (record.AncestorId) {
+            ancestorVersion = ancestorVersionsMap.get(record.AncestorId);
+          } else if (containerOptionsMap.get(record.Package2Id) !== 'Managed') {
+            // display N/A if package is unlocked
+            ancestorVersion = 'N/A';
+            record.AncestorId = 'N/A';
+          }
 
           this.results.push({
             Package2Id: record.Package2Id,
@@ -91,6 +134,9 @@ class PackageVersionListCommand {
             InstallUrl: pkgUtils.INSTALL_URL_BASE + record.SubscriberPackageVersionId,
             CodeCoverage: record.CodeCoverage == null ? '' : `${record.CodeCoverage['apexCodeCoveragePercentage']}%`,
             HasPassedCodeCoverageCheck: record.HasPassedCodeCoverageCheck,
+            ValidationSkipped: record.ValidationSkipped,
+            AncestorId: record.AncestorId,
+            AncestorVersion: ancestorVersion,
             Alias: AliasStr
           });
         });
@@ -177,8 +223,7 @@ class PackageVersionListCommand {
     // construct ORDER BY clause
     // TODO: validate given fields
     const orderBy = ` ORDER BY ${flags.orderby ? flags.orderby : DEFAULT_ORDER_BY_FIELDS}`;
-
-    return this._assembleQueryParts(DEFAULT_SELECT, where, orderBy);
+    return this._assembleQueryParts(flags.verbose === true ? VERBOSE_SELECT : DEFAULT_SELECT, where, orderBy);
   }
 
   /**
@@ -228,6 +273,12 @@ class PackageVersionListCommand {
       },
       { key: 'IsReleased', label: 'Released' },
       {
+        key: 'ValidationSkipped',
+        label: messages.getMessage('validationSkipped', [], 'package_version_list')
+      },
+      { key: 'AncestorId', label: 'Ancestor' },
+      { key: 'AncestorVersion', label: 'Ancestor Version' },
+      {
         key: 'Branch',
         label: messages.getMessage('packageBranch', [], 'package_version_list')
       }
@@ -263,7 +314,7 @@ class PackageVersionListCommand {
       columns.push({
         key: 'HasPassedCodeCoverageCheck',
         label: messages.getMessage('hasPassedCodeCoverageCheck', [], 'package_version_list')
-      })
+      });
     }
 
     return columns;
