@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -10,6 +10,7 @@
 /* istanbul ignore file */
 
 import { flags, FlagsConfig } from '@salesforce/command';
+import srcDevUtil = require('../../../../lib/core/srcDevUtil');
 import Messages = require('../../../../lib/messages');
 import { ToolbeltCommand } from '../../../../ToolbeltCommand';
 
@@ -62,7 +63,7 @@ export class AuthWebLoginCommand extends ToolbeltCommand {
     })
   };
   public async run(): Promise<unknown> {
-    if (process.env.SFDX_CONTAINER_MODE) {
+    if (srcDevUtil.isSFDXContainerMode()) {
       throw new SfdxError(messages.getMessage('deviceWarning', [], 'auth'));
     }
     const context = await this.resolveLegacyContext();

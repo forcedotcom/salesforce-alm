@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { get as _get, isPlainObject as _isPlainObject } from 'lodash';
@@ -62,10 +62,13 @@ export class SourceRetrieve {
 
   // Retrieves metadata from an org based on the retrieve options specified.
   public async retrieve(options: SourceRetrieveOptions): Promise<SourceRetrieveOutput> {
-    if (options.sourcepath) { //if -p passed
+    if (options.sourcepath) {
+      //if -p passed
       const optionPath: string = options.sourcepath;
-      this.org.config.getAppConfig().packageDirectories.forEach(directory => { //find packages in sfdx-project.json
-        if (optionPath.indexOf(directory.path) !== -1) { //if listed package is in param path
+      this.org.config.getAppConfig().packageDirectories.forEach(directory => {
+        //find packages in sfdx-project.json
+        if (optionPath.indexOf(directory.path) !== -1) {
+          //if listed package is in param path
           this.defaultPackagePath = directory.path;
         }
       });
@@ -170,7 +173,7 @@ export class SourceRetrieve {
         const destPath = pathJoin(projectPath, pkgName);
         const pkgPath = pathJoin(retrieveOptions.retrievetargetdir, pkgName);
         this.logger.info(`Converting metadata in package: ${pkgPath} to: ${destPath}`);
-        results.packages.push({ name: pkgName, path: destPath});
+        results.packages.push({ name: pkgName, path: destPath });
         mdapiConvertApi.root = pkgPath;
         mdapiConvertApi.outputDirectory = destPath;
         await mdapiConvertApi.convertSource(this.org);
@@ -182,7 +185,6 @@ export class SourceRetrieve {
       // Only do this if unpackaged source was retrieved (i.e., a manifest was created).
       // retrieveOptions.unpackaged will be undefined when only packages were retrieved.
       if (retrieveOptions.unpackaged) {
-
         const mdapiPull = await MdapiPullApi.create({ org: this.org, adapter: this.swa });
 
         // Extracts the source from package.xml in the temp dir, creates a Map of AggregateSourceElements
@@ -265,47 +267,45 @@ export class SourceRetrieve {
           // filtered out.
           //
           // Anything not found in the entries array is filtered out.
-          return !!entries.find(
-            (manifestEntry: ManifestEntry): boolean => {
-              if (parent && parent.metadataName === manifestEntry.type) {
-                return this.validateAggregateFullName(
-                  {
-                    name: workspaceElement.getFullName(),
-                    type: parent.metadataName
-                  },
-                  manifestEntry,
-                  '.'
-                );
-              }
-
-              if (manifestEntry.type === workspaceElement.getMetadataName()) {
-                if (
-                  this.validateAggregateFullName(
-                    {
-                      name: workspaceElement.getFullName(),
-                      type: workspaceElement.getMetadataName()
-                    },
-                    manifestEntry,
-                    pathSep
-                  )
-                ) {
-                  /**
-                   * Case in point (-m AuraDefinitionBundle:xray )
-                   * The manifest entries will contain {name='xray', type='AuraDefinitionBundle'}
-                   * All the elements of the AuraDefinitionBundle will begin with the fullname 'xray'.
-                   * i.e. xray/xray.css. If that's the case return true otherwise continue evaluating.
-                   */
-                  return true;
-                }
-              }
-
-              return (
-                matchesWildCardSourceElement ||
-                (manifestEntry.type === workspaceElement.getMetadataName() &&
-                  manifestEntry.name === workspaceElement.getFullName())
+          return !!entries.find((manifestEntry: ManifestEntry): boolean => {
+            if (parent && parent.metadataName === manifestEntry.type) {
+              return this.validateAggregateFullName(
+                {
+                  name: workspaceElement.getFullName(),
+                  type: parent.metadataName
+                },
+                manifestEntry,
+                '.'
               );
             }
-          );
+
+            if (manifestEntry.type === workspaceElement.getMetadataName()) {
+              if (
+                this.validateAggregateFullName(
+                  {
+                    name: workspaceElement.getFullName(),
+                    type: workspaceElement.getMetadataName()
+                  },
+                  manifestEntry,
+                  pathSep
+                )
+              ) {
+                /**
+                 * Case in point (-m AuraDefinitionBundle:xray )
+                 * The manifest entries will contain {name='xray', type='AuraDefinitionBundle'}
+                 * All the elements of the AuraDefinitionBundle will begin with the fullname 'xray'.
+                 * i.e. xray/xray.css. If that's the case return true otherwise continue evaluating.
+                 */
+                return true;
+              }
+            }
+
+            return (
+              matchesWildCardSourceElement ||
+              (manifestEntry.type === workspaceElement.getMetadataName() &&
+                manifestEntry.name === workspaceElement.getFullName())
+            );
+          });
         });
       }
       // Get all WorkspaceElements for the retrieved source elements and create simple object

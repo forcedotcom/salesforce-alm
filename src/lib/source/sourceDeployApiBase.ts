@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, Salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as BBPromise from 'bluebird';
@@ -35,7 +35,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
     super(options);
     this.orgApi = options.org;
     this.force = options.org.force;
-    this.isAsync = !!options.isAsync
+    this.isAsync = !!options.isAsync;
   }
 
   protected async init(): Promise<void> {
@@ -58,6 +58,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
     // Default to rollback on error.  Only when ignoreerrors is explicitly true, do not rollback.
     options.rollbackonerror = !(options.ignoreerrors === true);
     options.testlevel = options.testlevel || 'NoTestRun';
+    options.source = true;
     return new MdapiDeployApi(this.orgApi, pollIntervalStrategy, StashApi.Commands.SOURCE_DEPLOY).deploy(options);
   }
 
@@ -89,7 +90,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
   convertAndDeploy(
     options: any,
     sourceWorkspaceAdapter: any,
-    aggregateSourceElements: Map<String, AggregateSourceElement>,
+    aggregateSourceElements: Map<string, AggregateSourceElement>,
     createDestructiveChanges: boolean
   ) {
     const sourceConvertApi = new SourceConvertApi(this.orgApi, sourceWorkspaceAdapter);
@@ -189,7 +190,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
 
 export namespace SourceDeployApiBase {
   export interface Options {
-    org: any,
-    isAsync: boolean
+    org: any;
+    isAsync: boolean;
   }
 }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Thirdparty
@@ -28,6 +28,7 @@ const xmlRefRegex = /[.]*<[A-Z0-9_]*>@([A-Z0-9_]*)<\/[A-Z0-9_]*[ID]>[.]*/gim;
 
 import srcDevUtil = require('../core/srcDevUtil');
 import { Dictionary, JsonMap } from '@salesforce/ts-types';
+import { SfdxError } from '@salesforce/core';
 const { sequentialExecute } = srcDevUtil;
 
 interface DataImportComponents {
@@ -238,7 +239,11 @@ class DataImportApi {
    * @returns {[{}...]}
    */
   getColumnData() {
-    return [{ key: 'refId', label: 'Reference ID' }, { key: 'type', label: 'Type' }, { key: 'id', label: 'ID' }];
+    return [
+      { key: 'refId', label: 'Reference ID' },
+      { key: 'type', label: 'Type' },
+      { key: 'id', label: 'ID' }
+    ];
   }
 
   /**
@@ -488,7 +493,16 @@ class DataImportApi {
           saveRefs: components.saveRefs,
           refMap: components.refMap
         })
-      );
+      )
+      .catch(error => {
+        //break the error message string into the variables we want
+        if (error.errorCode === 'INVALID_FIELD') {
+          const field = error.message.split("'")[1];
+          const object = error.message.substr(error.message.lastIndexOf(' ') + 1, error.message.length);
+          throw SfdxError.create('salesforce-alm', 'tree_import', 'FlsError', [field, object]);
+        }
+        throw SfdxError.wrap(error);
+      });
   }
 }
 

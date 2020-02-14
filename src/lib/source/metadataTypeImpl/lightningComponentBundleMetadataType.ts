@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2017, Salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -20,13 +20,13 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
   }
 
   protected getMdapiFormattedContentFileName(originContentPath: string, aggregateFullName: string): string {
-   // LWC bundles can have nested sub-directories.
-   // In order to maintain the bundle structure in the mdapi formatted directory,
-   // return the path from the bundle directory to the file
-   const pathArray: string[] = path.dirname(originContentPath).split(path.sep);
-   const dirIndex = pathArray.lastIndexOf(aggregateFullName);
-   const pathToBundle = pathArray.slice(0, dirIndex + 1).join(path.sep);
-   return path.relative(pathToBundle, originContentPath);
+    // LWC bundles can have nested sub-directories.
+    // In order to maintain the bundle structure in the mdapi formatted directory,
+    // return the path from the bundle directory to the file
+    const pathArray: string[] = path.dirname(originContentPath).split(path.sep);
+    const dirIndex = pathArray.lastIndexOf(aggregateFullName);
+    const pathToBundle = pathArray.slice(0, dirIndex + 1).join(path.sep);
+    return path.relative(pathToBundle, originContentPath);
   }
 
   // Given the LWC meta file path and the retrieved content file path within
@@ -66,7 +66,12 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
     return null;
   }
 
-  getCorrespondingLWCDefinitionFileProperty(retrieveRoot: string, filePropertyFileName: string, lwcMetadataName:string, metadataRegistry): any {
+  getCorrespondingLWCDefinitionFileProperty(
+    retrieveRoot: string,
+    filePropertyFileName: string,
+    lwcMetadataName: string,
+    metadataRegistry
+  ): any {
     const bundleDirPath = path.join(retrieveRoot, path.dirname(filePropertyFileName));
     const bundlePaths = glob.sync(path.join(bundleDirPath, '*'));
     const bundleDefinitionPath = bundlePaths.find(bundlePath => this.isDefinitionFile(bundlePath));
@@ -94,5 +99,41 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
       return aggFullName === fileName && aggFullName === pathArray[pathArray.length - 1];
     }
     return false;
+  }
+
+  shouldDeleteWorkspaceAggregate(metadataType: string): boolean {
+    // Handle deletes of LightningComponentBundles at the subcomponent level because
+    // SourceMembers are created for each subcomponent
+    return false;
+  }
+
+  trackRemoteChangeForSourceMemberName(sourceMemberName: string): boolean {
+    // Whenever a resource of an LightningComponentBundle is modified in the scratch org, a SourceMember is created
+    // at the bundle level and another is created for the changed resource. Ignore the SourceMember created
+    // for the bundle and track specific bundle resource changes only.
+    return sourceMemberName.split(path.sep).length > 1;
+  }
+
+  onlyDisplayOneConflictPerAggregate(): boolean {
+    //we only want to report one conflict entry per bundle
+    return true;
+  }
+
+  getDisplayPathForLocalConflict(workspaceFilePath: string): string {
+    return path.dirname(workspaceFilePath);
+  }
+
+  protected sourceMemberFullNameConflictsWithWorkspaceFullName(
+    sourceMemberFullName: string,
+    workspaceFullName: string
+  ): boolean {
+    const aggregateSourceMemberName = this.getAggregateFullNameFromSourceMemberName(sourceMemberFullName);
+    const aggregateFullName = this.getAggregateFullNameFromWorkspaceFullName(workspaceFullName);
+    return aggregateSourceMemberName === aggregateFullName;
+  }
+
+  getAggregateFullNameFromMdapiPackagePath(mdapiPackagePath: string): string {
+    const pathElements = mdapiPackagePath.split(path.sep);
+    return pathElements[1];
   }
 }

@@ -1,6 +1,13 @@
+/*
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 import * as ResponseParser from '../force-cli/force-cli-responseParser';
 import * as Display from '../force-cli/force-cli-display';
-import * as Error from '../force-cli/force-cli-error';
+import * as CliError from '../force-cli/force-cli-error';
 import * as Config from '../force-cli/force-cli-config';
 import * as Messages from '../force-cli/force-cli-messages';
 import { Connection } from 'jsforce';
@@ -37,7 +44,7 @@ export class ApexExecuteCommand {
     } else if (context.flags.apexcodefile) {
       return await apexFromFile(context);
     }
-    Error.exitDisplayHelp(context.command);
+    CliError.exitDisplayHelp(context.command);
   }
 }
 
@@ -57,17 +64,19 @@ export let apexFromUserInput = function(context: any): Promise<void> {
       .on('close', async function(): Promise<void> {
         try {
           const response = await execute(context, apexCode);
-          resolve(handleResult(
-            ResponseParser.getExecuteAnonymousResponse(response),
-            ResponseParser.getDebugInfo(response),
-            context.flags.json
-          ));
+          resolve(
+            handleResult(
+              ResponseParser.getExecuteAnonymousResponse(response),
+              ResponseParser.getDebugInfo(response),
+              context.flags.json
+            )
+          );
         } catch (err) {
           reject(err);
         }
       })
       .on('error', err => reject(err));
-  })
+  });
 };
 
 /**
@@ -137,21 +146,19 @@ export let handleResult = function(
     Display.success(Messages.get('ApexExecCompileSuccess'));
   } else {
     let errMsg = Messages.get('ApexExecCompileFailedErrorMessage', result.line, result.column, result.compileProblem);
-    if (!json) Error.errorMessage(errMsg);
-    Error.exitWithMessage(Messages.get('ApexExecCompileFailed'));
+    if (!json) CliError.errorMessage(errMsg);
+    CliError.exitWithMessage(errMsg);
   }
   // check for runtime erorrs
   if (result.success) {
     Display.success(Messages.get('ApexExecExecutionSuccess'));
     Display.info(debugInfo);
   } else {
-    if (!json && result.exceptionMessage) {
-      Error.errorMessage(result.exceptionMessage);
-    }
-    if (!json && result.exceptionStackTrace) {
-      Error.errorMessage(result.exceptionStackTrace);
-    }
-    Error.exitWithMessage(Messages.get('ApexExecExecutionFailure'));
+    if (!json && result.exceptionMessage) CliError.errorMessage(result.exceptionMessage);
+    if (!json && result.exceptionStackTrace) CliError.errorMessage(result.exceptionStackTrace);
+    const err = new Error(result.exceptionStackTrace || Messages.get('ApexExecExecutionFailure'));
+    Object.assign(result, { logs: debugInfo });
+    throw Object.assign(err, { result });
   }
   return Object.assign(result, { logs: debugInfo });
 };

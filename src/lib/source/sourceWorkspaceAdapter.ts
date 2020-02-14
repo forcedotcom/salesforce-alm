@@ -1,7 +1,8 @@
 /*
- * Copyright, 1999-2016, salesforce.com
- * All Rights Reserved
- * Company Confidential
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
@@ -65,7 +66,6 @@ const _logUnsupported = function(metadataName, filePath) {
 };
 
 export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapter.Options> {
-
   public logger!: Logger;
   public wsPath: string;
   public defaultPackagePath: string;
@@ -91,16 +91,14 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 
     this.wsPath = options.org.config.getProjectPath();
     if (isEmpty(this.wsPath) || !isString(this.wsPath)) {
-      throw SfdxError.create('salesforce-alm', 'source_workspace_adapter',
-        'missing_workspace');
+      throw SfdxError.create('salesforce-alm', 'source_workspace_adapter', 'missing_workspace');
     }
 
     // There appears to be difference between the parameter defaultPackagePath and the member instance defaultPackagePath
     // It's reflected in the unit tests mdapiConvertApiTest.
     // Since we are not doing strict null checking this runtime check is required for path.join.
     if (isEmpty(options.defaultPackagePath) || !isString(options.defaultPackagePath)) {
-      throw SfdxError.create('salesforce-alm', 'source_workspace_adapter',
-        'missing_package_path');
+      throw SfdxError.create('salesforce-alm', 'source_workspace_adapter', 'missing_package_path');
     }
 
     this.isStateless = options.sourceMode === SourceWorkspaceAdapter.modes.STATELESS;
@@ -129,8 +127,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
     // The cache is specific to push, pull, status commands, but sourceWorkspaceAdapter is
     // initialized for all source-related commands
     if (!this.fromConvert) {
-      this.changedSourceElementsCache =
-        this.getAggregateSourceElements(true, null, true);
+      this.changedSourceElementsCache = this.getAggregateSourceElements(true, null, true);
     }
   }
 
@@ -142,7 +139,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
   public backupSourcePathInfos() {
     this.logger.debug('backup source path infos');
     this.spsm.backup();
-  };
+  }
 
   /**
    * Get AggregateSourceElements (ASEs) in the workspace.
@@ -162,9 +159,12 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
    * @returns {Map<String, AggregateSourceElement>} - Map of aggregate source element key to aggregateSourceElement
    * ex. { 'ApexClass__myApexClass' : aggregateSourceElement }
    */
-  public getAggregateSourceElements(changesOnly: boolean, packageDirectory?: string,
-                                    updatePendingPathInfos = false, sourcePath?: string) {
-
+  public getAggregateSourceElements(
+    changesOnly: boolean,
+    packageDirectory?: string,
+    updatePendingPathInfos = false,
+    sourcePath?: string
+  ) {
     if (!changesOnly && this.allAggregateSourceElementsCache) {
       return this.allAggregateSourceElementsCache;
     }
@@ -188,8 +188,9 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
       }
 
       if (isEmpty(change.sourcePath) || !isString(change.sourcePath)) {
-        throw SfdxError.create('salesforce-alm', 'source_workspace_adapter',
-          'invalid_source_path', [change.sourcePath]);
+        throw SfdxError.create('salesforce-alm', 'source_workspace_adapter', 'invalid_source_path', [
+          change.sourcePath
+        ]);
       }
 
       const workspaceElementMetadataType = MetadataTypeFactory.getMetadataTypeFromSourcePath(
@@ -292,7 +293,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
     }
     this.spsm.commitChangedPathInfos(pendingChanges);
     return true;
-  };
+  }
 
   /**
    * Update the source stored in the workspace
@@ -321,7 +322,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 
     this.spsm.updateInfosForPaths(updatedPaths, deletedPaths);
     return sourceElements;
-  };
+  }
 
   /**
    * Create a source element representation of a metadata change in the local workspace
@@ -329,7 +330,6 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
    * @returns {null} - A source element or null if metadataType is not supported
    */
   public processMdapiFileProperty(changedSourceElements, retrieveRoot, fileProperty, bundleFileProperties) {
-
     this.logger.debug(`processMdapiFileProperty retrieveRoot: ${retrieveRoot}`);
     // Right now, all fileProperties returned by the mdapi are for aggregate metadata types
     const aggregateMetadataType = MetadataTypeFactory.getMetadataTypeFromFileProperty(
@@ -396,7 +396,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
         aggregateFullName
       );
 
-      this.logger.debug(`processMdapiFilePropertykey: ${key}`)
+      this.logger.debug(`processMdapiFilePropertykey: ${key}`);
       let aggregateSourceElement;
       if (changedSourceElements.has(key)) {
         aggregateSourceElement = changedSourceElements.get(key);
@@ -415,7 +415,9 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
         retrieveRoot,
         bundleFileProperties
       );
-      this.logger.debug(`processMdapiFileProperty aggregateSourceElement.retrievedMetadataPath: ${aggregateSourceElement.retrievedMetadataPath}`);
+      this.logger.debug(
+        `processMdapiFileProperty aggregateSourceElement.retrievedMetadataPath: ${aggregateSourceElement.retrievedMetadataPath}`
+      );
       const retrievedContentPath = aggregateMetadataType.getRetrievedContentPath(fileProperty, retrieveRoot);
       this.logger.debug(`retrievedContentPath: ${retrievedContentPath}`);
       if (retrievedContentPath) {
@@ -429,7 +431,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
       return aggregateSourceElement;
     }
     return null;
-  };
+  }
 
   /**
    * Create a source element representation of a deleted metadata change in the local workspace
@@ -444,11 +446,9 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
     let metadataPath: string = this.sourceLocations.getMetadataPath(
       sourceMemberMetadataType.getAggregateMetadataName(),
       aggregateFullName
-    ); 
-    if(!metadataPath){
-      metadataPath = this.sourceLocations.getMetadataPath(
-        type, aggregateFullName
-      );
+    );
+    if (!metadataPath) {
+      metadataPath = this.sourceLocations.getMetadataPath(type, aggregateFullName);
     }
     this.logger.debug(`handleObsoleteSource metadataPath: ${metadataPath}`);
     if (metadataPath !== undefined) {
@@ -505,7 +505,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
   }
 
   // Private to do move to UX.
-  private warnUser(context: {flags: { json: boolean }, warnings: any[]}, message: string) {
+  private warnUser(context: { flags: { json: boolean }; warnings: any[] }, message: string) {
     const warning = `${chalk.default.yellow('WARNING:')}`;
     this.logger.warn(warning, message);
     if (this.logger.shouldLog(LoggerLevel.WARN)) {
@@ -515,7 +515,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
         }
         context.warnings.push(message);
         // Also log the message if valid stderr with json going to stdout.
-        if (env.getBoolean('SFDX_JSON_TO_STDOUT')) {
+        if (env.getBoolean('SFDX_JSON_TO_STDOUT', true)) {
           console.error(warning, message); // eslint-disable-line no-console
         }
       } else {
@@ -523,8 +523,6 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
       }
     }
   }
-
-
 }
 
 /**
@@ -538,19 +536,18 @@ export namespace SourceWorkspaceAdapter {
     /**
      * The org that the source workspace files belong to
      */
-    org: any,
+    org: any;
     /**
      * The name of the default package path to which new source will be added
      */
-    defaultPackagePath: string,
-    metadataRegistryImpl: any,
-    fromConvert?: boolean,
-    sourceMode?: number
+    defaultPackagePath: string;
+    metadataRegistryImpl: any;
+    fromConvert?: boolean;
+    sourceMode?: number;
   }
 
-  export const modes = { STATE: 0, STATELESS: 1 }
+  export const modes = { STATE: 0, STATELESS: 1 };
 }
-
 
 /**
  * Get the metadata file path for a fullname

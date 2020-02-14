@@ -1,4 +1,11 @@
 /*
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
+/*
     MDAPI utility. This is not complete. Adding this to move a REST deploy related method out of force.js
     We need to refactor code and probably move more MD common functionality here.
 */
@@ -17,12 +24,12 @@ export type MdapiDeployRecentValidationOptions = {
 };
 
 export type DeployOptions = {
-  rollbackOnError?: boolean;
   testLevel?: string;
   runTests?: string;
   autoUpdatePackage?: boolean;
   ignoreWarnings?: boolean;
   checkOnly?: boolean;
+  singlePackage?: boolean;
 };
 
 export class MetadataConnection extends Connection {
@@ -72,7 +79,6 @@ export class MetadataConnection extends Connection {
   }
 }
 
-
 // Get a @salesforce/core Connection, which extends jsforce.Connection.
 export async function getMetadataConnection(orgApi: any): Promise<Connection> {
   const connection = await Connection.create({
@@ -100,16 +106,15 @@ export async function mdapiDeployRecentValidation(
 }
 
 export class MetadataTransportInfo {
-
   static async isRestDeploy() {
     const aggregator = await ConfigAggregator.create();
     const restDeploy = aggregator.getPropertyValue('restDeploy');
-    return (restDeploy && restDeploy.toString() === 'true');
+    return restDeploy && restDeploy.toString() === 'true';
   }
 
   static async isRestDeployWithWaitZero(options) {
     const restDeploy = await this.isRestDeploy();
-    return (restDeploy && options.wait === 0);
+    return restDeploy && options.wait === 0;
   }
 
   static validateExclusiveFlag(options, param1, param2) {

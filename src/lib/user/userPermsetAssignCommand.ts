@@ -1,7 +1,8 @@
 /*
- * Copyright, 1999-2016, salesforce.com
- * All Rights Reserved
- * Company Confidential
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import _ = require('lodash');
 import almError = require('../core/almError');
@@ -89,7 +90,10 @@ export class UserPermsetAssignCommand extends Command {
     if (this.successes.length > 0) {
       uiLogger.styledHeader(uiLogger.color.blue('Permsets Assigned'));
       uiLogger.table(this.successes, {
-        columns: [{ key: 'name', label: 'Username' }, { key: 'value', label: 'Permission Set Assignment' }]
+        columns: [
+          { key: 'name', label: 'Username' },
+          { key: 'value', label: 'Permission Set Assignment' }
+        ]
       });
     }
 
@@ -100,7 +104,10 @@ export class UserPermsetAssignCommand extends Command {
 
       uiLogger.styledHeader(uiLogger.color.red('Failures'));
       uiLogger.table(this.failures, {
-        columns: [{ key: 'name', label: 'Username' }, { key: 'message', label: 'Error Message' }]
+        columns: [
+          { key: 'name', label: 'Username' },
+          { key: 'message', label: 'Error Message' }
+        ]
       });
     }
   }

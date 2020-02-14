@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // 3pp
@@ -26,7 +26,6 @@ import { SrcStatusApi } from './srcStatusApi';
 import { RevisionCounterField } from './sourceUtil';
 
 export class MdapiPushApi extends SourceDeployApiBase {
-
   public swa: SourceWorkspaceAdapter;
   public scratchOrg: any;
   private metadataRegistry: MetadataRegistry;
@@ -59,7 +58,9 @@ export class MdapiPushApi extends SourceDeployApiBase {
 
       if (changedAggregateSourceElements.size > 0) {
         const result = await this.convertAndDeploy(options, this.swa, changedAggregateSourceElements, true);
-        return await this.processResults(result, changedAggregateSourceElements).then(result => this._postProcess(result));
+        return await this.processResults(result, changedAggregateSourceElements).then(result =>
+          this._postProcess(result)
+        );
       }
     } catch (err) {
       if (util.isNullOrUndefined(err.outboundFiles)) {
@@ -173,7 +174,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
     if (field === RevisionCounterField.RevisionNum) {
       return result;
     } else {
-      const members = await SourceUtil.getMemberNamesFromPushResult(this.metadataRegistry, result);
+      const members = [...new Set(result.outboundFiles.map(f => f.fullName))];
       await SourceUtil.updateMaxRevision(this.scratchOrg, this.metadataRegistry, members);
       return result;
     }

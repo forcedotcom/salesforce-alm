@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2019, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
 import { SfdxError } from '@salesforce/core';
 
 import Alias = require('../core/alias');
@@ -64,17 +65,20 @@ export interface DeviceLoginOptions {
 }
 
 export interface AuthInfoResponse {
-    orgId: string;
-    accessToken?: string;
-    refreshToken?: string;
-    instanceUrl: string;
-    loginUrl: string;
-    username: string;
-    clientId: string;
+  orgId: string;
+  accessToken?: string;
+  refreshToken?: string;
+  instanceUrl: string;
+  loginUrl: string;
+  username: string;
+  clientId: string;
 }
 
 enum LogLevel {
-  ERROR = 'error', WARN = 'warn', INFO = 'info', DEBUG = 'debug'
+  ERROR = 'error',
+  WARN = 'warn',
+  INFO = 'info',
+  DEBUG = 'debug'
 }
 
 export class DeviceFlowService extends AsyncCreatable<DeviceLoginOptions> {
@@ -89,7 +93,7 @@ export class DeviceFlowService extends AsyncCreatable<DeviceLoginOptions> {
       url: deviceFlowRequestUrl,
       form: {
         response_type: DeviceFlowService.RESPONSE_TYPE,
-        client_id: clientId || DeviceFlowService.DEFAULT_CLIENT_ID, 
+        client_id: clientId || DeviceFlowService.DEFAULT_CLIENT_ID,
         scope: DeviceFlowService.SCOPE
       } as DeviceCodeFormParams,
       json: true
@@ -182,8 +186,8 @@ export class DeviceFlowService extends AsyncCreatable<DeviceLoginOptions> {
 
   /**
    * TODO: This would be a good method to share between web and device auth
-   * @param force 
-   * @param instanceUrl 
+   * @param force
+   * @param instanceUrl
    */
   public static async getInstanceUrl(force, instanceUrl) {
     let promise;
@@ -210,8 +214,8 @@ export class DeviceFlowService extends AsyncCreatable<DeviceLoginOptions> {
     this.logger[level](`clientId: ${this.clientId}`);
     this.logger[level](`instanceUrl: ${this.instanceUrl}`);
     this.logger[level](`loginHost: ${this.loginHost}`);
-    if (append) { 
-      this.logger[level](append); 
+    if (append) {
+      this.logger[level](append);
     }
   }
 
@@ -307,6 +311,4 @@ export class DeviceFlowService extends AsyncCreatable<DeviceLoginOptions> {
       return undefined;
     }
   }
-
-
 }

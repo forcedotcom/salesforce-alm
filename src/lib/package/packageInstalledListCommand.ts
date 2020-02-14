@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -48,9 +48,7 @@ class packageInstalledListCommand {
             SubscriberPackageNamespace: record.SubscriberPackage.NamespacePrefix,
             SubscriberPackageVersionId: record.SubscriberPackageVersion.Id,
             SubscriberPackageVersionName: record.SubscriberPackageVersion.Name,
-            SubscriberPackageVersionNumber: `${record.SubscriberPackageVersion.MajorVersion}.${
-              record.SubscriberPackageVersion.MinorVersion
-            }.${record.SubscriberPackageVersion.PatchVersion}.${record.SubscriberPackageVersion.BuildNumber}`
+            SubscriberPackageVersionNumber: `${record.SubscriberPackageVersion.MajorVersion}.${record.SubscriberPackageVersion.MinorVersion}.${record.SubscriberPackageVersion.PatchVersion}.${record.SubscriberPackageVersion.BuildNumber}`
           });
         });
       }

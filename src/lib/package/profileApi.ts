@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -26,11 +26,12 @@ class ProfileApi {
   // TODO: proper property typing
   [property: string]: any;
 
-  constructor(org) {
+  constructor(org, includeUserLicenses) {
     this.org = org;
     this.config = this.org.config;
     this.apiVersion = this.config.getApiVersion();
     this.logger = logApi.child('profile');
+    this.includeUserLicenses = includeUserLicenses;
 
     // nodeEntities is used to determine which elements in the profile are relevant to the source being packaged.
     // name refers to the entity type name in source that the element pertains to.  As an example, a profile may
@@ -122,6 +123,18 @@ class ProfileApi {
             ) || hasNodes;
         }
       });
+
+      //add userLicenses to the profile
+      if (this.includeUserLicenses === true) {
+        let userLicenses = profileDom.getElementsByTagName('userLicense');
+        if (userLicenses) {
+          hasNodes = true;
+          for (let i = 0; i < userLicenses.length; i++) {
+            const node = userLicenses[i].cloneNode(true);
+            profileNode.appendChild(node);
+          }
+        }
+      }
 
       const xmlSrcFile = path.basename(profilePath);
       const xmlFile = xmlSrcFile.replace(/(.*)(-meta.xml)/, '$1');

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { Duration } from '@salesforce/kit';
@@ -85,12 +85,14 @@ const _authorize = function(scratchOrgInfoComplete, force, hubOrg, scratchOrg, c
 
       logger.debug(`_authorize - isJwtFlow: ${isJwtFlow}`);
 
-      if (isJwtFlow) {
+      if (isJwtFlow && !process.env.SFDX_CLIENT_SECRET) {
         oauthConfig.username = scratchOrgInfoComplete.SignupUsername;
         oauthConfig.privateKeyFile = config.privateKey;
       } else {
         // Web Server OAuth "auth code exchange" flow
-        if (clientSecret) {
+        if (process.env.SFDX_CLIENT_SECRET) {
+          oauthConfig.clientSecret = process.env.SFDX_CLIENT_SECRET;
+        } else if (clientSecret) {
           oauthConfig.clientSecret = clientSecret;
         }
         oauthConfig.redirectUri = scratchOrg.config.getOauthCallbackUrl();
@@ -149,11 +151,11 @@ const signup = function(forceApi?, hubOrg?) {
 };
 
 signup.checkOrgDoesntExists = async function(_scratchOrgInfo: any): Promise<void> {
-
-  const usernameKey = Object.keys(_scratchOrgInfo)
-    .find((key: string) => key ? "USERNAME" === key.toUpperCase() : false );
+  const usernameKey = Object.keys(_scratchOrgInfo).find((key: string) =>
+    key ? 'USERNAME' === key.toUpperCase() : false
+  );
   if (!usernameKey) {
-    return
+    return;
   }
 
   const username = ensureString(_.get(_scratchOrgInfo, usernameKey));
@@ -164,10 +166,10 @@ signup.checkOrgDoesntExists = async function(_scratchOrgInfo: any): Promise<void
     } catch (e) {
       // if an AuthInfo couldn't be created that means no AuthFile exists.
       if (e.name === 'NamedOrgNotFound') {
-        return
+        return;
       }
       // Something unexpected
-      throw e
+      throw e;
     }
     // An org file already exists
     throw almError({ keyName: 'C-1007', bundle: 'signup' });
@@ -180,7 +182,6 @@ signup.checkOrgDoesntExists = async function(_scratchOrgInfo: any): Promise<void
  * @returns {*|promise}
  */
 signup.prototype.request = async function(scratchOrgInfo) {
-
   //Look for any settings
   await this.orgSettings.extract(scratchOrgInfo);
 

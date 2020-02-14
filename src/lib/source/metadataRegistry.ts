@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -141,6 +141,11 @@ const _lwcDefTypes = {
     defType: 'MODULE',
     format: 'SVG',
     fileSuffix: '.svg'
+  },
+  MODULE_RESOURCE_XML: {
+    defType: 'MODULE',
+    format: 'XML',
+    fileSuffix: '.xml'
   }
 };
 
@@ -765,9 +770,13 @@ class MetadataRegistry {
     typeExtension = typeExtension.replace('.', '');
 
     const defs = Object.values(this.typeDefs);
-    const defaultDirectory = path.dirname(workspaceFilePath).split(path.sep).find(i => !!i && this.typeDirectories.includes(i));
+    const defaultDirectory = path
+      .dirname(workspaceFilePath)
+      .split(path.sep)
+      .find(i => !!i && this.typeDirectories.includes(i));
     let typeDef: TypeDefObj;
-    if (defaultDirectory) typeDef = defs.find(def => def.ext === typeExtension && def.defaultDirectory === defaultDirectory)
+    if (defaultDirectory)
+      typeDef = defs.find(def => def.ext === typeExtension && def.defaultDirectory === defaultDirectory);
     if (_.isNil(typeDef)) typeDef = this.typeDefsByExtension.get(typeExtension);
 
     if (!_.isNil(typeDef)) {

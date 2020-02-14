@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { Messages, SfdxError } from '@salesforce/core';
@@ -14,7 +14,7 @@ import logApi = require('../core/logApi');
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('salesforce-alm', 'source_retrieve');
 // One of these flags must be specified for a valid retrieve.
-const requiredFlags =  ['manifest', 'metadata', 'sourcepath', 'packagenames'];
+const requiredFlags = ['manifest', 'metadata', 'sourcepath', 'packagenames'];
 
 /**
  * Command for retrieving metadata from a non-source-tracked org and updating a local SFDX project.

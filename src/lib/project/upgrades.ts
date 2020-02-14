@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -40,9 +40,10 @@ import headsDownProject from './upgrades/heads-down-project';
 import orgDefConversion from './upgrades/org-def-conversion';
 import removeUseDecomposition from './upgrades/remove-use-decomposition';
 
-const actionsFns: Array<
-  (projectDir: string, prompt: (msg: string) => BBPromise<string>) => BBPromise<UpgradeAction>
-> = [headsDownProject, orgDefConversion, removeUseDecomposition];
+const actionsFns: Array<(
+  projectDir: string,
+  prompt: (msg: string) => BBPromise<string>
+) => BBPromise<UpgradeAction>> = [headsDownProject, orgDefConversion, removeUseDecomposition];
 
 /**
  * Special update action that fixes the break in what a "project" is. i.e. sfdx-workspace.json -> sfdx-project.json.
@@ -54,13 +55,15 @@ async function upgradeAndGetProjectPath(prompt: (msg: string) => BBPromise<strin
     projectPath = projectDirUtil.getPath();
   } catch (err) {
     if (err.name === 'InvalidProjectWorkspace' && err.oldAndBustedPath) {
-      const answer = (await prompt(
-        messages.getMessage(
-          'prompt_renameProjectFile',
-          [`${err.oldAndBustedPath}/${consts.OLD_WORKSPACE_CONFIG_FILENAME}`, consts.WORKSPACE_CONFIG_FILENAME],
-          'projectUpgrade'
+      const answer = (
+        await prompt(
+          messages.getMessage(
+            'prompt_renameProjectFile',
+            [`${err.oldAndBustedPath}/${consts.OLD_WORKSPACE_CONFIG_FILENAME}`, consts.WORKSPACE_CONFIG_FILENAME],
+            'projectUpgrade'
+          )
         )
-      )).toLowerCase();
+      ).toLowerCase();
 
       if (answer === 'yes' || answer === 'y') {
         const oldFile = path.join(err.oldAndBustedPath, consts.OLD_WORKSPACE_CONFIG_FILENAME);
@@ -124,9 +127,9 @@ async function upgrades(prompt: (msg: string) => BBPromise<string>, force: boole
   if (actions.length > 0) {
     logger.log();
 
-    let answer = (await prompt(
-      messages.getMessage('prompt_queuedActions', [actions.length], 'projectUpgrade')
-    )).toLowerCase();
+    let answer = (
+      await prompt(messages.getMessage('prompt_queuedActions', [actions.length], 'projectUpgrade'))
+    ).toLowerCase();
 
     if (answer === 'list') {
       logger.log(_.map(actions, action => `\t - ${action.description}`).join('\n'));

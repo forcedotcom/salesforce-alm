@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
@@ -13,7 +13,7 @@ import { MetadataDocument, MetadataDocumentAnnotation } from './metadataDocument
 import { SfdxError } from '@salesforce/core';
 import { checkForXmlParseError } from './sourceUtil';
 
-export type XmlLineError = { key: string, message: string };
+export type XmlLineError = { key: string; message: string };
 
 /**
  * Class used to hold an XML metadata document.
@@ -40,10 +40,9 @@ export class XmlMetadataDocument implements MetadataDocument {
   }
 
   setRepresentation(representation: string): void {
-
     const errHandlerResults: XmlLineError[] = [];
     const errHandler = (key: string, message: string) => {
-      errHandlerResults.push({key, message});
+      errHandlerResults.push({ key, message });
     };
 
     this.data = XmlMetadataDocument.parseRepresentation(representation, errHandler);
@@ -70,7 +69,7 @@ export class XmlMetadataDocument implements MetadataDocument {
     const rhs: XmlMetadataDocument = new XmlMetadataDocument(null);
     try {
       rhs.setRepresentation(representation);
-    } catch(e) {
+    } catch (e) {
       throw checkForXmlParseError(representation, e);
     }
     return this.isEquivalent(rhs);

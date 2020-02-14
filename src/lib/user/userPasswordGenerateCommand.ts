@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import _ = require('lodash');
 import os = require('os');
@@ -79,7 +79,10 @@ export class UserPasswordGenerateCommand extends Command {
     } else {
       uiLogger.log(getMessage('successMultiple', undefined, 'generatePassword'));
       const columnData = {
-        columns: [{ key: 'username', label: 'USERNAME' }, { key: 'password', label: 'PASSWORD' }]
+        columns: [
+          { key: 'username', label: 'USERNAME' },
+          { key: 'password', label: 'PASSWORD' }
+        ]
       };
       uiLogger.table(pwdData, columnData);
     }

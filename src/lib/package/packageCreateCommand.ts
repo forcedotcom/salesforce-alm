@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -157,10 +157,19 @@ class PackageCreateCommand {
    */
   getHumanSuccessMessage(result) {
     const data = [{ name: 'Package Id', value: result.Id }];
-    this.logger.log(messages.getMessage('humanSuccess', data.map(d => d.value), 'package_create'));
+    this.logger.log(
+      messages.getMessage(
+        'humanSuccess',
+        data.map(d => d.value),
+        'package_create'
+      )
+    );
     this.logger.styledHeader(this.logger.color.blue('Ids'));
     this.logger.table(data, {
-      columns: [{ key: 'name', label: 'Name' }, { key: 'value', label: 'Value' }]
+      columns: [
+        { key: 'name', label: 'Name' },
+        { key: 'value', label: 'Value' }
+      ]
     });
 
     return '';

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import _ = require('lodash');
 import messages = require('../messages');
@@ -10,6 +10,7 @@ import almError = require('../core/almError');
 import Command from '../core/command';
 import Alias = require('../core/alias');
 import logApi = require('../core/logApi');
+import { SfdxError } from '@salesforce/core';
 
 const USER_QUERY = 'SELECT username, profileid, id FROM User';
 const PROFILE_QUERY = 'SELECT id, name FROM Profile';
@@ -29,10 +30,25 @@ export class UserListCommand extends Command {
       throw almError({ keyName: 'noOrgProvided', bundle: 'user_list' });
     }
 
-    // verify that the org is a scratch org
-    return context.org.checkScratchOrg(context.flags.defaultdevhubusername).then(() => {
-      this.org = context.org;
-    });
+    const devHubUserName = context.flags.targetdevhubusername;
+
+    return context.org
+      .checkScratchOrg(devHubUserName)
+      .then(() => {
+        this.org = context.org;
+      })
+      .catch(err => {
+        const errorAction = messages().getMessage('action', [], 'generatePassword');
+
+        if (err.name === 'NoOrgFound') {
+          err['message'] = SfdxError.wrap(err).message = messages().getMessage(
+            'defaultOrgNotFound',
+            'defaultdevhubusername'
+          );
+          err['action'] = errorAction;
+        }
+        throw err;
+      });
   }
 
   async execute(context: any): Promise<any> {

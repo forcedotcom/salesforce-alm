@@ -1,7 +1,8 @@
 /*
- * Copyright, 1999-2016, salesforce.com
- * All Rights Reserved
- * Company Confidential
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -49,6 +50,7 @@ const SFDX_HTTP_HEADERS = {
 };
 
 const DEV_HUB_SOQL = "SELECT CreatedDate,Edition,ExpirationDate FROM ActiveScratchOrg WHERE ScratchOrg='%s'";
+let zipDirPath: string;
 
 const _getHomeDir = function() {
   return os.homedir();
@@ -658,6 +660,7 @@ const self = {
     const file = path.parse(dir);
     const outFile = zipfile || path.join(os.tmpdir() || '.', `${file.base}.zip`);
     const output = fs.createWriteStream(outFile);
+    this.setZipDirPath(outFile);
 
     const timer = process.hrtime();
     return new BBPromise((resolve, reject) => {
@@ -679,6 +682,14 @@ const self = {
       archive.directory(dir, '');
       archive.finalize();
     });
+  },
+
+  setZipDirPath(path: string) {
+    zipDirPath = path;
+  },
+
+  getZipDirPath() {
+    return zipDirPath;
   },
 
   getElapsedTime(timer) {
@@ -798,7 +809,7 @@ const self = {
       unsupportedMimeTypeError.stack = '';
       _.set(unsupportedMimeTypeError, 'errWhitelist', errName);
       try {
-        await _logger.logServerError(unsupportedMimeTypeError, force, {});
+        // TODO Use new telemetry exception throwing.
       } catch (err) {
         // Ignore; Don't fail source commands if logServerError fails
       }

@@ -1,13 +1,11 @@
 /*
- * Copyright (c) 2017, Salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as _ from 'lodash';
 import * as path from 'path';
-import srcDevUtil = require('../../core/srcDevUtil');
 
 import { BundleMetadataType } from './bundleMetadataType';
 import { TypeDefObj } from '../typeDefObj';
@@ -52,17 +50,10 @@ export class WaveTemplateBundleMetadataType extends BundleMetadataType {
     }
   }
 
+  // Override
   getRetrievedMetadataPath(fileProperty, retrieveRoot: string, bundleFileProperties): string {
-    // This gets called during convert and passes the bundleFileProperties that is needed to resolve the path
-    const bundle = bundleFileProperties[0];
-    if (bundle) {
-      const bundlePath = path.dirname(fileProperty.fileName);
-      const fileName = path.basename(bundle.fileName);
-      const retrievedMetadataPath = path.join(retrieveRoot, bundlePath, fileName);
-      if (srcDevUtil.pathExistsSync(retrievedMetadataPath)) {
-        return retrievedMetadataPath;
-      }
-    }
+    // This sets aggregateSourceElement.retrievedMetadataPath in sourceWorkspaceAdapter
+    // used for the convert command.  Return null as this is supposed to represent the meta-xml file.
     return null;
   }
 

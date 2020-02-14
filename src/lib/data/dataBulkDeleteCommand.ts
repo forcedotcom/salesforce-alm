@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 import * as Config from '../force-cli/force-cli-config';
 import * as almError from '../core/almError';
 import * as DataBulkUpsert from './dataBulkUpsertCommand';
@@ -30,10 +37,15 @@ export class DataBulkDeleteCommand {
 
       try {
         resolve(
-          await DataBulkUpsert.createAndExecuteBatches(conn, job, batches, context.flags.sobjecttype, context.flags.wait)
+          await DataBulkUpsert.createAndExecuteBatches(
+            conn,
+            job,
+            batches,
+            context.flags.sobjecttype,
+            context.flags.wait
+          )
         );
-      }
-      catch (e) {
+      } catch (e) {
         reject(e);
       }
     });

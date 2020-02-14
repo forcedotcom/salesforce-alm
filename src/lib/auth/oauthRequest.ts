@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -111,10 +111,11 @@ const OauthRequestGet = function(
     return Logger.child('OauthRequestGet').then((logger: Logger) => {
       if (oauthConfig.authCode && oauthConfig.authCode.length > 4) {
         // AuthCodes are generally long strings. For security purposes we will just log the last 4 of the auth code.
-        logger.debugCallback(() =>
-          `Successfully obtained auth code: ...${oauthConfig.authCode.substring(oauthConfig.authCode.length - 5)}`);
+        logger.debugCallback(
+          () => `Successfully obtained auth code: ...${oauthConfig.authCode.substring(oauthConfig.authCode.length - 5)}`
+        );
       } else {
-        logger.debug('Expected an auth code but couldn\'t find one.');
+        logger.debug("Expected an auth code but couldn't find one.");
       }
       logger.debugCallback(() => `oauthConfig.loginUrl: ${oauthConfig.loginUrl}`);
       logger.debugCallback(() => `oauthConfig.clientId: ${oauthConfig.clientId}`);
@@ -123,7 +124,7 @@ const OauthRequestGet = function(
         .authorizeAndSave(oauthConfig, orgApi, orgType)
         .then(() => {
           logger.debug(`Successfully traded the authcode for an access token.`);
-          return _getUrlAndRedirect(force, orgApi, response, callback)
+          return _getUrlAndRedirect(force, orgApi, response, callback);
         })
         .catch(callbackOrError => {
           logger.debugCallback(() => `Error encountered - name: ${callbackOrError.name}`);

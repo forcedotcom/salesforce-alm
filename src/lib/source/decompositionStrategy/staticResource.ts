@@ -1,7 +1,8 @@
 /*
- * Copyright, 1999-2016, salesforce.com
- * All Rights Reserved
- * Company Confidential
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as process from 'process';
@@ -18,6 +19,7 @@ import { XmlMetadataDocument } from '../xmlMetadataDocument';
 import { MetadataType } from '../metadataType';
 import * as PathUtil from '../sourcePathUtil';
 import { checkForXmlParseError } from '../sourceUtil';
+import { SfdxError } from '@salesforce/core';
 
 const fallBackMimeTypeExtensions = require('../mimeTypes');
 const mimeTypeExtensions = require('mime/types.json');
@@ -210,7 +212,7 @@ export class StaticResource {
       const doc = new XmlMetadataDocument('StaticResource');
       try {
         doc.setRepresentation(fs.readFileSync(metadataPath, 'utf8'));
-      } catch(e) {
+      } catch (e) {
         throw checkForXmlParseError(metadataPath, e);
       }
 
@@ -264,7 +266,12 @@ export class StaticResource {
     // expand the archive into a temp directory
     const tempDir = path.join(os.tmpdir(), `sfdx_staticresource_${this.fullName}_${Date.now()}`);
     srcDevUtil.ensureDirectoryExistsSync(tempDir);
-    new AdmZip(sourcePath).extractAllTo(tempDir);
+    try {
+      new AdmZip(sourcePath).extractAllTo(tempDir);
+    } catch (error) {
+      throw SfdxError.create('salesforce-alm', 'mdapi_convert', 'AdmZipError', [sourcePath, this.mimeType, error])
+        .message;
+    }
 
     // compare exploded directories if needed
     let isUpdatingExistingStaticResource = srcDevUtil.pathExistsSync(this.getExplodedFolderPath());
@@ -320,6 +327,10 @@ export class StaticResource {
     } else if (!srcDevUtil.areFilesEqual(sourcePath, destFile) && createDuplicates) {
       fs.copySync(sourcePath, `${this.getSingleFilePathPreferExisting()}.dup`);
       duplicatePaths.push(`${this.getSingleFilePathPreferExisting()}.dup`);
+    } else if (!srcDevUtil.areFilesEqual(sourcePath, destFile) && !createDuplicates) {
+      // replace existing file with remote
+      fs.copyFile(sourcePath, this.getSingleFilePathPreferExisting());
+      duplicatePaths.push(this.getSingleFilePathPreferExisting());
     }
 
     return [updatedPaths, duplicatePaths];

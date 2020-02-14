@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2017, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import * as path from 'path';
 
@@ -160,14 +160,12 @@ export function cleanEmptyDirs(filePath: string) {
   const paths: string[] = getNestedDirectoryPaths(filePath);
 
   // Sort all directory paths based on level count in descending order.
-  paths.sort(
-    (a: string, b: string): number => {
-      const aLevelCount = _.split(a, path.sep).length;
-      const bLevelCount = _.split(b, path.sep).length;
-      if (aLevelCount > bLevelCount) return -1;
-      return aLevelCount < bLevelCount ? 1 : 0;
-    }
-  );
+  paths.sort((a: string, b: string): number => {
+    const aLevelCount = _.split(a, path.sep).length;
+    const bLevelCount = _.split(b, path.sep).length;
+    if (aLevelCount > bLevelCount) return -1;
+    return aLevelCount < bLevelCount ? 1 : 0;
+  });
 
   // Iterate and deleted all the empty folders. If a parent becomes empty because it only contained empty folders it
   // will be deleted later because its level is one less.
@@ -209,9 +207,9 @@ export function canRead(path: string): boolean {
     try {
       fs.existsSync(path, fs.constants.R_OK);
       return true;
-    } catch(e) {
+    } catch (e) {
       return false;
     }
   }
-  return false
+  return false;
 }

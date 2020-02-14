@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -11,10 +11,10 @@
 
 import { flags, FlagsConfig } from '@salesforce/command';
 import { ToolbeltCommand } from '../../../ToolbeltCommand';
-import {Org, Messages} from "@salesforce/core";
-import {SandboxOrg} from "../../../lib/org/sandbox/sandboxOrg";
-import {SandboxOrgConfig} from '@salesforce/core/lib/config/sandboxOrgConfig';
-import {ensureString} from "@salesforce/ts-types";
+import { Org, Messages } from '@salesforce/core';
+import { SandboxOrg } from '../../../lib/org/sandbox/sandboxOrg';
+import { SandboxOrgConfig } from '@salesforce/core/lib/config/sandboxOrgConfig';
+import { ensureString } from '@salesforce/ts-types';
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('salesforce-alm', 'org_delete');
@@ -40,42 +40,45 @@ export class OrgDeleteCommand extends ToolbeltCommand {
     let deleteMsgKey;
     const prodOrgUsername = await this.org.getSandboxOrgConfigField(SandboxOrgConfig.Fields.PROD_ORG_USERNAME);
     if (prodOrgUsername) {
-      deleteMsgKey = messages.getMessage("sandbox");
+      deleteMsgKey = messages.getMessage('sandbox');
     } else {
-      deleteMsgKey = messages.getMessage("scratchOrg");
+      deleteMsgKey = messages.getMessage('scratchOrg');
     }
-      // don't prompt yes/no if we're forcing the delete request, just execute
-      if (this.flags.noprompt) {
-        return this.deleteOrg(prodOrgUsername);
-      } else {
-        return heroku
-            .prompt(messages.getMessage('confirmDeleteYesNo', [deleteMsgKey, this.org.getUsername()]), {})
-            .then(answer => {
-              if (answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y') {
-                return this.deleteOrg(prodOrgUsername);
-              }
-              return undefined;
-            });
-      }
+    // don't prompt yes/no if we're forcing the delete request, just execute
+    if (this.flags.noprompt) {
+      return this.deleteOrg(prodOrgUsername);
+    } else {
+      return heroku
+        .prompt(messages.getMessage('confirmDeleteYesNo', [deleteMsgKey, this.org.getUsername()]), {})
+        .then(answer => {
+          if (answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y') {
+            return this.deleteOrg(prodOrgUsername);
+          }
+          return undefined;
+        });
+    }
   }
 
- private async deleteOrg(prodOrgUsername) {
-   if (prodOrgUsername) {
-     return this.deleteSandbox(prodOrgUsername);
-   } else {
-     return this.deleteScratchOrg();
-   }
- }
+  private async deleteOrg(prodOrgUsername) {
+    if (prodOrgUsername) {
+      return this.deleteSandbox(prodOrgUsername);
+    } else {
+      return this.deleteScratchOrg();
+    }
+  }
 
   private async deleteSandbox(prodOrgUsername) {
     let successMessageKey = 'commandSandboxSuccess';
     this.logger.debug('Delete started for sandbox org %s ', this.org.getUsername());
-    let prodOrg = await Org.create({aliasOrUsername: ensureString(prodOrgUsername), aggregator: this.configAggregator});
+    let prodOrg = await Org.create({
+      aliasOrUsername: ensureString(prodOrgUsername),
+      aggregator: this.configAggregator
+    });
     const prodSandboxOrg = await SandboxOrg.getInstance(prodOrg, this.flags.wait, this.logger, this.flags.clientid);
     try {
       await prodSandboxOrg.deleteSandbox(this.org.getOrgId());
       this.logger.debug('Sandbox org %s successfully marked for deletion', this.org.getUsername());
-    } catch(err) {
+    } catch (err) {
       if (err.name === 'sandboxProcessNotFoundByOrgId') {
         successMessageKey = 'commandSandboxConfigOnlySuccess';
       } else {
@@ -92,7 +95,5 @@ export class OrgDeleteCommand extends ToolbeltCommand {
     const ActiveScratchOrgDeleteCommand = require('../../../lib/org/activeScratchOrgDeleteCommand');
     const activeScratchOrgDeleteCommand = new ActiveScratchOrgDeleteCommand();
     return await this.execLegacyCommand(activeScratchOrgDeleteCommand, context);
-
   }
-
 }

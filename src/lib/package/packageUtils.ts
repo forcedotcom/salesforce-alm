@@ -1,7 +1,8 @@
 /*
- * Copyright, 1999-2016, salesforce.com
- * All Rights Reserved
- * Company Confidential
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -37,6 +38,9 @@ const NEXT_BUILD_NUMBER_TOKEN = 'NEXT';
 const VERSION_NUMBER_SEP = '.';
 
 const INSTALL_URL_BASE = 'https://login.salesforce.com/packaging/installPackage.apexp?p0=';
+
+// https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
+const SOQL_WHERE_CLAUSE_MAX_LENGTH = 4000;
 
 const DEFAULT_PACKAGE_DIR = {
   path: '',
@@ -140,8 +144,7 @@ export = {
     try {
       new urlLib.URL(url);
       return true;
-    }
-    catch (err) {
+    } catch (err) {
       return false;
     }
   },
@@ -301,6 +304,134 @@ export = {
   },
 
   /**
+   * Get the ContainerOptions for the specified Package2 (0Ho) IDs.
+   * @return Map of 0Ho id to container option api value
+   * @param poackage2Ids The list of package IDs
+   * @param force For tooling query
+   * @param org For tooling query
+   */
+  async getContainerOptions(package2Ids, force, org) {
+    let results = new Map();
+    if (!package2Ids || package2Ids.length === 0) {
+      return results;
+    }
+    const query = 'SELECT Id, ContainerOptions FROM Package2 WHERE Id IN (%IDS%)';
+
+    return this.queryWithInConditionChunking(query, package2Ids, '%IDS%', force, org).then(records => {
+      if (records && records.length > 0) {
+        records.forEach(record => {
+          results.set(record.Id, record.ContainerOptions);
+        });
+      }
+      return results;
+    });
+  },
+
+  /**
+   * Given a list of subscriber package version IDs (04t), return the associated version strings (e.g., Major.Minor.Patch.Build)
+   * @return Map of subscriberPackageVersionId to versionString
+   * @param versionIds The list of suscriber package version IDs
+   * @param force For tooling query
+   * @param org For tooling query
+   */
+  async getPackageVersionStrings(subscriberPackageVersionIds, force, org) {
+    let results = new Map();
+    if (!subscriberPackageVersionIds || subscriberPackageVersionIds.length === 0) {
+      return results;
+    }
+    const query =
+      'SELECT SubscriberPackageVersionId, MajorVersion, MinorVersion, PatchVersion, BuildNumber FROM Package2Version WHERE SubscriberPackageVersionId IN (%IDS%)';
+
+    return this.queryWithInConditionChunking(query, subscriberPackageVersionIds, '%IDS%', force, org).then(records => {
+      if (records && records.length > 0) {
+        records.forEach(record => {
+          const version = this.concatVersion(
+            record.MajorVersion,
+            record.MinorVersion,
+            record.PatchVersion,
+            record.BuildNumber
+          );
+          results.set(record.SubscriberPackageVersionId, version);
+        });
+      }
+      return results;
+    });
+  },
+
+  /**
+   * For queries with an IN condition, determine if the WHERE clause will exceed
+   * SOQL's 4000 character limit.  Perform multiple queries as needed to stay below the limit.
+   *
+   * @return concatenated array of records returned from the resulting query(ies)
+   * @param query The full query to execute containing the replaceToken param in its IN clause
+   * @param items The IN clause items.  A length-appropriate single-quoted comma-separated string chunk will be made from the items.
+   * @param replaceToken A placeholder in the query's IN condition that will be replaced with the chunked items
+   * @param force For tooling query
+   * @param org For tooling query
+   */
+  async queryWithInConditionChunking(query, items, replaceToken, force, org) {
+    const SOQL_WHERE_CLAUSE_MAX_LENGTH = this.getSoqlWhereClauseMaxLength();
+    let records = [];
+    if (!query || !items || !replaceToken) {
+      return records;
+    }
+
+    const whereClause = query.substring(query.toLowerCase().indexOf('where'), query.length);
+    const inClauseItemsMaxLength = SOQL_WHERE_CLAUSE_MAX_LENGTH - whereClause.length - replaceToken.length;
+
+    let itemsQueried = 0;
+    while (itemsQueried < items.length) {
+      let chunkCount = this.getInClauseItemsCount(items, itemsQueried, inClauseItemsMaxLength);
+      const itemsStr = "'" + items.slice(itemsQueried, itemsQueried + chunkCount).join("','") + "'";
+      let queryChunk = query.replace(replaceToken, itemsStr);
+      const result = await this.toolingQuery(queryChunk, force, org);
+      if (result && result.length > 0) {
+        records = records.concat(result);
+      }
+      itemsQueried += chunkCount;
+    }
+    return records;
+  },
+
+  /**
+   *   Returns the number of items that can be included in a quoted comma-separated string (e.g., "'item1','item2'") not exceeding maxLength
+   */
+  getInClauseItemsCount(items, startIndex, maxLength) {
+    let resultLength = 0;
+    let includedCount = 0;
+
+    while (startIndex + includedCount < items.length) {
+      let itemLength = 0;
+      if (items[startIndex + includedCount]) {
+        itemLength = items[startIndex + includedCount].length + 3; //3 = length of '',
+        if (resultLength + itemLength > maxLength) {
+          // the limit has been exceeded, return the current count
+          return includedCount;
+        }
+      }
+      includedCount++;
+      resultLength += itemLength;
+    }
+    return includedCount;
+  },
+
+  /**
+   *   Execute a tooling query
+   */
+  async toolingQuery(query, force, org) {
+    return force.toolingQuery(org, query).then(queryResult => {
+      return queryResult.records;
+    });
+  },
+
+  /**
+   * Return a version string in Major.Minor.Patch.Build format, using 0 for any emtpy part
+   */
+  concatVersion(major, minor, patch, build) {
+    return [major ? major : '0', minor ? minor : '0', patch ? patch : '0', build ? build : '0'].join('.');
+  },
+
+  /**
    * Given a package descriptor, return the ancestor ID.
    * @param packageDescriptorJson JSON for packageDirectories element in sfdx-project.json
    * @param force For tooling query
@@ -322,21 +453,26 @@ export = {
       } else {
         var regNumbers = new RegExp('^[0-9]+$');
         const versionNumber = packageDescriptorJson.ancestorVersion.split(VERSION_NUMBER_SEP);
-        if (versionNumber.length < 3 || versionNumber.length > 4 ||
-            !versionNumber[0].match(regNumbers) || !versionNumber[1].match(regNumbers) || !versionNumber[2].match(regNumbers)) {
+        if (
+          versionNumber.length < 3 ||
+          versionNumber.length > 4 ||
+          !versionNumber[0].match(regNumbers) ||
+          !versionNumber[1].match(regNumbers) ||
+          !versionNumber[2].match(regNumbers)
+        ) {
           throw new Error(
             messages.getMessage('errorInvalidAncestorVersionFormat', packageDescriptorJson.ancestorVersion, 'packaging')
           );
         }
 
         // If an id property is present, use it.  Otherwise, look up the id from the package property.
-        const packageId = (packageDescriptorJson.id) ? packageDescriptorJson.id : this.getPackageIdFromAlias(packageDescriptorJson.package, force);
+        const packageId = packageDescriptorJson.id
+          ? packageDescriptorJson.id
+          : this.getPackageIdFromAlias(packageDescriptorJson.package, force);
 
         const query =
-          'SELECT Id FROM Package2Version ' +
-          `WHERE Package2Id = '${packageId}' AND IsReleased = true AND MajorVersion = ${
-            versionNumber[0]
-            } AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]}`;
+          'SELECT Id, IsReleased FROM Package2Version ' +
+          `WHERE Package2Id = '${packageId}' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]}`;
 
         return force.toolingQuery(org, query).then(queryResult => {
           if (!queryResult || !queryResult.totalSize) {
@@ -346,6 +482,10 @@ export = {
                 [packageDescriptorJson.ancestorVersion, packageId],
                 'packaging'
               )
+            );
+          } else if (!queryResult.records[0].IsReleased) {
+            throw new Error(
+              messages.getMessage('errorAncestorNotReleased', [packageDescriptorJson.ancestorVersion], 'packaging')
             );
           }
 
@@ -401,14 +541,13 @@ export = {
     return packageAliases[packageAlias] || packageAlias;
   },
 
-
   /**
    * @param stringIn pascal or camel case string
    * @returns space delimited and lower-cased (except for 1st char) string (e.g. in "AbcdEfghIj" => "Abcd efgh ij")
    */
   convertCamelCaseStringToSentence(stringIn) {
     function upperToSpaceLower(match, offset, string) {
-      return (offset > 0 ? ' ' + match.toLowerCase() : '' + match);
+      return offset > 0 ? ' ' + match.toLowerCase() : '' + match;
     }
     return stringIn.replace(/[A-Z]/g, upperToSpaceLower);
   },
@@ -463,9 +602,15 @@ export = {
     }
   },
 
+  // added for unit testing
+  getSoqlWhereClauseMaxLength() {
+    return this.SQL_WHERE_CLAUSE_MAX_LENGTH;
+  },
+
   LATEST_BUILD_NUMBER_TOKEN,
   NEXT_BUILD_NUMBER_TOKEN,
   VERSION_NUMBER_SEP,
   INSTALL_URL_BASE,
-  DEFAULT_PACKAGE_DIR
+  DEFAULT_PACKAGE_DIR,
+  SOQL_WHERE_CLAUSE_MAX_LENGTH
 };

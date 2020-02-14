@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /**
@@ -23,6 +23,7 @@ import * as fs from 'fs';
 import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
 import * as moment from 'moment';
+import * as util from 'util';
 
 const mkdirp = BBPromise.promisify(require('mkdirp'));
 
@@ -764,7 +765,12 @@ export class ApexTestApi {
       let progress = BBPromise.resolve();
 
       if (this.waitForResults && this.reporter.progressRequired) {
-        progress = progress.then(() => this.reporter.emit('progress', statuses.records.map(rec => rec.Id)));
+        progress = progress.then(() =>
+          this.reporter.emit(
+            'progress',
+            statuses.records.map(rec => rec.Id)
+          )
+        );
       }
 
       // If this is called each time we get a stream, the overall test run
@@ -862,6 +868,54 @@ export class ApexTestApi {
         return resp.records[0];
       }
     });
+  }
+
+  async queryApexCodeCoverage(testClasses = [], queryCharacterLimit = 20000) {
+    const orgWideCoverageQuery = 'SELECT PercentCovered FROM ApexOrgWideCoverage';
+    const apexCodeCoverageQuery =
+      'SELECT ApexTestClass.Id, ApexTestClass.Name, Coverage, TestMethodName, NumLinesCovered, ' +
+      'ApexClassOrTrigger.Id, ApexClassOrTrigger.Name, NumLinesUncovered FROM ApexCodeCoverage';
+
+    const queries = [];
+    // IMPROVED_CODE_COVERAGE is an env var to gate the changes to return more relevant code coverage
+    // results for a test run. It is only expected to be around until the 226 release timeframe when
+    // the behavior will become the default.
+    if (process.env.SFDX_IMPROVED_CODE_COVERAGE === 'true' && testClasses.length > 0) {
+      let whereClause = 'WHERE';
+      const conditionTemplate = "(ApexTestClass.Name='%s' AND ApexTestClass.NamespacePrefix='%s')";
+      const addToClause = condition => `${whereClause === 'WHERE' ? '' : ' OR'} ${condition}`;
+      const conditions = testClasses.map(testClass =>
+        util.format(conditionTemplate, testClass.Name, testClass.NamespacePrefix || '')
+      );
+      for (let i = 0; i < conditions.length; i++) {
+        const newQuery = `${apexCodeCoverageQuery} ${whereClause} ${addToClause(conditions[i])}`;
+        if (newQuery.length > queryCharacterLimit) {
+          queries.push(`${apexCodeCoverageQuery} ${whereClause}`);
+          whereClause = 'WHERE';
+        }
+        whereClause += addToClause(conditions[i]);
+        if (i === conditions.length - 1) {
+          queries.push(`${apexCodeCoverageQuery} ${whereClause}`);
+          break;
+        }
+      }
+    } else {
+      queries.push(apexCodeCoverageQuery);
+    }
+
+    const accResults = { orgWideCoverage: NaN, records: [] };
+    const owcResults = await this.force.toolingQuery(this.org, orgWideCoverageQuery);
+    accResults.orgWideCoverage = owcResults.records[0].PercentCovered;
+
+    const batchRange = 5; // max concurrent queries in DE/trial orgs
+    for (let i = 0; i < Math.ceil(queries.length / 5); i++) {
+      const requests = queries
+        .slice(i * batchRange, i * batchRange + batchRange)
+        .map(q => this.force.toolingQuery(this.org, q));
+      const queryResults = await Promise.all(requests);
+      queryResults.forEach(result => accResults.records.push(...result.records));
+    }
+    return accResults;
   }
 
   /**
@@ -991,8 +1045,19 @@ export class ApexTestApi {
    * and testMethod2 coverage records.
    */
   retrieveApexCodeCoverage() {
-    return this.force
-      .getApexCodeCoverage(this.org)
+    return this.org
+      .retrieveMaxApiVersion()
+      .then(({ version }) => {
+        // SOQL query character limit is 100,000 characters as of Spring '20
+        const queryCharacterLimit = Number.parseInt(version) > 47 ? 100000 : 20000;
+        const testClasses = _.uniqWith(
+          this.testResults.tests.map(t => t.ApexClass),
+          (c1: any, c2: any) => {
+            return c1.Name === c2.Name && c1.NamespacePrefix === c2.NamespacePrefix;
+          }
+        );
+        return this.queryApexCodeCoverage(testClasses, queryCharacterLimit);
+      })
       .then(coverageResponse => {
         const records = _.isArray(coverageResponse.records) ? coverageResponse.records : [];
         const coverageMap = {};

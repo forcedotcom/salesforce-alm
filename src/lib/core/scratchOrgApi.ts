@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -45,7 +45,6 @@ import Messages = require('../messages');
 const messages = Messages();
 const urls = require('../urls');
 const fs = BBPromise.promisifyAll(require('fs'));
-
 
 const _buildNoOrgError = org => {
   let message = messages.getMessage('defaultOrgNotFound', org.type);
@@ -961,9 +960,7 @@ class Org {
                       })
                       .catch(err => {
                         org.logger.trace(
-                          `error retrieving ScratchOrgInfo object for org: ${
-                            configData.username
-                          }. this is expected for non-devhubs`
+                          `error retrieving ScratchOrgInfo object for org: ${configData.username}. this is expected for non-devhubs`
                         );
                         org.logger.trace(err);
                         return err;

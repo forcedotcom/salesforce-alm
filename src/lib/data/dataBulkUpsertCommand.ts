@@ -1,5 +1,12 @@
 /// <reference path="../../../node_modules/@types/csv-parse/csv-parse.d.ts" />
 
+/*
+ * Copyright (c) 2018, salesforce.com, inc.
+ * All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 import * as Display from '../force-cli/force-cli-display';
 import * as Config from '../force-cli/force-cli-config';
 import * as Messages from '../force-cli/force-cli-messages';
@@ -22,7 +29,7 @@ const POLL_FREQUENCY_MS = 5000;
 
 export class DataBulkUpsertCommand {
   async execute(context): Promise<any> {
-    let csvStream : fs.ReadStream;
+    let csvStream: fs.ReadStream;
     let conn: Connection = await Config.getActiveConnection(context);
 
     try {
@@ -57,8 +64,7 @@ export class DataBulkUpsertCommand {
 
       try {
         resolve(await createAndExecuteBatches(conn, job, batches, context.flags.sobjectType, context.flags.wait));
-      }
-      catch (e) {
+      } catch (e) {
         return reject(e);
       }
     });
@@ -125,7 +131,7 @@ export let splitIntoBatches = async function(readStream: fs.ReadStream): Promise
         batchIndex++;
         batches[batchIndex] = [];
       }
-    })
+    });
     parser.on('error', err => {
       reject(err);
       readStream.destroy();
@@ -163,7 +169,7 @@ export let createAndExecuteBatches = async function(
   return await Promise.all(
     batches.map(async function(batch: Object[], i: number): Promise<any> {
       const newBatch = job.createBatch();
-      return new Promise((resolve,reject) => {
+      return new Promise((resolve, reject) => {
         newBatch.on('error', function(err: Error): void {
           // reword no external id error message to direct it to org user rather than api user
           if (err.message.startsWith('External ID was blank')) {
@@ -196,10 +202,9 @@ export let createAndExecuteBatches = async function(
             let result: BatchInfo = await newBatch.check();
             if (result.state === 'Failed') {
               reject(result.stateMessage);
-            }
-            else {
+            } else {
               resolve(batchInfo);
-            }    
+            }
           });
         } else {
           resolve(waitForCompletion(conn, newBatch, batchesCompleted, overallInfo, i + 1, batches.length, wait));
@@ -238,8 +243,7 @@ export let waitForCompletion = async function(
       let result: BatchInfo = await newBatch.check();
       if (result.state === 'Failed') {
         reject(result.stateMessage);
-      }
-      else {
+      } else {
         if (!overallInfo) {
           Display.info(Messages.get('DataBulkUpsertPollingInfo', POLL_FREQUENCY_MS / 1000, batchInfo.jobId));
           overallInfo = true;

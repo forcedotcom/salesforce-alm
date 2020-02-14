@@ -1,17 +1,12 @@
 /*
- * Copyright (c) 2016, salesforce.com, inc.
+ * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
-import {
-  DeployOptions,
-  MetadataTransportInfo,
-  mdapiDeployRecentValidation
-} from './mdApiUtil';
-import { isBoolean } from '@salesforce/ts-types';
+import { DeployOptions, mdapiDeployRecentValidation, MetadataTransportInfo } from './mdApiUtil';
 
 import * as fs from 'fs';
 import * as archiver from 'archiver';
@@ -27,21 +22,20 @@ import DeployReport = require('./mdapiDeployReportApi');
 import consts = require('../core/constants');
 import StashApi = require('../core/stash');
 import { set } from '@salesforce/kit';
+import Stash = require('../core/stash');
 
 const DEPLOY_ERROR_EXIT_CODE = 1;
 
 // convert params (lowercase) to expected deploy options (camelcase)
 const convertParamsToDeployOptions = function({
-  rollbackonerror,
   testlevel,
   runtests,
   autoUpdatePackage,
   checkonly,
-  ignorewarnings
+  ignorewarnings,
+  singlepackage
 }) {
   const deployOptions: DeployOptions = {};
-
-  deployOptions.rollbackOnError = rollbackonerror;
 
   if (testlevel) {
     deployOptions.testLevel = testlevel;
@@ -64,6 +58,10 @@ const convertParamsToDeployOptions = function({
     deployOptions.checkOnly = checkonly;
   }
 
+  if (singlepackage) {
+    deployOptions.singlePackage = true;
+  }
+
   return deployOptions;
 };
 
@@ -74,14 +72,14 @@ const convertParamsToDeployOptions = function({
  * @constructor
  */
 class MdDeployApi {
-  private scratchOrg;
-  private force;
-  private logger;
-  private timer;
-  private _fsStatAsync;
-  private _reporter;
-  private loggingEnabled;
-  private stashTarget;
+  private readonly scratchOrg: object;
+  private force: any;
+  private logger: any;
+  private timer: any;
+  private _fsStatAsync: any;
+  private _reporter: any;
+  private loggingEnabled: boolean;
+  private readonly stashTarget: string;
 
   constructor(org, pollIntervalStrategy?, stashTarget: string = StashApi.Commands.MDAPI_DEPLOY) {
     this.scratchOrg = org;
@@ -89,8 +87,14 @@ class MdDeployApi {
     this.logger = logger.child('md-deploy');
     this.timer = process.hrtime();
     this._fsStatAsync = BBPromise.promisify(fs.stat);
-    this._reporter = new DeployReport(org, pollIntervalStrategy);
-    this.stashTarget = stashTarget
+    // if source:deploy or source:push is the command, create a source report
+    if (stashTarget === Stash.Commands.SOURCE_DEPLOY) {
+      this._reporter = new DeployReport(org, pollIntervalStrategy, Stash.Commands.SOURCE_DEPLOY);
+    } else {
+      // create the default mdapi report
+      this._reporter = new DeployReport(org, pollIntervalStrategy);
+    }
+    this.stashTarget = stashTarget;
   }
 
   _getElapsedTime() {
@@ -107,7 +111,7 @@ class MdDeployApi {
     return new BBPromise((resolve, reject) => {
       const archive = archiver('zip', { zlib: { level: 9 } });
       archive.on('end', () => {
-        this._log(`${archive.pointer()} bytes written to ${outFile} using ${this._getElapsedTime()}ms`);
+        this.logger.debug(`${archive.pointer()} bytes written to ${outFile} using ${this._getElapsedTime()}ms`);
         resolve(outFile);
       });
       archive.on('error', err => {
@@ -140,11 +144,10 @@ class MdDeployApi {
 
   async _sendMetadata(zipPath, options) {
     zipPath = path.resolve(zipPath);
-    this._log(`Deploying ${zipPath}...`);
 
     const zipStream = this._createReadStream(zipPath);
 
-    if(await MetadataTransportInfo.isRestDeploy()) {
+    if (await MetadataTransportInfo.isRestDeploy()) {
       this._log('*** Deploying with REST ***');
       return this.force.mdapiRestDeploy(this.scratchOrg, zipStream, convertParamsToDeployOptions(options));
     } else {
@@ -158,17 +161,9 @@ class MdDeployApi {
 
   deploy(options) {
     // Logging is enabled if the output is not json and logging is not disabled
-    this.loggingEnabled = options.verbose || (!options.json && !options.disableLogging);
+    //set .logginEnabled = true? for source
+    this.loggingEnabled = options.source || options.verbose || (!options.json && !options.disableLogging);
     options.wait = +(options.wait || consts.DEFAULT_MDAPI_WAIT_MINUTES);
-
-    // ignoreerrors is a boolean flag and is preferred over the deprecated rollbackonerror flag
-    if (options.ignoreerrors !== undefined) {
-      options.rollbackonerror = !options.ignoreerrors;
-    } else if (options.rollbackonerror !== undefined) {
-      options.rollbackonerror = options.rollbackonerror
-    } else {
-      options.rollbackonerror = true;
-    }
 
     if (options.validateddeployrequestid) {
       return this._doDeployRecentValidation(options);
@@ -181,7 +176,6 @@ class MdDeployApi {
     const options = context.flags;
     const deploydir = options.deploydir;
     const zipfile = options.zipfile;
-    const jobid = options.jobid;
     const validateddeployrequestid = options.validateddeployrequestid;
     const validationPromises = [];
 
@@ -191,18 +185,8 @@ class MdDeployApi {
       return BBPromise.reject(almError('mdapiCliInvalidWaitError'));
     }
 
-    if (options.rollbackonerror && !isBoolean(options.rollbackonerror)) {
-      if (options.rollbackonerror.toLowerCase() === 'true') {
-        options.rollbackonerror = true;
-      } else if (options.rollbackonerror.toLowerCase() === 'false') {
-        options.rollbackonerror = false;
-      } else {
-        return BBPromise.reject(almError('mdDeployCommandCliInvalidRollbackError', options.rollbackonerror));
-      }
-    }
-
-    if (!(deploydir || zipfile || validateddeployrequestid || jobid)) {
-      return BBPromise.reject(almError('MissingRequiredParameter', 'deploydir|zipfile|jobid|validateddeployrequestid'));
+    if (!(deploydir || zipfile || validateddeployrequestid)) {
+      return BBPromise.reject(almError('MissingRequiredParameter', 'deploydir|zipfile|validateddeployrequestid'));
     }
 
     if (validateddeployrequestid && !(validateddeployrequestid.length == 18 || validateddeployrequestid.length == 15)) {

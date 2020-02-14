@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2018, salesforce.com, inc.
  * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * SPDX-License-Identifier: BSD-3-Clause
+ * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as os from 'os';
@@ -25,7 +25,7 @@ import { SourceDeployApiBase } from './sourceDeployApiBase';
 Messages.importMessagesDirectory(__dirname);
 
 // One of these flags must be specified for a valid deploy.
-const requiredFlags =  ['manifest', 'metadata', 'sourcepath', 'validateddeployrequestid'];
+const requiredFlags = ['manifest', 'metadata', 'sourcepath', 'validateddeployrequestid'];
 
 export class SourceApiCommand {
   static readonly SOURCE_DEPLOY: string = 'deploy';
@@ -65,8 +65,9 @@ export class SourceApiCommand {
     const projectPath = this.orgApi.config.getProjectPath();
     let deployResult: DeployResult;
     return MetadataRegistry.initializeMetadataTypeInfos(this.orgApi)
-      .then(() => this.isDeploy() ?
-        SourceDeployApi.create({ org: this.orgApi}) : MdapiPushApi.create({ org: this.orgApi }))
+      .then(() =>
+        this.isDeploy() ? SourceDeployApi.create({ org: this.orgApi }) : MdapiPushApi.create({ org: this.orgApi })
+      )
       .then((deployApi: SourceDeployApiBase) => {
         context.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
         context.delete = this.isSourceDelete; // SourceDeployApi is for source:deploy and MdapiPushApi is for source:push
@@ -132,7 +133,9 @@ export class SourceApiCommand {
         // checkonly and validateddeployrequestid flags display mdapi:deploy output
         if (!(this.userCanceled || this.checkonly || this.isQuickDeploy || this.isAsync)) {
           // User elected to continue the deleted so we can display the proper tabular output.
-          const tableHeaderKey = this.isSourceDelete ? 'deleteCommandHumanSuccess' : `${this.deploytype}CommandHumanSuccess`
+          const tableHeaderKey = this.isSourceDelete
+            ? 'deleteCommandHumanSuccess'
+            : `${this.deploytype}CommandHumanSuccess`;
           let tableHeader = this.commonMsgs.getMessage(tableHeaderKey);
           this.logger.styledHeader(this.logger.color.blue(tableHeader));
           SourceApiCommand.prototype['getColumnData'] = this._getColumnData;
@@ -159,7 +162,7 @@ export class SourceApiCommand {
   }
   private getHumanSuccessMessageDelegate(obj: any) {
     if (obj.status && obj.id) {
-      this.logger.styledHeader(this.logger.color.yellow('Status'));// Change the color based on state?
+      this.logger.styledHeader(this.logger.color.yellow('Status')); // Change the color based on state?
       this.logger.log(`Status: ${obj.status}`);
       this.logger.log(`Id: ${obj.id}${os.EOL}`);
       this.logger.log(`Run sfdx force:source:deploy:cancel -i ${obj.id} to cancel the deploy.`);
@@ -180,7 +183,7 @@ export class SourceApiCommand {
     this.deploytype = context.deploytype;
     this.checkonly = context.flags.checkonly;
     this.isQuickDeploy = context.flags.validateddeployrequestid;
-    this.isAsync = this.isDeploy() && (context.flags.wait === `${consts.MIN_SRC_DEPLOY_WAIT_MINUTES}`);
+    this.isAsync = this.isDeploy() && context.flags.wait === `${consts.MIN_SRC_DEPLOY_WAIT_MINUTES}`;
 
     const fixedContext = srcDevUtil.fixCliContext(context);
 
@@ -268,10 +271,17 @@ export class SourceApiCommand {
     } else {
       return [
         {
+          key: 'problemType',
+          label: this.commonMsgs.getMessage('typeTableColumn')
+        },
+        {
           key: 'filePath',
           label: this.commonMsgs.getMessage('workspacePathTableColumn')
         },
-        { key: 'error', label: this.commonMsgs.getMessage('errorColumn') }
+        {
+          key: 'error',
+          label: this.commonMsgs.getMessage('errorColumn')
+        }
       ];
     }
   }
