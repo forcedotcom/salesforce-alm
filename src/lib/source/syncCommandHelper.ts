@@ -11,8 +11,26 @@ import * as _ from 'lodash';
 
 import * as sourceState from './sourceState';
 import { AggregateSourceElement } from './aggregateSourceElement';
+import { AggregateSourceElements } from './aggregateSourceElements';
 import { MetadataTypeFactory } from './metadataTypeFactory';
 import { replaceForwardSlashes } from './sourcePathUtil';
+import MetadataRegistry = require('./metadataRegistry');
+import { Logger } from '@salesforce/core';
+
+interface ComponentFailure {
+  changed: boolean;
+  componentType: string;
+  created: boolean;
+  createdDate: Date;
+  deleted: boolean;
+  fileName: string;
+  fullName: string;
+  problem: string;
+  problemType: string;
+  success: boolean;
+  columnNumber?: number;
+  lineNumber?: number;
+}
 
 const _createRowsForConflictStatus = function(
   rows,
@@ -46,7 +64,11 @@ const _getFullNameFromDeleteFailure = function(failure) {
   return matches !== null ? matches[1] : null;
 };
 
-const _getSourceElement = function(componentFailure, aggregateSourceElements, metadataRegistry) {
+const _getSourceElement = function(
+  componentFailure: ComponentFailure,
+  aggregateSourceElements: AggregateSourceElements,
+  metadataRegistry: MetadataRegistry
+) {
   const failureMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
     componentFailure.componentType,
     metadataRegistry
@@ -63,12 +85,17 @@ const _getSourceElement = function(componentFailure, aggregateSourceElements, me
       failureMetadataType.getAggregateMetadataName(),
       fullName
     );
-    return aggregateSourceElements.get(sourceElementKey);
+    return aggregateSourceElements.findSourceElementByKey(sourceElementKey);
   }
   return null;
 };
 
-const _parseComponentFailure = function(componentFailure, sourceElements, metadataRegistry, logger) {
+const _parseComponentFailure = function(
+  componentFailure: ComponentFailure,
+  sourceElements: AggregateSourceElements,
+  metadataRegistry: MetadataRegistry,
+  logger: Logger
+) {
   let aggregateSourceElement;
   let filePath;
   let fullName;
@@ -130,7 +157,12 @@ const _parseComponentFailure = function(componentFailure, sourceElements, metada
 };
 
 const self = {
-  getDeployFailures(resp, aggregateSourceElements, metadataRegistry, logger?) {
+  getDeployFailures(
+    resp,
+    aggregateSourceElements: AggregateSourceElements,
+    metadataRegistry: MetadataRegistry,
+    logger?: Logger
+  ) {
     const deployFailures = [];
 
     // look into component details assemble deployment failure message

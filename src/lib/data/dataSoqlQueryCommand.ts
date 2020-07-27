@@ -301,10 +301,12 @@ export class DataSoqlQueryCommand {
   }
 
   async execute(context): Promise<any> {
+    context.ux.startSpinner('Querying Data');
     const logger = context.logger;
     const resultFormat = context.flags.resultformat || 'human';
 
     if (!FormatTypes[resultFormat]) {
+      context.ux.stopSpinner();
       throw Error(Messages.get('DataSOQLQueryInvalidReporter', Object.keys(FormatTypes)));
     }
 
@@ -320,9 +322,11 @@ export class DataSoqlQueryCommand {
         err: Errorable,
         result: QueryResult<object>
       ) {
+        context.ux.stopSpinner();
         return await handleResults(conn, err, result, reporter);
       });
     } else {
+      context.ux.stopSpinner();
       throw Error(context.command);
     }
   }

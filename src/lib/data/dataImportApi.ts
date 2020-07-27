@@ -64,7 +64,8 @@ class DataImportApi {
    * @param flags - The flags on the context passed to the command.
    * @returns BBPromise.<Object>
    */
-  validate(options: Dictionary<any> = {}) {
+  validate(context: Dictionary<any> = {}) {
+    const options = context.flags;
     const { sobjecttreefiles, plan } = options;
 
     // --sobjecttreefiles option is required when --plan option is unset
@@ -89,7 +90,7 @@ class DataImportApi {
       options.importPlanConfig = JSON.parse(fs.readFileSync(options.plan, 'utf8'));
       return this.validator
         .validate(options.importPlanConfig)
-        .then(() => options)
+        .then(() => context)
         .catch(err => {
           if (err.name === 'ValidationSchemaFieldErrors') {
             throw almError({ bundle: 'data', keyName: 'dataImportCommandValidationFailure' }, [
@@ -100,7 +101,7 @@ class DataImportApi {
           throw err;
         });
     }
-    return BBPromise.resolve(options);
+    return BBPromise.resolve(context);
   }
 
   /**
@@ -112,7 +113,8 @@ class DataImportApi {
    *
    * @param options
    */
-  execute(options: Dictionary<any> = {}) {
+  execute(context: Dictionary<any> = {}) {
+    const options = context.flags;
     const refMap = new Map();
 
     // convert string of filepaths to array of filepaths.  Supporting both space and comma
@@ -396,7 +398,7 @@ class DataImportApi {
 
         // loop thru found references and replace with id value
         for (const ref of foundRefs) {
-          const value = refMap.get(ref.toLowerCase());
+          const value = refMap.get((ref as string).toLowerCase());
           if (_.isNil(value)) {
             // REVIEWME: fail?
             this.logger.warn(`Reference '${ref}' not found in saved record references (${filepath})`);

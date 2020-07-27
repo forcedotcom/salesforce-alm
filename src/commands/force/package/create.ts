@@ -54,6 +54,11 @@ export class PackageCreateCommand extends ToolbeltCommand {
       description: messages.getMessage('path', [], 'package_version_create'),
       longDescription: messages.getMessage('longPath', [], 'package_version_create'),
       required: true
+    }),
+    orgdependent: flags.boolean({
+      description: messages.getMessage('orgDependent', [], 'package_create'),
+      longDescription: messages.getMessage('orgDependentLong', [], 'package_create'),
+      required: false
     })
   };
 

@@ -31,7 +31,8 @@ export class ExperienceBundleContentStrategy extends NonDecomposedContentStrateg
     retrievedContentFilePaths: string[],
     retrievedMetadataFilePath: string,
     createDuplicates: boolean,
-    unsupportedMimeTypes: string[]
+    unsupportedMimeTypes: string[],
+    forceoverwrite = false
   ): [string[], string[], string[], string[]] {
     const existingFiles = ExperienceBundleMetadataType.getContentFilePaths(metadataFilePath, this.forceIgnore);
     var [newPaths, updatedPaths, deletedPaths, dupPaths] = super.saveContent(
@@ -39,7 +40,8 @@ export class ExperienceBundleContentStrategy extends NonDecomposedContentStrateg
       retrievedContentFilePaths,
       retrievedMetadataFilePath,
       createDuplicates,
-      unsupportedMimeTypes
+      unsupportedMimeTypes,
+      forceoverwrite
     );
     const relativeRetrievedPaths = retrievedContentFilePaths.map(path =>
       this.metadataType.getRelativeContentPath(path)

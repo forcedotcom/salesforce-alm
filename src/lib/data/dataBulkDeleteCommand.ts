@@ -13,6 +13,7 @@ import fs = require('fs');
 
 export class DataBulkDeleteCommand {
   async execute(context): Promise<any> {
+    context.ux.startSpinner();
     let conn: Connection = await Config.getActiveConnection(context);
 
     let csvRecords;
@@ -30,6 +31,7 @@ export class DataBulkDeleteCommand {
 
     return new Promise(async (resolve, reject) => {
       job.on('error', function(err): void {
+        context.ux.stopSpinner();
         reject(err);
       });
 
@@ -45,7 +47,9 @@ export class DataBulkDeleteCommand {
             context.flags.wait
           )
         );
+        context.ux.stopSpinner();
       } catch (e) {
+        context.ux.stopSpinner();
         reject(e);
       }
     });

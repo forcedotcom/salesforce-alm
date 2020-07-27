@@ -24,6 +24,6 @@ export function getPerfMetricsFromResponse(response) {
 }
 
 HttpApi.prototype.request = function(req, ...args) {
-  this.on('response', getPerfMetricsFromResponse);
+  this.once('response', getPerfMetricsFromResponse);
   return request.call(this, req, ...args);
 };

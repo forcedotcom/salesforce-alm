@@ -15,13 +15,18 @@ import { Job } from 'jsforce';
 
 export class DataBulkStatusCommand {
   async execute(context): Promise<any> {
+    context.ux.startSpinner();
     let conn: Connection = await Config.getActiveConnection(context);
     if (context.flags.jobid && context.flags.batchid) {
       // view batch status
-      return await fetchAndDisplayBatchStatus(conn, context.flags.jobid, context.flags.batchid);
+      const batchStatus = await fetchAndDisplayBatchStatus(conn, context.flags.jobid, context.flags.batchid);
+      context.ux.stopSpinner();
+      return batchStatus;
     } else {
       // view job status
-      return await fetchAndDisplayJobStatus(conn, context.flags.jobid);
+      const jobStatus = await fetchAndDisplayJobStatus(conn, context.flags.jobid);
+      context.ux.stopSpinner();
+      return jobStatus;
     }
   }
 }

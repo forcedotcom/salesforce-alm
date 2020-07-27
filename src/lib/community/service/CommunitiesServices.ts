@@ -5,7 +5,7 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { Org } from '@salesforce/core/lib/org';
-import { Query, QueryResult } from 'jsforce';
+import { QueryResult } from 'jsforce';
 import { CommunityInfo } from '../defs/CommunityInfo';
 
 /**
@@ -38,10 +38,10 @@ export class CommunitiesServices {
     }
   }
 
-  public static runQuery<T>(org: Org, query: string): Query<QueryResult<T>> {
+  public static async runQuery<T>(org: Org, query: string): Promise<QueryResult<T>> {
     if (!query) {
       return;
     }
-    return org.getConnection().query(query);
+    return org.getConnection().query<T>(query);
   }
 }

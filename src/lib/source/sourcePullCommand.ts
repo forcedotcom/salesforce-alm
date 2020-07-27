@@ -6,14 +6,12 @@
  */
 
 import * as BBPromise from 'bluebird';
-import * as util from 'util';
 
 import Messages = require('../messages');
 import * as almError from '../core/almError';
 import srcDevUtil = require('../core/srcDevUtil');
 import { parseWaitParam } from './sourceUtil';
 import * as syncCommandHelper from './syncCommandHelper';
-import MetadataRegistry = require('./metadataRegistry');
 import logger = require('../core/logApi');
 import { Messages as CoreMessages } from '@salesforce/core';
 import { MdapiPullApi } from './sourcePullApi';
@@ -47,8 +45,7 @@ class MdapiPullCommand {
     const options = context.flags || {};
     const rows = [];
     const projectPath = force.config.getProjectPath();
-    return MetadataRegistry.initializeMetadataTypeInfos(scratchOrg)
-      .then(() => MdapiPullApi.create({ org: scratchOrg }))
+    return MdapiPullApi.create({ org: scratchOrg })
       .then((mdapiPull: MdapiPullApi) => {
         options.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
         return mdapiPull.doPull(options);
@@ -67,10 +64,13 @@ class MdapiPullCommand {
           throw e;
         }
       })
-      .then(result => {
-        if (!util.isNullOrUndefined(result)) {
-          result.inboundFiles.forEach(sourceItem => syncCommandHelper.createDisplayRows(rows, sourceItem, projectPath));
-        }
+      .then(results => {
+        results.forEach(result => {
+          if (!!result)
+            result.inboundFiles.forEach(sourceItem =>
+              syncCommandHelper.createDisplayRows(rows, sourceItem, projectPath)
+            );
+        });
       })
       .then(() => this.logger.styledHeader(this.logger.color.blue(messages.getMessage('pullCommandHumanSuccess'))))
       .then(() => srcDevUtil.logUnsupportedMimeTypeError(options.unsupportedMimeTypes, this.logger, force))

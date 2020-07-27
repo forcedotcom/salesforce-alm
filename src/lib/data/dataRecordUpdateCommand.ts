@@ -22,7 +22,7 @@ export class DataRecordUpdateCommand {
     const conn: Connection = await Config.getActiveConnection(context);
 
     const updateObject = await createUpdateObject(conn, context);
-
+    context.ux.startSpinner('Updating Record');
     // TODO: update() returns RecordResult | RecordResult[] so this may be a bug in the impl unless we know
     //       we are assured of only updating 1 record.
     let result: any = context.flags.usetoolingapi
@@ -30,6 +30,7 @@ export class DataRecordUpdateCommand {
       : await conn.sobject(context.flags.sobjecttype).update(updateObject);
 
     if (result.success) {
+      context.ux.stopSpinner();
       Display.success(Messages.get('DataRecordUpdateSuccess', updateObject[ID_FIELD]));
     } else {
       let errors = '';
@@ -39,6 +40,7 @@ export class DataRecordUpdateCommand {
           errors += '  ' + err + '\n';
         });
       }
+      context.ux.stopSpinner();
       Display.failure(Messages.get('DataRecordUpdateFailure', errors));
     }
     return result as RecordResult;

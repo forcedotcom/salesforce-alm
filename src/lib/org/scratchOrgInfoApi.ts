@@ -68,6 +68,7 @@ const _authorize = function(scratchOrgInfoComplete, force, hubOrg, scratchOrg, c
   const oauthConfig: AuthFields & {
     redirectUri?: string;
     privateKeyFile?: string;
+    expirationDate?: string;
   } = {
     clientId: scratchOrgInfoComplete.ConnectedAppConsumerKey,
     createdOrgInstance: scratchOrgInfoComplete.SignupInstance
@@ -101,6 +102,7 @@ const _authorize = function(scratchOrgInfoComplete, force, hubOrg, scratchOrg, c
 
       oauthConfig.devHubUsername = config.username;
       oauthConfig.created = Date.now() + '';
+      oauthConfig.expirationDate = scratchOrgInfoComplete.ExpirationDate;
 
       logger.debug(`_authorize - oauthConfig: ${JSON.stringify(oauthConfig, null, 4)}`);
 
@@ -185,8 +187,10 @@ signup.prototype.request = async function(scratchOrgInfo) {
   //Look for any settings
   await this.orgSettings.extract(scratchOrgInfo);
 
-  // We no longer want this on the scratch def (if it was present).
+  // If these were present, they were already used to initialize the scratchOrgSettingsGenerator.
+  // They shouldn't be submitted as part of the scratchOrgInfo.
   delete scratchOrgInfo.settings;
+  delete scratchOrgInfo.objectSettings;
 
   // We do not allow you to specify the old and the new way of doing post create settings
   if (scratchOrgInfo.orgPreferences && this.orgSettings.hasSettings()) {
@@ -409,6 +413,7 @@ signup.prototype.processScratchOrgInfoResult = function(scratchOrgInfoResult, cl
         if (scratchOrgInfoResult.LoginUrl) {
           return scratchOrg.getConfig().then(config => {
             config.instanceUrl = scratchOrgInfoResult.LoginUrl;
+            config.expirationDate = scratchOrgInfoResult.ExpirationDate;
             return scratchOrg.saveConfig(config);
           });
         }

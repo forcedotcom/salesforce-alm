@@ -11,7 +11,6 @@ import * as _ from 'lodash';
 
 // Local
 import { MdRetrieveApi } from '../mdapi/mdapiRetrieveApi';
-import srcDevUtil = require('../core/srcDevUtil');
 import * as SourceUtil from './sourceUtil';
 import * as ManifestCreateApi from './manifestCreateApi';
 import SourceMetadataMemberRetrieveHelper = require('./sourceMetadataMemberRetrieveHelper');
@@ -22,13 +21,18 @@ import { BundleMetadataType } from './metadataTypeImpl/bundleMetadataType';
 
 import * as pathUtil from './sourcePathUtil';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
+import { AggregateSourceElements } from './aggregateSourceElements';
 import { AsyncCreatable } from '@salesforce/kit';
 import { Logger, Messages, SfdxError } from '@salesforce/core';
 import { SrcStatusApi } from './srcStatusApi';
+import { MaxRevision } from './MaxRevision';
+import { WorkspaceElementObj } from './workspaceElement';
+import * as util from 'util';
+import { SourceLocations } from './sourceLocations';
 
 export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
   public smmHelper: SourceMetadataMemberRetrieveHelper;
-  public maxRevisionFile: any;
+  public maxRevision: MaxRevision;
   public obsoleteNames: any[];
   public scratchOrg: any;
   public swa: SourceWorkspaceAdapter;
@@ -40,16 +44,16 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     super(options);
     this.swa = options.adapter;
     if (this.swa) {
-      this.smmHelper = new SourceMetadataMemberRetrieveHelper(this.swa.metadataRegistry);
+      this.smmHelper = new SourceMetadataMemberRetrieveHelper(this.swa);
     }
     this.scratchOrg = options.org;
     this.force = this.scratchOrg.force;
-    this.maxRevisionFile = this.scratchOrg.getMaxRevision();
     this.messages = messagesApi(this.force.config.getLocale());
     this.obsoleteNames = [];
   }
 
   protected async init(): Promise<void> {
+    this.maxRevision = await MaxRevision.getInstance({ username: this.scratchOrg.name });
     this.logger = await Logger.child(this.constructor.name);
     if (!this.swa) {
       const options: SourceWorkspaceAdapter.Options = {
@@ -59,7 +63,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
       };
 
       this.swa = await SourceWorkspaceAdapter.create(options);
-      this.smmHelper = new SourceMetadataMemberRetrieveHelper(this.swa.metadataRegistry);
+      this.smmHelper = new SourceMetadataMemberRetrieveHelper(this.swa);
     }
   }
 
@@ -70,43 +74,50 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     }
 
     await this._checkForConflicts(options);
-    const maxRevision = await srcDevUtil.getMaxRevision(this.maxRevisionFile.path);
-    this.logger.debug(`doPull maxRevision: ${maxRevision}`);
-    const pkg = await this.smmHelper.getRevisionsAsPackage(maxRevision, this.obsoleteNames);
+    const packages = await this.smmHelper.getRevisionsAsPackage(this.obsoleteNames);
+    const results = await BBPromise.mapSeries(Object.keys(packages), async pkgName => {
+      this.swa.packageInfoCache.setActivePackage(pkgName);
+      const pkg = packages[pkgName];
+      const opts = Object.assign({}, options);
+      this.logger.debug('Retrieving', pkgName);
+      try {
+        // Create a temp directory
+        opts.retrievetargetdir = await SourceUtil.createOutputDir('pull');
 
-    try {
-      // Create a temp directory
-      options.retrievetargetdir = await SourceUtil.createOutputDir('pull');
-
-      // Create a manifest (package.xml).
-      const manifestOptions = Object.assign({}, options, {
-        outputdir: options.retrievetargetdir
-      });
-      const manifest = await this._createPackageManifest(manifestOptions, pkg);
-
-      let result;
-      if (manifest.empty) {
-        if (this.obsoleteNames.length > 0) {
-          result = { fileProperties: [], success: true, status: 'Succeeded' };
-        }
-      } else {
-        // Get default metadata retrieve options
-        const retrieveOptions = Object.assign(MdRetrieveApi.getDefaultOptions(), {
-          retrievetargetdir: options.retrievetargetdir,
-          unpackaged: manifest.file,
-          wait: options.wait
+        // Create a manifest (package.xml).
+        const manifestOptions = Object.assign({}, opts, {
+          outputdir: opts.retrievetargetdir
         });
+        const manifest = await this._createPackageManifest(manifestOptions, pkg);
+        this.logger.debug(util.inspect(manifest, { depth: 6 }));
+        let result;
+        if (manifest.empty) {
+          if (this.obsoleteNames.length > 0) {
+            result = { fileProperties: [], success: true, status: 'Succeeded' };
+          }
+        } else {
+          // Get default metadata retrieve options
+          const retrieveOptions = Object.assign(MdRetrieveApi.getDefaultOptions(), {
+            retrievetargetdir: opts.retrievetargetdir,
+            unpackaged: manifest.file,
+            wait: opts.wait
+          });
 
-        // Retrieve the metadata
-        result = await new MdRetrieveApi(this.scratchOrg).retrieve(retrieveOptions).catch(err => err.result);
+          // Retrieve the metadata
+          result = await new MdRetrieveApi(this.scratchOrg).retrieve(retrieveOptions).catch(err => err.result);
+        }
+        this.logger.debug(`Retrieve result:`, result);
+        // Update local metadata source.
+        return this._postRetrieve(result, opts);
+      } finally {
+        // Delete the output dir.
+        await SourceUtil.cleanupOutputDir(opts.retrievetargetdir);
       }
+    });
+    // update the serverMaxRevision
+    await this.maxRevision.setMaxRevisionCounterFromQuery();
 
-      // Update local metadata source.
-      return await this._postRetrieve(result, options);
-    } finally {
-      // Delete the output dir.
-      await SourceUtil.cleanupOutputDir(options.retrievetargetdir);
-    }
+    return results;
   }
 
   async _createPackageManifest(options, pkg) {
@@ -142,18 +153,32 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
   }
 
   async _postRetrieve(result, options) {
-    let changedSourceElements;
+    let changedSourceElements: AggregateSourceElements;
+    let inboundFiles: WorkspaceElementObj[];
 
     if (MdapiPullApi._didRetrieveSucceed(result)) {
       changedSourceElements = await this._syncDownSource(result, options, this.swa);
-      await this._updateMaxRevision();
+      // NOTE: Even if no updates were made, we need to update source tracking for those elements
+      // E.g., we pulled metadata but it's the same locally so it's not seen as a change.
+      inboundFiles = changedSourceElements
+        .getAllWorkspaceElements()
+        .map(workspaceElement => workspaceElement.toObject());
+
+      // WARNING
+      // there exists a race condition here where between when we query / pull / write
+      // to maxRevision.json - something could've changed on the server this change will appear on the next command
+      // the metadata api should be updated to return RevisionCounter with each of the source members returned
+
+      await SourceLocations.nonDecomposedElementsIndex.maybeRefreshIndex(inboundFiles);
+      await SourceUtil.getSourceMembersFromResult(inboundFiles, this.maxRevision);
+      await this.maxRevision.updateSourceTracking();
     }
 
-    return this._processResults(result, changedSourceElements);
+    return this._processResults(result, inboundFiles);
   }
 
-  async _syncDownSource(result, options, swa) {
-    const changedSourceElements = new Map();
+  async _syncDownSource(result, options, swa: SourceWorkspaceAdapter): Promise<AggregateSourceElements> {
+    const changedSourceElements = new AggregateSourceElements();
 
     // Each Aura bundle has a definition file that has one of the suffixes: .app, .cmp, .design, .evt, etc.
     // In order to associate each sub-component of an aura bundle (e.g. controller, style, etc.) with
@@ -185,30 +210,22 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
 
     return swa.updateSource(
       changedSourceElements,
-      this.force,
-      this.scratchOrg,
       options.manifest,
       false /** check for duplicates **/,
-      options.unsupportedMimeTypes
+      options.unsupportedMimeTypes,
+      options.forceoverwrite
     );
   }
 
-  _updateMaxRevision() {
-    return SourceUtil.updateMaxRevision(this.scratchOrg, this.swa.metadataRegistry);
-  }
-
-  _processResults(result, changedSourceElements) {
+  _processResults(result, inboundFiles: WorkspaceElementObj[]) {
     if (_.isNil(result)) {
-      return BBPromise.resolve();
+      return;
     } else if (MdapiPullApi._didRetrieveSucceed(result)) {
-      const inboundFiles = [...changedSourceElements.values()]
-        .reduce((allChanges, sourceElement) => allChanges.concat(sourceElement.getWorkspaceElements()), [])
-        .map(workspaceElement => workspaceElement.toObject());
-      return BBPromise.resolve({ inboundFiles });
+      return { inboundFiles };
     } else {
       const retrieveFailed = new Error(syncCommandHelper.getRetrieveFailureMessage(result, this.messages));
       retrieveFailed.name = 'RetrieveFailed';
-      return BBPromise.reject(retrieveFailed);
+      throw retrieveFailed;
     }
   }
 

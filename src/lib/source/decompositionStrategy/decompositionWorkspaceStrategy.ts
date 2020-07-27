@@ -7,6 +7,7 @@
 
 import { DecomposedSubtypeConfig } from './decompositionConfig';
 import { MetadataDocumentAnnotation } from '../metadataDocument';
+import { Nullable } from '@salesforce/ts-types';
 
 /**
  * The contract for any strategy implementing a workspace manifestation of a decomposition.
@@ -54,5 +55,17 @@ export interface DecompositionWorkspaceStrategy {
     metadataFilePath: string,
     ext: string,
     decomposedSubtypeConfig: DecomposedSubtypeConfig
-  ): string;
+  ): Nullable<string>;
+
+  /**
+   * Returns the directory for metadata of a particular subtype based on existing file locations
+   * @param annotation
+   * @param aggregateFullName
+   */
+  getDecomposedSubtypeDirFromAnnotation(
+    annotation: MetadataDocumentAnnotation,
+    metadataType: string,
+    aggregateFullName: string,
+    decomposedSubtypeConfig: DecomposedSubtypeConfig
+  ): Nullable<string>;
 }

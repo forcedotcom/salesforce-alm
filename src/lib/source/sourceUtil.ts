@@ -24,12 +24,14 @@ import consts = require('../core/constants');
 import MdapiPackage = require('../source/mdapiPackage');
 import { XmlLineError } from './xmlMetadataDocument';
 import * as PathUtil from '../source/sourcePathUtil';
-import SourceMetadataMemberRetrieveHelper = require('./sourceMetadataMemberRetrieveHelper');
 import { NondecomposedTypesWithChildrenMetadataType } from '../source/metadataTypeImpl/nondecomposedTypesWithChildrenMetadataType';
-import { Config } from '../core/configApi';
-import { Env } from '@salesforce/kit';
-import { get } from '@salesforce/ts-types';
 import { CustomLabelsMetadataType } from './metadataTypeImpl/customLabelsMetadataType';
+import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
+import { AggregateSourceElements } from './aggregateSourceElements';
+import MetadataRegistry = require('./metadataRegistry');
+import { MaxRevision } from './MaxRevision';
+import { SourceMember } from './SourceMember';
+import { SourceLocations } from './sourceLocations';
 
 Messages.importMessagesDirectory(__dirname);
 
@@ -115,11 +117,11 @@ export async function cleanupOutputDir(outputDir: string): Promise<void> {
  * @param sourceWorkspaceAdapter
  * @returns {AggregateSourceElement}
  */
-export const getSourceElementForFile = function(
+export const getSourceElementForFile = async function(
   sourcePath: string,
-  sourceWorkspaceAdapter: any,
+  sourceWorkspaceAdapter: SourceWorkspaceAdapter,
   metadataType?: MetadataType
-): AggregateSourceElement {
+): Promise<AggregateSourceElement> {
   let aggregateSourceElement: AggregateSourceElement;
   const mdRegistry = sourceWorkspaceAdapter.metadataRegistry;
   const sourceElementMetadataType =
@@ -136,8 +138,14 @@ export const getSourceElementForFile = function(
 
     // Get the AggregateSourceElement, which will only populate with the specified WorkspaceElement
     // when sourcePath is part of an ASE.
-    const sourceElements = sourceWorkspaceAdapter.getAggregateSourceElements(false, undefined, undefined, _sourcePath);
-    aggregateSourceElement = loadSourceElement(sourceElements, key, mdRegistry);
+    const sourceElements = await sourceWorkspaceAdapter.getAggregateSourceElements(
+      false,
+      undefined,
+      undefined,
+      _sourcePath
+    );
+    const packageName = sourceWorkspaceAdapter.packageInfoCache.getPackageNameFromSourcePath(sourcePath);
+    aggregateSourceElement = loadSourceElement(sourceElements, key, mdRegistry, packageName);
   } else {
     throw SfdxError.create('salesforce-alm', 'source', 'SourcePathInvalid', [sourcePath]);
   }
@@ -147,15 +155,12 @@ export const getSourceElementForFile = function(
 
 /**
  * Get the source elements from the source path, whether for a particular file or a directory
- * @param {string} optionsSourcePath
- * @param {any} sourceWorkspaceAdapter
- * @returns {Map<string, AggregateSourceElement>}
  */
 export const getSourceElementsFromSourcePath = async function(
   optionsSourcePath: string,
-  sourceWorkspaceAdapter: any
-): Promise<Map<string, AggregateSourceElement>> {
-  let aggregateSourceElements: Map<string, AggregateSourceElement> = new Map();
+  sourceWorkspaceAdapter: SourceWorkspaceAdapter
+): Promise<AggregateSourceElements> {
+  const aggregateSourceElements = new AggregateSourceElements();
   const mdRegistry = sourceWorkspaceAdapter.metadataRegistry;
 
   for (let sourcepath of optionsSourcePath.split(',')) {
@@ -179,39 +184,52 @@ export const getSourceElementsFromSourcePath = async function(
 
     // Get a single source element or a directory of source elements and add it to the map.
     if (srcDevUtil.containsFileExt(sourcepath)) {
-      const ase: AggregateSourceElement = getSourceElementForFile(sourcepath, sourceWorkspaceAdapter, metadataType);
+      const ase: AggregateSourceElement = await getSourceElementForFile(
+        sourcepath,
+        sourceWorkspaceAdapter,
+        metadataType
+      );
       const aseKey = ase.getKey();
-      if (aggregateSourceElements.has(aseKey)) {
-        // We already have one of the child elements of this ASE so update the current ASE
-        const _ase = aggregateSourceElements.get(aseKey);
-        _ase.addWorkspaceElement(ase.getWorkspaceElements()[0]);
-        aggregateSourceElements.set(aseKey, _ase);
+      const pkg = ase.getPackageName();
+
+      if (aggregateSourceElements.has(pkg)) {
+        const sourceElements = aggregateSourceElements.get(pkg);
+        if (sourceElements.has(aseKey)) {
+          const _ase = sourceElements.get(aseKey);
+          _ase.addWorkspaceElement(ase.getWorkspaceElements()[0]);
+          sourceElements.set(aseKey, _ase);
+        } else {
+          sourceElements.set(aseKey, ase);
+        }
       } else {
-        aggregateSourceElements.set(aseKey, ase);
+        aggregateSourceElements.setIn(pkg, aseKey, ase);
       }
     } else {
-      aggregateSourceElements = new Map([
-        ...aggregateSourceElements,
-        ...getSourceElementsInPath(sourcepath, sourceWorkspaceAdapter)
-      ]);
+      const sourceElementsInPath = await getSourceElementsInPath(sourcepath, sourceWorkspaceAdapter);
+      aggregateSourceElements.merge(sourceElementsInPath);
     }
   }
+
   return aggregateSourceElements;
 };
 
 /**
  * Return the specified aggregate source element or error if it does not exist
- * @param {Map<string, AggregateSourceElement>} sourceElements All the source elements in the workspace
+ * @param {AggregateSourceElements} sourceElements All the source elements in the workspace
  * @param {string} key The key of the particular source element we are looking for
- * @param {any} metadataRegistry
+ * @param {string} packageName
+ * @param {MetadataRegistry} metadataRegistry
  * @returns {AggregateSourceElement}
  */
 export const loadSourceElement = function(
-  sourceElements: Map<string, AggregateSourceElement>,
+  sourceElements: AggregateSourceElements,
   key: string,
-  metadataRegistry: any
+  metadataRegistry: MetadataRegistry,
+  packageName?: string
 ): AggregateSourceElement {
-  let aggregateSourceElement: AggregateSourceElement = sourceElements.get(key);
+  const aggregateSourceElement = packageName
+    ? sourceElements.getSourceElement(packageName, key)
+    : sourceElements.findSourceElementByKey(key);
 
   if (!aggregateSourceElement) {
     // Namespaces also contain '__' so only split on the first occurrence of '__'
@@ -232,10 +250,10 @@ export const loadSourceElement = function(
         parentMetadataType.getAggregateMetadataName(),
         parentFullName
       );
-      return loadSourceElement(sourceElements, newKey, metadataRegistry);
+      return loadSourceElement(sourceElements, newKey, metadataRegistry, packageName);
     } else if (metadataType instanceof InFolderMetadataType) {
       mdType = MdapiPackage.convertFolderTypeKey(mdType);
-      return loadSourceElement(sourceElements, `${mdType}__${mdName}`, metadataRegistry);
+      return loadSourceElement(sourceElements, `${mdType}__${mdName}`, metadataRegistry, packageName);
     } else if (metadataType instanceof NondecomposedTypesWithChildrenMetadataType) {
       const mdType = metadataType.getMetadataName();
       let name = `${mdType}__${mdName.split('.')[0]}`;
@@ -246,7 +264,15 @@ export const loadSourceElement = function(
         // it will deploy all CustomLabels, regardless of what is specified in the manifest
         name = `${mdType}__${mdType}`;
       }
-      return loadSourceElement(sourceElements, name, metadataRegistry);
+
+      if (name === key) {
+        // the name isn't changing which causes a max stack call size error,
+        const errConfig = new SfdxErrorConfig('salesforce-alm', 'source_deploy', 'SourceElementDoesNotExist');
+        errConfig.setErrorTokens([mdType, mdName]);
+        throw SfdxError.create(errConfig);
+      }
+
+      return loadSourceElement(sourceElements, name, metadataRegistry, packageName);
     } else {
       const errConfig = new SfdxErrorConfig('salesforce-alm', 'source_deploy', 'SourceElementDoesNotExist');
       errConfig.setErrorTokens([mdType, mdName]);
@@ -260,12 +286,12 @@ export const loadSourceElement = function(
  * Return the aggregate source elements found in the provided source path
  * @param {Array<string>} sourcePath The path to look for source elements in
  * @param sourceWorkspaceAdapter
- * @returns {Map<string, AggregateSourceElement>}
+ * @returns {AggregateSourceElements}
  */
-export const getSourceElementsInPath = function(
+export const getSourceElementsInPath = async function(
   sourcePath: string,
   sourceWorkspaceAdapter: any
-): Map<string, AggregateSourceElement> {
+): Promise<AggregateSourceElements> {
   return sourceWorkspaceAdapter.getAggregateSourceElements(false, undefined, undefined, sourcePath);
 };
 
@@ -398,13 +424,12 @@ export const checkForXmlParseError = function(path: string, error: Error) {
 };
 
 /**
- * @param option containing the metadata type, and sourcepaths if not metadata
+ * @param options
  */
 export const containsMdBundle = function(options: any): boolean {
-  const isRetrieveFromMetadata = options.metadata ? true : false;
-  if (isRetrieveFromMetadata) {
+  if (options.metadata) {
     // for retreiveFromMetadata
-    return options.metadata.indexOf('Bundle') >= 0 ? true : false;
+    return options.metadata.indexOf('Bundle') >= 0;
   } else {
     // for retrieveFromSourcepath
     for (let pair of options) {
@@ -415,65 +440,40 @@ export const containsMdBundle = function(options: any): boolean {
     return false;
   }
 };
-
 /**
- * Updates the maxrevision.json with the max RevisionCounter (v47.0) or RevisionNum(v46.0)
- * If members is supplied, it will first check if all those members have a
- * RevisionNum that is NOT null. If any members have a non-null value, then the
- * new max revision is equal to the minimum RevisionNum minus 1; otherwise, the max revision
- * is equal to the maximum RevisionCounter across all source members.
- * This check exists as a workaround for types that may not nullify the RevisionNum
- * when a push is executed.
+ * sObjects and standard fields aren't returned when polling for SourceMembers, so
+ * this will remove sObjects/sFields from the pushResult so that only
+ * source tracked metadata types are inserted into the maxRevision.json.
+ * @param successes the success of the push or pull result
+ * @param {MaxRevision} maxRevision is the class used to query SourceMembers
+ * @param pollTimeLimit the number of seconds to poll for SourceMembers before timing out
+ * @param fromRevision the RevisionCounter number from which to poll for SourceMembers
+ * @returns {Promise<SourceMember[]>}
  */
-export const updateMaxRevision = async function(org, metadataRegistry, members = []) {
-  const maxRevisionFile = org.getMaxRevision();
-  const smmHelper = new SourceMetadataMemberRetrieveHelper(metadataRegistry);
-  let newMaxRev: number;
-  let nonNulls: number[] = [];
-  if (members.length) {
-    const revisionNums = await smmHelper.getRevisionNums(members);
-    nonNulls = revisionNums.filter(r => r !== null).map(r => parseInt(r));
-  }
+export const getSourceMembersFromResult = async function(
+  successes: any[],
+  maxRevision: MaxRevision,
+  pollTimeLimit?: number
+): Promise<SourceMember[]> {
+  // reduce to just "MemberName" aka fullName
+  const successNames: string[] = successes
+    .filter(c => !c.fullName.includes('xml'))
+    .map(c => {
+      return [c].concat(SourceLocations.nonDecomposedElementsIndex.getElementsByMetadataFilePath(c.filePath));
+    })
+    .reduce((x, y) => x.concat(y), [])
+    .map(c => decodeURIComponent(c.fullName));
 
-  if (nonNulls.length) {
-    const minRevisionNum = Math.min(...nonNulls);
-    newMaxRev = minRevisionNum - 1;
-  } else {
-    const latest = await smmHelper.getLatestSourceRevisionCount();
-    newMaxRev = parseInt(latest);
+  if (pollTimeLimit && pollTimeLimit >= 0) {
+    await maxRevision.pollForSourceMembers(successNames, pollTimeLimit);
   }
-  return maxRevisionFile.write(newMaxRev);
+  const allMembers = await maxRevision.retrieveAllSourceMembers();
+
+  // reduce from SourceMember to just MemberName
+  const allMemberNames: string[] = allMembers.map(m => m.MemberName);
+
+  // remove the different items, from what the query returned vs local source tracking
+  const diffedMembers = allMemberNames.filter(al => successNames.includes(al.split('/')[0]));
+  // filter the SourceMember list to just include those in the diffedMembers
+  return allMembers.filter(member => diffedMembers.includes(member.MemberName));
 };
-
-interface PushSuccess {
-  fullName: string;
-  [key: string]: any;
-}
-
-export const getMemberNamesFromPushResult = async function(metadataRegistry, pushResult): Promise<string[]> {
-  const smmHelper = new SourceMetadataMemberRetrieveHelper(metadataRegistry);
-  const allMembers = await smmHelper.getAllMemberNames();
-  const successes = get(pushResult, 'details.componentSuccesses', []) as PushSuccess[];
-  const pushedMembers = successes.filter(c => !c.fullName.includes('.xml')).map(c => c.fullName);
-  const members = pushedMembers.filter(m => allMembers.includes(m));
-  const uniqMembers = [...new Set(members)];
-  return uniqMembers;
-};
-
-/**
- * Determine based on the apiVersion which field is used for tracking the revision number.
- * @param config legacy application parameter.
- * @param env here you can provide a fix env.
- */
-export function getRevisionFieldName(config: Config = new Config(), env = new Env()) {
-  const apiVersion = config.getApiVersion();
-  if (parseFloat(apiVersion) > 46 && env.getBoolean('SFDX_ENABLE_MULTIUDX')) {
-    return RevisionCounterField.RevisionCounter;
-  }
-  return RevisionCounterField.RevisionNum;
-}
-
-export enum RevisionCounterField {
-  RevisionCounter = 'RevisionCounter',
-  RevisionNum = 'RevisionNum'
-}

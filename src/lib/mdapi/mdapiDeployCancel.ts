@@ -50,6 +50,7 @@ export interface MDDeployCancelReportOutput {
   numberTestErrors: number;
   numberTestsCompleted: number;
   numberTestsTotal: number;
+  rollbackOnError: boolean;
   runTestsEnabled: string;
   startDate: string;
   status: string;

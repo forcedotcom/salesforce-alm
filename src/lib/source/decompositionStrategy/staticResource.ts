@@ -89,27 +89,27 @@ export class StaticResource {
     }
   }
 
-  saveResource(sourcePath: string, createDuplicates?: boolean): [string[], string[]] {
+  saveResource(sourcePath: string, createDuplicates?: boolean, forceoverwrite = false): [string[], string[]] {
     const updatedPaths = [];
     const duplicatePaths = [];
     if (this.multiVersionHackUntilWorkspaceVersionsAreSupported) {
       if (this.isExplodedArchive()) {
-        return this.expandArchive(sourcePath, createDuplicates);
+        return this.expandArchive(sourcePath, createDuplicates, forceoverwrite);
       } else if (srcDevUtil.pathExistsSync(this.getLegacyFilePath())) {
         return this.handleLegacyPath(sourcePath, createDuplicates);
       } else {
-        return this.handleResource(sourcePath, createDuplicates);
+        return this.handleResource(sourcePath, createDuplicates, forceoverwrite);
       }
     } else {
       if (this.usingGAWorkspace) {
         if (this.isExplodedArchive()) {
-          return this.expandArchive(sourcePath, createDuplicates);
+          return this.expandArchive(sourcePath, createDuplicates, forceoverwrite);
         } else {
           fs.copySync(sourcePath, this.getSingleFilePathPreferExisting());
           updatedPaths.push(this.getSingleFilePathPreferExisting());
         }
       } else {
-        return this.handleResource(sourcePath, createDuplicates);
+        return this.handleResource(sourcePath, createDuplicates, forceoverwrite);
       }
     }
     return [updatedPaths, duplicatePaths];
@@ -259,7 +259,7 @@ export class StaticResource {
     return this.mimeType === mime.lookup('zip') || this.mimeType === mime.lookup('jar') || isZip;
   }
 
-  private expandArchive(sourcePath: string, createDuplicates: boolean): [string[], string[]] {
+  private expandArchive(sourcePath: string, createDuplicates: boolean, forceoverwrite = false): [string[], string[]] {
     let updatedPaths = [];
     const duplicatePaths = [];
 
@@ -276,15 +276,15 @@ export class StaticResource {
     // compare exploded directories if needed
     let isUpdatingExistingStaticResource = srcDevUtil.pathExistsSync(this.getExplodedFolderPath());
     if (isUpdatingExistingStaticResource && createDuplicates) {
-      this.compareExplodedDirs(tempDir, duplicatePaths, updatedPaths);
+      this.compareExplodedDirs(tempDir, duplicatePaths, updatedPaths, forceoverwrite);
     }
 
     // now copy all the files in the temp dir into the workspace
     srcDevUtil.deleteDirIfExistsSync(this.getExplodedFolderPath());
     fs.copySync(tempDir, this.getExplodedFolderPath()); // override new file with existing
 
-    // if this is a new static resource then simply report all files as changed
-    if (!isUpdatingExistingStaticResource) {
+    // if this is a new static resource or we're force overwriting then simply report all files as changed
+    if (!isUpdatingExistingStaticResource || forceoverwrite) {
       srcDevUtil.actOn(tempDir, file => {
         updatedPaths.push(file.replace(tempDir, this.getExplodedFolderPath()));
       });
@@ -296,7 +296,12 @@ export class StaticResource {
   // if an exploded directory structure exists in the workspace then loop through each new file and see if a file
   // with same name exists in the workspace. If that file exists then compare the hashes. If hashes are different
   // then create a duplicate file.
-  private compareExplodedDirs(tempDir: string, duplicatePaths: string[], updatedPaths: string[]) {
+  private compareExplodedDirs(
+    tempDir: string,
+    duplicatePaths: string[],
+    updatedPaths: string[],
+    forceoverwrite = false
+  ) {
     srcDevUtil.actOn(tempDir, file => {
       if (!fs.statSync(file).isDirectory()) {
         const relativePath = file.substring(file.indexOf(tempDir) + tempDir.length);
@@ -307,8 +312,10 @@ export class StaticResource {
             fs.copySync(file, file + '.dup'); // copy newFile to .dup
             duplicatePaths.push(workspaceFile + '.dup'); // keep track of dups
             fs.copySync(workspaceFile, file); // override new file with existing
+          } else if (forceoverwrite) {
+            // if file exists and contents are the same then don't report it as updated unless we're force overwriting
+            updatedPaths.push(workspaceFile);
           }
-          // if file exists and contents are the same then don't report it as updated
         } else {
           updatedPaths.push(workspaceFile); // this is a net new file
         }
@@ -316,12 +323,12 @@ export class StaticResource {
     });
   }
 
-  private handleResource(sourcePath: string, createDuplicates: boolean): [string[], string[]] {
+  private handleResource(sourcePath: string, createDuplicates: boolean, forceoverwrite = false): [string[], string[]] {
     const updatedPaths = [];
     const duplicatePaths = [];
 
     const destFile = this.getSingleFilePathPreferExisting();
-    if (!srcDevUtil.pathExistsSync(destFile)) {
+    if (forceoverwrite || !srcDevUtil.pathExistsSync(destFile)) {
       fs.copySync(sourcePath, this.getSingleFilePathPreferExisting());
       updatedPaths.push(this.getSingleFilePathPreferExisting());
     } else if (!srcDevUtil.areFilesEqual(sourcePath, destFile) && createDuplicates) {

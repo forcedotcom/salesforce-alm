@@ -8,7 +8,6 @@
 import messages = require('../messages');
 
 import * as syncCommandHelper from './syncCommandHelper';
-import MetadataRegistry = require('./metadataRegistry');
 import logger = require('../core/logApi');
 import { SrcStatusApi } from './srcStatusApi';
 const { Messages } = require('@salesforce/core');
@@ -31,8 +30,7 @@ SrcStatusCommand.prototype.reject = function reject(...args) {
 SrcStatusCommand.prototype.execute = function execute(options) {
   const rows = [];
   let api;
-  return MetadataRegistry.initializeMetadataTypeInfos(this.scratchOrg)
-    .then(() => SrcStatusApi.create({ org: this.scratchOrg }))
+  return SrcStatusApi.create({ org: this.scratchOrg })
     .then((srcStatusApi: SrcStatusApi) => {
       api = srcStatusApi;
     })

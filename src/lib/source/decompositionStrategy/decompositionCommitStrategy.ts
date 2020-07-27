@@ -18,6 +18,7 @@ export interface DecompositionCommitStrategy {
   commit(
     documents: Map<string, MetadataDocument>,
     existingPaths: string[],
-    createDuplicates: boolean
+    createDuplicates: boolean,
+    forceoverwrite: boolean
   ): [string[], string[], string[], string[]];
 }

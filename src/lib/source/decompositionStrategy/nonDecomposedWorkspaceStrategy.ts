@@ -7,6 +7,8 @@
 
 import { DecompositionWorkspaceStrategy } from './decompositionWorkspaceStrategy';
 import { DecomposedSubtypeConfig } from './decompositionConfig';
+import { MetadataDocumentAnnotation } from '../metadataDocument';
+import { Nullable } from '@salesforce/ts-types';
 
 /**
  * Workspace decomposition strategy where metadata files do not require decomposition
@@ -51,6 +53,15 @@ export class NonDecomposedWorkspaceStrategy implements DecompositionWorkspaceStr
    * @returns {null}
    */
   getDecomposedSubtypeDirFromMetadataFile(metadataFilePath, ext, decomposedSubtypeConfig) {
+    return null;
+  }
+
+  getDecomposedSubtypeDirFromAnnotation(
+    annotation: MetadataDocumentAnnotation,
+    metadataType: string,
+    aggregateFullName: string,
+    decomposedSubtypeConfig: DecomposedSubtypeConfig
+  ): Nullable<string> {
     return null;
   }
 }

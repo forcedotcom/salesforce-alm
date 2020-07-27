@@ -509,7 +509,8 @@ const self = {
     }
 
     // Source https://help.salesforce.com/articleView?id=000003652&type=1
-    const whitelistOfSalesforceDomainPatterns = [
+    const allowListOfSalesforceDomainPatterns = [
+      '.cloudforce.com',
       '.content.force.com',
       '.force.com',
       '.salesforce.com',
@@ -517,11 +518,11 @@ const self = {
       '.secure.force.com'
     ];
 
-    const whitelistOfSalesforceHosts = ['developer.salesforce.com', 'trailhead.salesforce.com'];
+    const allowListOfSalesforceHosts = ['developer.salesforce.com', 'trailhead.salesforce.com'];
 
     return (
-      !_.isNil(whitelistOfSalesforceDomainPatterns.find(pattern => _.endsWith(url.hostname, pattern))) ||
-      _.includes(whitelistOfSalesforceHosts, url.hostname)
+      !_.isNil(allowListOfSalesforceDomainPatterns.find(pattern => _.endsWith(url.hostname, pattern))) ||
+      _.includes(allowListOfSalesforceHosts, url.hostname)
     );
   },
 
@@ -611,14 +612,6 @@ const self = {
     }
 
     return SfdxCLIClientId;
-  },
-
-  getMaxRevision(maxRevisionFile) {
-    return fs
-      .readFileAsync(maxRevisionFile)
-      .then(JSON.parse)
-      .then(r => parseInt(r) || 0)
-      .catch(() => 0);
   },
 
   isVerbose() {
@@ -744,12 +737,13 @@ const self = {
    *  Returns the first key within the object that has an upper case first letter.
    *
    *  @param obj - {Object} The object to check key casing
+   *  @param blocklist - don't include results in this array
    *  @return {string} - the key that starts with upper case
    */
-  findUpperCaseKeys(obj, blacklist = []) {
+  findUpperCaseKeys(obj, blocklist = []) {
     let _key;
     _.findKey(obj, (val, key) => {
-      if (blacklist.includes(key)) {
+      if (blocklist.includes(key)) {
         return _key;
       }
       if (key[0] === key[0].toUpperCase()) {
@@ -798,6 +792,7 @@ const self = {
   /**
    * Logs the collection of unsupported mime types to the server
    * @param unsupportedMimeTypes
+   * @param _logger
    * @param force
    */
   async logUnsupportedMimeTypeError(unsupportedMimeTypes, _logger, force) {
@@ -807,7 +802,7 @@ const self = {
       unsupportedMimeTypeError.name = errName;
       unsupportedMimeTypeError.message = messages.getMessage(errName, [...new Set(unsupportedMimeTypes)]);
       unsupportedMimeTypeError.stack = '';
-      _.set(unsupportedMimeTypeError, 'errWhitelist', errName);
+      _.set(unsupportedMimeTypeError, 'errAllowlist', errName);
       try {
         // TODO Use new telemetry exception throwing.
       } catch (err) {

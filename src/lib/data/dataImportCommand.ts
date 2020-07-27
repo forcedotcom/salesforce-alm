@@ -13,11 +13,14 @@ class DataImportCommand {
 
   validate(context) {
     this.dataImport = new DataImportApi(context.org);
-    return this.dataImport.validate(context.flags);
+    return this.dataImport.validate(context);
   }
 
   execute(context) {
-    return this.dataImport.execute(context);
+    context.ux.startSpinner('Importing Data');
+    const executed = this.dataImport.execute(context);
+    context.ux.stopSpinner();
+    return executed;
   }
 
   getColumnData() {

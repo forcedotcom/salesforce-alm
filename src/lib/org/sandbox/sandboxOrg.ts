@@ -102,16 +102,27 @@ export class SandboxOrg extends EventEmitter {
       let authFields: AuthFields = await this.getAuthInfoFields();
       this.logger.debug('Result from getAuthInfoFields: AuthFields %s', authFields);
 
-      //let's do headless auth via jwt
-      const oauth2Options = {
-        clientId: authFields.clientId,
+      //let's do headless auth via jwt (if we have privateKey) or web auth
+      const oauth2Options: AuthFields & {
+        redirectUri?: string;
+      } = {
         loginUrl: sandboxRes.loginUrl,
         instanceUrl: sandboxRes.instanceUrl,
-        username: sandboxRes.authUserName,
-        privateKeyFile: authFields.privateKey
+        username: sandboxRes.authUserName
       };
 
-      const authInfo = await AuthInfo.create({ username: sandboxRes.authUserName, oauth2Options });
+      // If we don't have a privateKey then we assume it's web auth.
+      if (!authFields.privateKey) {
+        const config = new ConfigApi.Config();
+        oauth2Options.redirectUri = config.getOauthCallbackUrl();
+        oauth2Options.authCode = sandboxRes.authCode;
+      }
+
+      const authInfo = await AuthInfo.create({
+        username: sandboxRes.authUserName,
+        oauth2Options,
+        parentUsername: authFields.username
+      });
       await authInfo.save();
       let sandboxOrg = await Org.create({ aliasOrUsername: authInfo.getUsername() });
       await sandboxOrg.setSandboxOrgConfigField(SandboxOrgConfig.Fields.PROD_ORG_USERNAME, authFields.username);

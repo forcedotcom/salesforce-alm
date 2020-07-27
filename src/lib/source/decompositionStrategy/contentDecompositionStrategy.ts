@@ -21,13 +21,15 @@ export interface ContentDecompositionStrategy {
    * @param retrievedContentFilePaths - the paths to the files from which the content will be copied/extracted
    * @param retrievedMetadataFilePath - the path to the retrieved metadata file
    * @param createDuplicates - whether to create .dup files in case there are identical existing content files
-   * @param unsupportedMimeTypes - list of static resource mime types that are not whitelisted for support
+   * @param unsupportedMimeTypes - list of static resource mime types that are not allowlisted for support
+   * @param forceoverwrite - force an overwrite
    */
   saveContent(
     metadataFilePath: string,
     retrievedContentFilePaths: string[],
     retrievedMetadataFilePath: string,
     createDuplicates: boolean,
-    unsupportedMimeTypes: string[]
+    unsupportedMimeTypes: string[],
+    forceoverwrite: boolean
   ): [string[], string[], string[], string[]];
 }

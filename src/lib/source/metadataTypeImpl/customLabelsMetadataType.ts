@@ -13,10 +13,6 @@ export class CustomLabelsMetadataType extends NondecomposedTypesWithChildrenMeta
     sourceMemberType: string,
     isNameObsolete: boolean
   ): any {
-    if (sourceMemberType === 'CustomLabel') {
-      // CustomLabels are not decomposed, so deletions of child types are part of changes to the larger parent container
-      return { fullName: `*`, type: this.getMetadataName() };
-    }
     return {
       fullName: sourceMemberName,
       type: sourceMemberType,

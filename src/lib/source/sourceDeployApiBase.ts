@@ -15,13 +15,14 @@ import srcDevUtil = require('../core/srcDevUtil');
 import StashApi = require('../core/stash');
 import * as sourceState from './sourceState';
 
-import { AggregateSourceElement } from './aggregateSourceElement';
 import { toArray } from './sourceUtil';
 
 import consts = require('../core/constants');
 import { AsyncCreatable } from '@salesforce/kit';
 import { Logger } from '@salesforce/core';
 import { DeployResult } from './sourceDeployApi';
+import { AggregateSourceElements } from './aggregateSourceElements';
+import { PackageInfoCache } from './packageInfoCache';
 const { INSTANCE_URL_TOKEN } = consts;
 const { sequentialExecute } = srcDevUtil;
 
@@ -55,8 +56,6 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
     // or testlevel is set, use the mdapi logging.
     options.disableLogging = !(options.checkonly === true || options.testlevel);
     options.autoUpdatePackage = false;
-    // Default to rollback on error.  Only when ignoreerrors is explicitly true, do not rollback.
-    options.rollbackonerror = !(options.ignoreerrors === true);
     options.testlevel = options.testlevel || 'NoTestRun';
     options.source = true;
     return new MdapiDeployApi(this.orgApi, pollIntervalStrategy, StashApi.Commands.SOURCE_DEPLOY).deploy(options);
@@ -67,9 +66,9 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
    * @param aggregateSourceElements The map of source elements to deploy
    * @returns {any}
    */
-  getOutboundFiles(aggregateSourceElements: Map<String, AggregateSourceElement>, isDelete: boolean = false) {
+  getOutboundFiles(aggregateSourceElements: AggregateSourceElements, isDelete: boolean = false) {
     let deployedSourceElements = [];
-    aggregateSourceElements.forEach(aggregateSourceElement => {
+    aggregateSourceElements.getAllSourceElements().forEach(aggregateSourceElement => {
       deployedSourceElements = deployedSourceElements.concat(
         isDelete
           ? aggregateSourceElement.getWorkspaceElements().filter(el => el.getState() === sourceState.DELETED)
@@ -90,7 +89,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
   convertAndDeploy(
     options: any,
     sourceWorkspaceAdapter: any,
-    aggregateSourceElements: Map<string, AggregateSourceElement>,
+    aggregateSourceElements: AggregateSourceElements,
     createDestructiveChanges: boolean
   ) {
     const sourceConvertApi = new SourceConvertApi(this.orgApi, sourceWorkspaceAdapter);
@@ -134,22 +133,24 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
    * @param componentFailures
    * @param aggregateSourceElements
    */
-  removeFailedAggregates(componentFailures: any, deployedSourceElements: Map<String, AggregateSourceElement>) {
+  removeFailedAggregates(
+    componentFailures: any,
+    deployedSourceElements: AggregateSourceElements,
+    packageInfoCache: PackageInfoCache
+  ) {
     let failedSourcePaths = [];
     const failures = toArray(componentFailures);
-    failures
-      .map(failure => `${failure.componentType}__${failure.fullName}`)
-      .forEach(key => {
-        if (deployedSourceElements.has(key)) {
-          deployedSourceElements
-            .get(key)
-            .getWorkspaceElements()
-            .forEach(element => {
-              failedSourcePaths = failedSourcePaths.concat(element.getSourcePath());
-            });
-          deployedSourceElements.delete(key);
-        }
-      });
+    failures.forEach(failure => {
+      const key = `${failure.componentType}__${failure.fullName}`;
+      const packageName = packageInfoCache.getPackageNameFromSourcePath(failure.fileName);
+      const element = deployedSourceElements.getSourceElement(packageName, key);
+      if (element) {
+        element.getWorkspaceElements().forEach(element => {
+          failedSourcePaths = failedSourcePaths.concat(element.getSourcePath());
+        });
+        deployedSourceElements.deleteSourceElement(packageName, key);
+      }
+    });
   }
 
   /**
@@ -191,6 +192,6 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
 export namespace SourceDeployApiBase {
   export interface Options {
     org: any;
-    isAsync: boolean;
+    isAsync?: boolean;
   }
 }

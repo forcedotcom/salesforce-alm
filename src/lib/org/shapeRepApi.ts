@@ -8,8 +8,11 @@
 import * as optional from 'optional-js';
 import * as _ from 'lodash';
 import * as Force from '../core/force'; // eslint-disable-line global-require
-import * as almError from '../core/almError';
+import { Messages, SfdxError, ConfigAggregator } from '@salesforce/core';
 import { RecordResult } from 'jsforce';
+
+Messages.importMessagesDirectory(__dirname);
+const messages = Messages.loadMessages('salesforce-alm', 'org_shape');
 
 /**
  * Shape API object, for all of your ShapeRepresentation needs
@@ -50,7 +53,7 @@ class ShapeRepresentationApi {
     } catch (err) {
       if (err.errorCode && err.errorCode === 'INVALID_TYPE') {
         // ShapeExportPref is not enabled, or user does not have CRUD access
-        return Promise.reject(almError({ keyName: 'noAccess', bundle: 'org_shape_delete' }, []));
+        return Promise.reject( new SfdxError(messages.getMessage('delete_shape_command_no_access',shapeIds)));
       }
       // non-access error
       return Promise.reject(err);
@@ -87,15 +90,24 @@ class ShapeRepresentationApi {
     });
   }
 
-  private shapePermEntity = 'OrganizationSettingsDetail';
-
   /**
    * Check if the ShapeExportPilot preference is enabled.
    */
   async isFeatureEnabled() {
+    const aggregator = await ConfigAggregator.create();
+
+    if( aggregator.getInfo('apiVersion').value < 48 ) {
+      return this.isFeatureEnabledBefore48();
+    }
+    else{
+      return this.isFeatureEnabledAfter48();
+    }
+  }
+
+  async isFeatureEnabledBefore48() {
     const prefValue = this.force.toolingQuery(
       this.shapeOrg,
-      `SELECT SettingValue FROM ${this.shapePermEntity} WHERE SettingName = 'ShapeExportPref'`
+      `SELECT SettingValue FROM ${'OrganizationSettingsDetail'} WHERE SettingName = 'ShapeExportPref'`
     );
 
     // no records are returned if ShapeExportPilot perm is disabled
@@ -104,6 +116,42 @@ class ShapeRepresentationApi {
       const enabled = hasResults && _.get(value, 'records[0].SettingValue', false);
       return Promise.resolve(enabled);
     });
+  }
+
+  async isFeatureEnabledAfter48() {
+    const prefValue = this.force.toolingQuery(
+      this.shapeOrg,
+      `SELECT IsShapeExportPrefEnabled FROM ${'DevHubSettings'}`
+    );
+
+    // no records are returned if ShapeExportPilot perm is disabled
+    return prefValue.then(value => {
+      const hasResults = _.get(value, 'totalSize', 0) > 0;
+      const enabled = hasResults && _.get(value, 'records[0].IsShapeExportPrefEnabled', false);
+      return Promise.resolve(enabled);
+    });
+  }
+  
+  isShapeId ( shapeId : string) : boolean {
+
+    if( shapeId == null ) return false; // '==' handles both null and undefined
+
+    return shapeId.startsWith("3SR") 
+            && ( shapeId.length >= 15 &&  shapeId.length <= 18 ) 
+            && ( shapeId.match(/^[0-9a-zA-Z]+$/) != null ) ;
+  }
+
+  async getShapeRepresentation(shapeId:string) {
+     if( this.isShapeId(shapeId)){
+      const query = "Select Id, Status, Edition, Features, Settings from ShapeRepresentation WHERE Id = '" + shapeId + "' ";
+      return this.force.query(this.shapeOrg, query)
+        .catch(err => { 
+          return Promise.reject(err);
+      });
+    }
+    else {
+      return Promise.reject( new SfdxError(messages.getMessage('shape_get_not_a_shape_id')));
+    }
   }
 }
 

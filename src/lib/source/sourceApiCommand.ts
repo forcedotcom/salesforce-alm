@@ -19,8 +19,11 @@ import consts = require('../core/constants');
 import logger = require('../core/logApi');
 import * as almError from '../core/almError';
 import * as syncCommandHelper from './syncCommandHelper';
-import MetadataRegistry = require('./metadataRegistry');
 import { SourceDeployApiBase } from './sourceDeployApiBase';
+import { PackageInfoCache } from './packageInfoCache';
+import { AnalyticsGlobal } from '@salesforce/plugin-analytics/lib/analyticsGlobal';
+
+declare const global: AnalyticsGlobal;
 
 Messages.importMessagesDirectory(__dirname);
 
@@ -43,6 +46,7 @@ export class SourceApiCommand {
   private deployMsgs;
   private commonMsgs;
   private userCanceled: boolean;
+  private metadataTypeDeployed: string[] = [];
 
   constructor(private readonly isSourceDelete: boolean) {
     this.logger = logger.child(`source:${this.deploytype}`);
@@ -63,12 +67,13 @@ export class SourceApiCommand {
   public async execute(context: any): Promise<any> {
     const rows = [];
     const projectPath = this.orgApi.config.getProjectPath();
-    let deployResult: DeployResult;
-    return MetadataRegistry.initializeMetadataTypeInfos(this.orgApi)
-      .then(() =>
-        this.isDeploy() ? SourceDeployApi.create({ org: this.orgApi }) : MdapiPushApi.create({ org: this.orgApi })
-      )
-      .then((deployApi: SourceDeployApiBase) => {
+    let results: DeployResult;
+    const options = { org: this.orgApi };
+    const deployApi: SourceDeployApiBase = this.isDeploy()
+      ? await SourceDeployApi.create(options)
+      : await MdapiPushApi.create(options);
+    return Promise.resolve()
+      .then(() => {
         context.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
         context.delete = this.isSourceDelete; // SourceDeployApi is for source:deploy and MdapiPushApi is for source:push
         return deployApi.doDeploy(context);
@@ -86,7 +91,16 @@ export class SourceApiCommand {
         } else if (e.name === 'DeployFailed') {
           e.failures.forEach(failure => syncCommandHelper.createDeployFailureRow(rows, failure, projectPath));
           const messageBundle = this.deploytype === 'deploy' ? this.deployMsgs : this.pushMsgs;
-          const error = new SfdxError(messageBundle.getMessage(`source${this.deploytype}Failed`), 'DeployFailed');
+
+          const actions = PackageInfoCache.getInstance().hasMultiplePackages()
+            ? ['Check the order of your dependencies and ensure all metadata is included.']
+            : [];
+
+          const error = new SfdxError(
+            messageBundle.getMessage(`source${this.deploytype}Failed`),
+            'DeployFailed',
+            actions
+          );
           if (!util.isNullOrUndefined(e.outboundFiles)) {
             const successes = [];
             e.outboundFiles.forEach(sourceElement =>
@@ -109,23 +123,27 @@ export class SourceApiCommand {
           throw e;
         }
       })
-      .then((result: DeployResult) => {
+      .then((deployResult: DeployResult) => {
         // checkonly and validateddeployrequestid flags display mdapi:deploy output
         if (this.checkonly || this.isQuickDeploy || this.isAsync) {
-          deployResult = result;
+          results = deployResult;
           return;
         }
 
-        if (result.userCanceled) {
+        if (deployResult.userCanceled) {
           //user canceled the delete by selecting 'n' when prompted.
-          this.userCanceled = result.userCanceled;
+          this.userCanceled = deployResult.userCanceled;
         } else {
-          result.outboundFiles.forEach((sourceElement: WorkspaceElementObj) =>
-            syncCommandHelper.createDisplayRows(rows, sourceElement, projectPath)
-          );
+          deployResult.outboundFiles.forEach((sourceElement: WorkspaceElementObj) => {
+            if (!this.metadataTypeDeployed.includes(sourceElement.type)) {
+              this.metadataTypeDeployed.push(sourceElement.type);
+            }
+            syncCommandHelper.createDisplayRows(rows, sourceElement, projectPath);
+          });
         }
       })
       .then(() => {
+        this.createEvent();
         if (this.isAsync) {
           SourceApiCommand.prototype['getHumanSuccessMessage'] = this.getHumanSuccessMessageDelegate;
         }
@@ -145,7 +163,7 @@ export class SourceApiCommand {
       .then(() => {
         // checkonly and validateddeployrequestid flags display mdapi:deploy output
         if (this.checkonly || this.isQuickDeploy || this.isAsync) {
-          return deployResult;
+          return results;
         }
 
         if (this.userCanceled) {
@@ -283,6 +301,34 @@ export class SourceApiCommand {
           label: this.commonMsgs.getMessage('errorColumn')
         }
       ];
+    }
+  }
+
+  createEvent() {
+    let listOfMetadataTypesDeployed = this.metadataTypeDeployed.toString();
+    const operation: string = this.isDeploy() ? 'source:deploy' : 'source:push';
+    const totalNumberOfPackagesInProject: number = this.isDeploy()
+      ? SourceDeployApi.totalNumberOfPackages
+      : MdapiPushApi.totalNumberOfPackages;
+    const packagesDeployed = this.isDeploy() ? SourceDeployApi.packagesDeployed : MdapiPushApi.packagesDeployed;
+    const istruncated: boolean = listOfMetadataTypesDeployed.length < 8000 ? false : true;
+    if (istruncated) {
+      listOfMetadataTypesDeployed = listOfMetadataTypesDeployed
+        .slice(0, 7975)
+        .toString()
+        .concat('..metadataTypes truncated');
+    }
+
+    if (global.cliTelemetry && global.cliTelemetry.record) {
+      global.cliTelemetry.record({
+        eventName: 'SOURCE_OPERATION',
+        operation: operation,
+        type: 'EVENT',
+        totalNumberOfPackages: totalNumberOfPackagesInProject,
+        numberOfPackagesDeployed: packagesDeployed,
+        componentsDeployed: listOfMetadataTypesDeployed,
+        componentsDeployedTruncated: istruncated
+      });
     }
   }
 }

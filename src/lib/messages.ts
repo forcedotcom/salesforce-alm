@@ -616,9 +616,9 @@ const messages = {
       notSpecified: '<Not Specified>',
       warnApiVersion: 'apiVersion configuration overridden at %s',
       metadataTypeNotSupported:
-        'ERROR: No source format support for type %s. Although the Metadata Coverage report indicates the Metadata API supports source format for this metadata type %s, Salesforce CLI doesn’t.\n' +
-        'Salesforce CLI skips this unsupported metadata type but deploys or retrieves supported metadata types. We are working on closing these gaps.\n' +
-        'In the meantime, use mdapi:deploy and mdapi:retrieve to deploy or retrieve any unsupported metadata types; however, using a mix of source commands may make source tracking results unreliable.\n'
+        'We can’t retrieve the specified metadata object: %s. Certain metadata types, like %s are not currently supported by the CLI.\n' +
+        'File a bug here: https://github.com/forcedotcom/cli/issues and provide the name of the unsupported metadata type',
+      shapeCreateFailedMessage: 'Error creating scratch definition file. Please contact Salesforce support.'
     }
   },
   IndexErrorProcessor: {
@@ -708,6 +708,8 @@ const messages = {
       apexReportCommandParamReporter: 'test result format emitted to stdout; --json flag overrides this parameter',
       apexReportCommandParamReporterLong:
         'Format to use when displaying test results. If you also specify the --json flag, --json overrides this parameter.',
+      apexReportImprovedCoverageWarning:
+        "In Summer '20, the Apex test reporter will return more relevant and accurate code coverage results for test runs. To preview this change, set the environment variable SFDX_IMPROVED_CODE_COVERAGE='true'. Learn more at https://releasenotes.docs.salesforce.com/en-us/spring20/release-notes/rn_sf_cli_code_coverage_apextests.htm",
       invalidValueForSocketTimeoutHandler: 'provide a valid function for the socket timeout handler.',
       verboseDescription: 'display Apex test processing details',
       verboseLongDescription:
@@ -1136,6 +1138,14 @@ const messages = {
     }
   },
 
+  org_shape_get: {
+    en_US: {
+      description: 'retrieve an org shape',
+      longDescription: 'Retrieves an org shape that you created from an org using Salesforce CLI.',
+      notAShapeId: 'the value passed in was not a shape id'
+    }
+  },
+
   org_list: {
     en_US: {
       description: 'list all orgs you’ve created or authenticated to',
@@ -1154,7 +1164,10 @@ const messages = {
         'Examples:' +
         '\n   $ sfdx force:org:list' +
         '\n   $ sfdx force:org:list --verbose --json' +
-        '\n   $ sfdx force:org:list --verbose --json > tmp/MyOrgList.json'
+        '\n   $ sfdx force:org:list --verbose --json > tmp/MyOrgList.json',
+      skipConnectionStatus: 'Skips retrieving the connection status of non-scratch orgs',
+      deleteOrgs:
+        'You have %s expired or deleted local scratch org authorizations. To remove authorizations for inactive orgs, run force:org:list --clean.'
     }
   },
 
@@ -1286,11 +1299,9 @@ const messages = {
         '%s' +
         '\n\nGrant access (y/n)?',
       promptUpgradeType:
-        'Please confirm usage of the --upgradetype Delete operation. This can result in the loss of data associated with the deleted components. Proceed with caution.' +
-        '\n\nProceed (y/n)?',
-      promptUpgradeTypeDeny:
-        'The installation has been canceled because confirmation was not granted for the --upgradetype Delete operation. ' +
-        'If you want to install the package, run "sfdx force:package:install" again.',
+        "The Delete upgrade type permanently deletes metadata types that have been removed from the package. Deleted metadata can’t be recovered. We don't delete custom objects and custom fields. Instead, we deprecate them." +
+        '\n\nDo you want to continue? (y/n)',
+      promptUpgradeTypeDeny: 'We canceled this package installation per your request.',
       publishWait: 'number of minutes to wait for subscriber package version ID to become available in the target org ',
       publishWaitLong:
         'Maximum number of minutes to wait for the Subscriber Package Version ID to become available ' +
@@ -1306,14 +1317,15 @@ const messages = {
         'security access type for the installed package (deprecation notice: The default --securitytype value will change from AllUsers to AdminsOnly in v47.0 or later.)',
       securityTypeLong:
         "Security access type for the installed package.\nDeprecation notice: The --securitytype parameter's default value will change from AllUsers to AdminsOnly in an upcoming release (v47.0 or later).",
-      upgradeType: 'the upgrade type for the package installation',
+      upgradeType: 'the upgrade type for the package installation; available only for unlocked packages',
       upgradeTypeLong:
         'For package upgrades, specifies whether to mark all removed components as deprecated (DeprecateOnly), ' +
         'to delete removed components that can be safely deleted and deprecate the others (Mixed), ' +
-        "or to delete all removed components, except for custom objects and custom fields, that don't have dependencies (Delete).",
-      apexCompile: 'compile all Apex in the org and package, or only Apex in the package',
+        "or to delete all removed components, except for custom objects and custom fields, that don't have dependencies (Delete). " +
+        'The default is Mixed. Can specify DeprecateOnly or Delete only for unlocked package upgrades.',
+      apexCompile: 'compile all Apex in the org and package, or only Apex in the package; unlocked packages only',
       apexCompileLong:
-        'For unlocked packages only, specifies whether to compile all Apex in the org and package, or only the Apex in the package.',
+        'Applies to unlocked packages only. Specifies whether to compile all Apex in the org and package, or only the Apex in the package.',
       errorRequiredFlags: 'Include either a %s value or a %s value.',
       invalidIdOrPackage:
         'Invalid alias or ID: %s. Either your alias is invalid or undefined, or the ID provided is invalid.',
@@ -1338,7 +1350,8 @@ const messages = {
         "Are you sure you want to release package version %s? You can't undo this action. Release package (y/n)?",
       setasreleasedForce: 'no prompt to confirm setting the package version as released',
       setasreleasedForceLong: 'Do not prompt to confirm setting the package version as released.',
-      humanSuccess: 'Successfully promoted the package version, ID: %s, to released.',
+      humanSuccess:
+        'Successfully promoted the package version, ID: %s, to released. Starting in Winter ‘21, only unlocked package versions that have met the minimum 75% code coverage requirement can be promoted. Code coverage minimums aren’t enforced on org-dependent unlocked packages.',
       previouslyReleasedMessage:
         'You already promoted a package version with this major.minor.patch version number. For a given major.minor.patch number, you can promote only one version.',
       previouslyReleasedAction:
@@ -1414,7 +1427,6 @@ const messages = {
         "The provided VersionNumber '%s' is invalid. Provide an integer value for the %s number.",
       errorInvalidAncestorVersionFormat:
         'The ancestor versionNumber must be in the format major.minor.patch but the value found is [%s].',
-      errorInvalidPackageId: "The provided package ID '%s' is invalid.",
       errorNoMatchingAncestor: "The ancestorId for ancestorVersion [%s] can't be found. Package ID [%s].",
       errorAncestorNotReleased:
         'The ancestor package version [%s] specified in the sfdx-project.json file hasn’t been promoted and released. Release the ancestor package version before specifying it as the ancestor in a new package or patch version.',
@@ -1456,7 +1468,47 @@ const messages = {
       SUCCESS: 'Successfully installed package [%s].'
     }
   },
-
+  package_convert: {
+    en_US: {
+      cliDescription: 'creates a second-generation package version from a first-generation package',
+      cliLongDescription:
+        'Creates a second-generation package in the Dev Hub from a first-generation package in the Dev Hub org.',
+      help:
+        'The package convert creates a new package in the Dev Hub if one does not already exist for the specified first-generation package.' +
+        '\n\nIt then creates a new package version in the Dev Hub with contents based on the specified first-generation package.' +
+        '\n\nThe latest released non-patch package version from the specified first-generation package will be converted.' +
+        '\n\nTo retrieve details about a package version create request, including status and package version ID (04t), ' +
+        'run "sfdx force:package:version:create:report -i 08c...".' +
+        '\n\nWe recommend specifying the --installationkey to protect the contents of your package and to prevent unauthorized installation of your package.' +
+        '\n\nTo list package version creation requests in the org, run "sfdx force:package:version:create:list".' +
+        '\n\nExamples:' +
+        '\n   $ sfdx force:package:convert --package 033xx0000004Gmn -k password123',
+      package: 'ID (starts with 033) of the first-generation package to convert',
+      longPackage: 'The ID (starts with 033) or alias of the package to convert.',
+      key:
+        'installation key for key-protected package (either ' +
+        '--installationkey or --installationkeybypass is required)',
+      longKey:
+        'Installation key for creating the key-protected ' +
+        'package. Either an --installationkey value or the ' +
+        '--installationkeybypass flag is required.',
+      keyBypass:
+        'bypass the installation key requirement (either ' +
+        '--installationkey or --installationkeybypass is required)',
+      longKeyBypass:
+        'Bypasses the installation key requirement. ' +
+        'If you bypass this requirement, anyone can install your package. ' +
+        'Either an --installationkey value or the ' +
+        '--installationkeybypass flag is required.',
+      wait: 'minutes to wait for the package version to be created',
+      longWait: 'The number of minutes to wait for the package version to be created.',
+      instance: 'the instance where the conversion package version will be created——for example, NA50',
+      longInstance: 'The instance where the conversion package version will be created——for example, NA50.',
+      errorMoreThanOnePackage2WithSeed:
+        'Only one package in in a Dev Hub is allowed per converted from first-generation package, but the following were found: ',
+      errorNoSubscriberPackageRecord: 'No subscriber package was found for seed id: '
+    }
+  },
   package_create: {
     en_US: {
       cliDescription: 'create a package',
@@ -1471,6 +1523,11 @@ const messages = {
         "\n\nRun 'sfdx force:package:list' to list all packages in the Dev Hub org.",
       name: 'package name',
       nameLong: 'Name of the package to create.',
+      orgDependent: 'Depends on unpackaged metadata in the installation org. Applies to unlocked packages only. (Beta)',
+      orgDependentLong:
+        'Package depends on unpackaged metadata in the installation org. Applies to  unlocked packages only. (Beta)\n' +
+        '\n' +
+        'Use Source Tracking in Sandboxes (Beta), to develop your org-dependent unlocked package.\n',
       description: 'package description',
       descriptionLong: 'Description of the package.',
       noNamespace: 'creates the package with no namespace; available only for unlocked packages.',
@@ -1530,7 +1587,9 @@ const messages = {
       description: 'Description',
       packageType: 'Type',
       verboseDescription: 'display extended package detail',
-      verboseLongDescription: 'Displays extended package details.'
+      verboseLongDescription: 'Displays extended package details.',
+      convertedFromPackageId: 'Converted From Package Id',
+      isOrgDependent: 'Org-Dependent Unlocked Package (Beta)'
     }
   },
 
@@ -1545,6 +1604,7 @@ const messages = {
         '\n\nWe recommend specifying the --installationkey to protect the contents of your package and to prevent unauthorized installation of your package.' +
         '\n\nTo list package version creation requests in the org, run "sfdx force:package:version:create:list".' +
         '\n\nManaged packages must use the --codecoverage option and meet the code coverage requirements to promote a version to released.' +
+        '\n\nStarting in Winter ‘21, only unlocked package versions that have met the minimum 75% code coverage requirement can be promoted. Code coverage minimums aren’t enforced on org-dependent unlocked packages.' +
         '\n\nExamples:' +
         '\n   $ sfdx force:package:version:create -d common -k password123' +
         '\n   $ sfdx force:package:version:create -p "Your Package Alias" -k password123' +
@@ -1614,19 +1674,20 @@ const messages = {
         'skip validation during package version creation; package versions created without validation can’t be promoted',
       skipValidationLong:
         'Skips validation of dependencies, package ancestors, and metadata during package version creation. Skipping validation reduces ' +
-        'the time it takes to create a new package version, but package versions created without validation can’t be promoted.',
+        'the time it takes to create a new package version, but you can promote only validated package versions. You can specify ' +
+        'skip validation or code coverage, but not both. Code coverage is calculated during validation.',
       postInstallUrl: 'post-install URL',
       postInstallUrlLong:
         'The post-install instructions URL. The contents of the post-installation instructions URL are displayed ' +
         'in the UI after installation of the package version.',
-      postInstallScript: 'post-install script name',
+      postInstallScript: 'post-install script name; managed packages only',
       postInstallScriptLong:
-        'The post-install script name. The post-install script is an Apex class within this package that is run ' +
-        'in the installing org after installations or upgrades of this package version.',
-      uninstallScript: 'uninstall script name',
+        'Applies to managed packages only. The post-install script name. The post-install script is an Apex class ' +
+        'within this package that is run in the installing org after installations or upgrades of this package version.',
+      uninstallScript: 'uninstall script name; managed packages only',
       uninstallScriptLong:
-        'The uninstall script name. The uninstall script is an Apex class within this package that is run in the ' +
-        'installing org after uninstallations of this package.',
+        'Applies to managed packages only. The uninstall script name. The uninstall script is an Apex class within this ' +
+        'package that is run in the installing org after uninstallations of this package.',
       defaultVersionName:
         'versionName is blank in sfdx-project.json, so it will be set to this default value based on the versionNumber: %s',
       InProgress:
@@ -1661,7 +1722,7 @@ const messages = {
       errorEmptyPackageDirs:
         'sfdx-project.json must contain a packageDirectories entry for a package. You can run the force:package:create command to auto-populate such an entry.',
       errorProfileUserLicensesInvalidValue:
-        "The value specified for includeProfileUserLicenses '%s' is invalid.  It must be a boolean true/false value.",
+        'Can’t create package version. Check your sfdx-project.json file and set includeProfileUserLicenses to either true or false. Then try package version creation again.',
       unknownError: 'Package version creation failed with unknown error.',
       malformedUrl:
         'The %s value "%s" from the command line or sfdx-project.json is not in the correct format for a URL. It must be a valid URL in the ' +
@@ -1791,6 +1852,7 @@ const messages = {
       id: 'Package Version Id',
       alias: 'Alias',
       subscriberPackageVersionId: 'Subscriber Package Version Id',
+      convertedFromVersionId: 'Converted From Version Id',
       packageId: 'Package Id',
       packageBranch: 'Branch',
       packageTag: 'Tag',
@@ -2183,7 +2245,8 @@ const messages = {
       success: 'Successfully set the password "%s" for user %s.',
       successMultiple: `Successfully set passwords:${os.EOL}`,
       viewWithCommand: 'You can see the password again by running "sfdx force:user:display -u %s".',
-      noSelfSetAction: 'Create a scratch org with the SelfSetPasswordInApi org preference enabled and try again.'
+      noSelfSetAction:
+        'Create a scratch org with the enableSetPasswordInApi org security setting set to TRUE and try again.'
     }
   },
 
@@ -2376,7 +2439,10 @@ const messages = {
         'Unable to extract a package ID from the response from %s. See the debug log for details.',
       testRunError:
         'Something went wrong with the test run. It might be an environmental or configuration issue.' +
-        '\nError Message: %s'
+        '\nError Message: %s',
+      lightningTestingServiceDeprecated:
+        'The functionality has been moved to a plugin that you must install seperately. ' +
+        'For details on the new plugin see: https://github.com/forcedotcom/LightningTestingService/blob/master/README.md#installing-the-lightning-testing-service'
     }
   },
 
@@ -2440,10 +2506,9 @@ const messages = {
 
   org_shape: {
     en_US: {
-      create_shape_command_description: 'create a snapshot of org edition, features, and licenses',
+      create_shape_command_description: 'Create a scratch org configuration (shape) based on the specified source org',
       create_shape_command_description_long:
-        'Creates a snapshot of org edition, features, and licenses to use for scratch org creation, ' +
-        'allowing your scratch org to look like another org for testing.',
+        'Create a scratch org configuration (shape) based on the specified source org.',
       create_shape_command_help:
         'Examples:' +
         '\n   $ sfdx force:org:shape:create -u me@my.org' +
@@ -2451,8 +2516,11 @@ const messages = {
       create_shape_command_username: 'a username or alias for the target org',
       create_shape_command_username_long:
         'Username or alias of the previously authorized org from which you want to create an org shape.',
-      create_shape_command_no_access: 'The org needs to be enabled for org shape before one can be created.',
-      create_shape_command_success: 'Successfully enqueued ShapeRepresentation creation for ID %s.'
+      create_shape_command_definitionfile:
+        'creates a scratch definition file based on the specified source org. If a file name isn’t specified, the default is: <source org ID>-<unique 15-character ID>-scratch-def.json',
+      create_shape_command_definitionfile_long:
+        'Creates a scratch definition file based on the specified source org. This name must end in scratch-def.json. If you specify a name that doesn’t end in scratch-def.json, we’ll append it. The file is generated in the config directory.',
+      create_shape_command_no_access: 'The org needs to be enabled for org shape before one can be created.'
     }
   },
 

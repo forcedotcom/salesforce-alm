@@ -50,7 +50,8 @@ class DataExportApi {
    * @param options - The flags on the context passed to the command.
    * @returns BBPromise.<Object>
    */
-  validate(options: Dictionary<any> = {}) {
+  validate(context: Dictionary<any> = {}) {
+    const options = context.flags;
     // query option required
     if (!options.query) {
       throw almError('dataExportSoqlNotProvided');
@@ -70,7 +71,7 @@ class DataExportApi {
       throw almError('dataExportInvalidSoql', options.query);
     }
 
-    return BBPromise.resolve(options);
+    return BBPromise.resolve(context);
   }
 
   /**
@@ -82,9 +83,19 @@ class DataExportApi {
   execute(options: Dictionary<any> = {}) {
     return this.validate(options)
       .then(() => this._setupOutputDirectory(options))
-      .then(() => this.force.query(this.org, options.query))
-      .then(recordList => this._main(options, recordList))
+      .then(() => {
+        console.log('about to force query');
+
+        this.force.query(this.org, options.query);
+      })
+      .then(recordList => {
+        console.log('after force query');
+
+        this._main(options, recordList);
+      })
       .then(sobjectTree => {
+        console.log('checking records');
+
         if (!sobjectTree.records.length) {
           return sobjectTree;
         }
@@ -123,7 +134,11 @@ class DataExportApi {
   // Process query results generating SObject Tree format
   _main(options, recordList) {
     return this._recordObjectTypes(recordList)
-      .then(() => this._processRecordList(options, recordList))
+      .then(() => {
+        console.log('process the records');
+
+        this._processRecordList(options, recordList);
+      })
       .then(processedRecordList => {
         // log record count; warn if > 200 and !options.plan
         const recordCount = _.get(processedRecordList, 'records.length');
@@ -137,6 +152,8 @@ class DataExportApi {
 
   // Register object types and type hierarchy for plan generation
   _recordObjectTypes(recordList) {
+    console.log('register object types');
+
     const records = recordList.records;
 
     if (!records.length) {

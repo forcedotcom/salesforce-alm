@@ -24,6 +24,7 @@ export type MdapiDeployRecentValidationOptions = {
 };
 
 export type DeployOptions = {
+  rollbackOnError?: boolean;
   testLevel?: string;
   runTests?: string;
   autoUpdatePackage?: boolean;

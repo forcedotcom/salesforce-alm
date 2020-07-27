@@ -27,6 +27,10 @@ export class LightningTestInstallCommand extends ToolbeltCommand {
     [],
     'lightning_test'
   );
+  public static deprecated = {
+    version: 50.0,
+    message: messages.getMessage('lightningTestingServiceDeprecated', [], 'lightning_test')
+  };
   public static readonly help = messages.getMessage('lightningTestInstallCommandHelp', [], 'lightning_test');
   public static readonly requiresProject = false;
   public static readonly requiresUsername = true;

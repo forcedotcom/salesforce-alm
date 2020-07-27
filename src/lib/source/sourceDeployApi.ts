@@ -24,6 +24,7 @@ import { WorkspaceElementObj } from './workspaceElement';
 import { SourceOptions } from './types';
 import * as SourceUtil from './sourceUtil';
 import { AggregateSourceElement } from './aggregateSourceElement';
+import { AggregateSourceElements } from './aggregateSourceElements';
 import * as PathUtils from './sourcePathUtil';
 import * as os from 'os';
 import consts = require('../core/constants');
@@ -48,10 +49,12 @@ export class SourceDeployApi extends SourceDeployApiBase {
   private isDelete: boolean;
   private tmpBackupDeletions;
   private DELETE_NOT_SUPPORTED_IN_CONTENT = ['StaticResource'];
+  static totalNumberOfPackages: number;
+  static packagesDeployed: number;
 
   // @todo we shouldn't cross the command api separation by re-using cli options as dependencies for the api.
   async doDeploy(options): Promise<DeployResult> {
-    let aggregateSourceElements = new Map<string, AggregateSourceElement>();
+    let aggregateSourceElements = new AggregateSourceElements();
     this.isDelete = options.delete;
     this.logger = await Logger.child('SourceDeployApi');
 
@@ -71,6 +74,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
       sourceMode: mode
     };
     this.swa = await SourceWorkspaceAdapter.create(swaOptions);
+    SourceDeployApi.totalNumberOfPackages = this.swa.packageInfoCache.packageNames.length;
 
     let tmpOutputDir: string = await SourceUtil.createOutputDir('sourceDeploy');
 
@@ -96,6 +100,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
         throw SfdxError.create('salesforce-alm', 'source', 'missingScopeOption');
       }
 
+      SourceDeployApi.packagesDeployed = aggregateSourceElements.size;
       let _handleDeleteResult = false;
       if (this.isDelete) {
         if (options.sourcepath) {
@@ -118,7 +123,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
         options.wait = this.force.config.getConfigContent().defaultSrcWaitMinutes;
       }
 
-      if (aggregateSourceElements.size > 0) {
+      if (!aggregateSourceElements.isEmpty()) {
         try {
           // Create a temp directory
           options.deploydir = tmpOutputDir;
@@ -150,10 +155,10 @@ export class SourceDeployApi extends SourceDeployApiBase {
     }
   }
 
-  private async _doLocalDelete(ases: Map<string, AggregateSourceElement>) {
+  private async _doLocalDelete(ases: AggregateSourceElements) {
     this.tmpBackupDeletions = await SourceUtil.createOutputDir('sourceDelete');
     const cleanedCache = new Map<string, boolean>();
-    ases.forEach((ase: AggregateSourceElement) => {
+    ases.getAllSourceElements().forEach((ase: AggregateSourceElement) => {
       ase
         .getPendingDeletedWorkspaceElements()
         .forEach(we =>
@@ -170,7 +175,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
     });
   }
 
-  private async _handleDelete(noprompt: boolean, ases: Map<string, AggregateSourceElement>, sourcepath: string) {
+  private async _handleDelete(noprompt: boolean, ases: AggregateSourceElements, sourcepath: string) {
     let pendingDelPathsForPrompt = [];
     const typedefObj = MetadataTypeFactory.getMetadataTypeFromSourcePath(sourcepath, this.swa.metadataRegistry);
     const metadataType = typedefObj ? typedefObj.getMetadataName() : null;
@@ -184,7 +189,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
       }
     }
 
-    ases.forEach(ase => {
+    ases.getAllSourceElements().forEach(ase => {
       ase.getWorkspaceElements().some(we => {
         const type = we.getMetadataName();
         const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
@@ -225,9 +230,9 @@ export class SourceDeployApi extends SourceDeployApiBase {
     return answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y';
   }
 
-  private async _processResults(result, aggregateSourceElements: Map<string, AggregateSourceElement>, deployDir) {
+  private async _processResults(result, aggregateSourceElements: AggregateSourceElements, deployDir: string) {
     if (result.success && result.details.componentFailures) {
-      this.removeFailedAggregates(result.details.componentFailures, aggregateSourceElements);
+      this.removeFailedAggregates(result.details.componentFailures, aggregateSourceElements, this.swa.packageInfoCache);
     }
 
     // We need to check both success and status because a status of 'SucceededPartial' returns success === true even though rollbackOnError is set.
@@ -242,7 +247,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
     }
   }
 
-  private async _setupDeployFail(result, aggSourceElements: Map<string, AggregateSourceElement>) {
+  private async _setupDeployFail(result, aggSourceElements: AggregateSourceElements) {
     const deployFailed: any = new Error();
     if (result.timedOut) {
       deployFailed.name = 'PollingTimeout';
@@ -266,8 +271,8 @@ export class SourceDeployApi extends SourceDeployApiBase {
 
   // Revert all deletions since something went wrong and they were not deleted server side.
   // This copies all the files from the temporary location back to their original location.
-  private async _revertDeletions(ases: Map<string, AggregateSourceElement>) {
-    for (const ase of ases.values()) {
+  private async _revertDeletions(ases: AggregateSourceElements) {
+    for (const ase of ases.getAllSourceElements()) {
       const parentDir = path.dirname(ase.getMetadataFilePath());
       try {
         await fs.access(parentDir, fs.constants.R_OK);

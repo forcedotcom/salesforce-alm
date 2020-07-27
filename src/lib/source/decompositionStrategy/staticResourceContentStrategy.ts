@@ -31,7 +31,8 @@ export class StaticResourceContentStrategy implements ContentDecompositionStrate
     retrievedContentFilePaths,
     retrievedMetadataFilePath,
     createDuplicates,
-    unsupportedMimeTypes: string[]
+    unsupportedMimeTypes: string[],
+    forceoverwrite = false
   ): [string[], string[], string[], string[]] {
     const newPaths = [];
     const deletedPaths = [];
@@ -42,7 +43,11 @@ export class StaticResourceContentStrategy implements ContentDecompositionStrate
       retrievedMetadataFilePath,
       unsupportedMimeTypes
     );
-    const [updatedPaths, duplicatePaths] = staticResource.saveResource(retrievedContentFilePaths[0], createDuplicates);
+    const [updatedPaths, duplicatePaths] = staticResource.saveResource(
+      retrievedContentFilePaths[0],
+      createDuplicates,
+      forceoverwrite
+    );
     return [newPaths, updatedPaths, deletedPaths, duplicatePaths];
   }
 }

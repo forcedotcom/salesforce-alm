@@ -8,7 +8,7 @@ import almError = require('../core/almError');
 import logApi = require('../core/logApi');
 import Org = require('../core/scratchOrgApi');
 import _ = require('lodash');
-import PermissionSetAssignment from './permissionSetAssignment';
+import PermissionSetAssignment, { ReadablePermissionSet } from './permissionSetAssignment';
 import * as moment from 'moment';
 import srcDevUtil = require('../core/srcDevUtil');
 
@@ -80,8 +80,8 @@ class User {
     return this._refreshToken;
   }
 
-  get permissionSetAssignments(): PermissionSetAssignment[] {
-    return this._permissionSetAssignments;
+  get permissionSetAssignments(): ReadablePermissionSet[] {
+    return this._permissionSetAssignments.map(p => p.get());
   }
 
   get password(): string {

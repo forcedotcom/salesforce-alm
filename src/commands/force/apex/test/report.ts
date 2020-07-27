@@ -60,6 +60,10 @@ export class ApexTestReportCommand extends ReporterCommand {
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
     const Command = require('../../../../lib/apex/apexReportCommand');
-    return this.execLegacyCommand(new Command(), context);
+    const results = await this.execLegacyCommand(new Command(), context);
+    if (process.env.SFDX_IMPROVED_CODE_COVERAGE !== 'true' && this.flags.codecoverage) {
+      this.ux.warn(messages.getMessage('apexReportImprovedCoverageWarning', [], 'apex'));
+    }
+    return results;
   }
 }

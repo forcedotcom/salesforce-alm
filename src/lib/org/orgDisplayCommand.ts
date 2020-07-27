@@ -28,7 +28,7 @@ class OrgDisplayCommand {
   constructor() {
     this.logger = logger.child('orgDisplayCommand');
     this.describeApi = new OrgDescribeApi();
-    this.orgDecorator = new OrgDecorator(this.logger);
+    this.orgDecorator = new OrgDecorator(this.logger.humanConsumable);
   }
 
   /**

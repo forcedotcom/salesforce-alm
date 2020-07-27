@@ -184,7 +184,15 @@ export interface MetadataType {
    */
   getDisplayPathForLocalConflict(workspaceFilePath: string): string;
 
+  /**
+   * Returns whether a metadata type has 1 or more content files, not just a meta.xml file.
+   */
   hasContent(): boolean;
+
+  /**
+   * Returns whether a metadata type has a parent.  E.g., `CustomField` --> `CustomObject`
+   */
+  hasParent(): boolean;
 
   getAggregateFullNameFromComponentFailure(componentFailure): string;
 

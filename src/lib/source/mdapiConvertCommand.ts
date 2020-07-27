@@ -5,24 +5,20 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Node
-import * as util from 'util';
-
 // Thirdparty
-import * as BBPromise from 'bluebird';
 import * as optional from 'optional-js';
 import * as os from 'os';
 
 // Local
 
 import * as Force from '../core/force';
-import MetadataRegistry = require('./metadataRegistry');
 import MdapiConvertApi = require('./mdapiConvertApi');
 import ScratchOrg = require('../core/scratchOrgApi');
 import messages = require('../messages');
 import srcDevUtil = require('../core/srcDevUtil');
 import * as syncCommandHelper from './syncCommandHelper';
 import logger = require('../core/logApi');
+import { PackageInfoCache } from './packageInfoCache';
 const { Messages } = require('@salesforce/core');
 
 Messages.importMessagesDirectory(__dirname);
@@ -39,24 +35,26 @@ class MdapiConvertCommand {
     this.org = new ScratchOrg();
     this.org.setName(COMMAND_TEMP_ORG);
     this.logger = logger.child('mdapi:convert');
+    // Set a null active package so SourceWorkspaceAdapter does
+    // not get confused during decomposition.
+    PackageInfoCache.getInstance().setActivePackage(null);
   }
 
   validate(context) {
     const fixedContext = srcDevUtil.fixCliContext(context);
     this.api = new MdapiConvertApi(this.force);
     this.api.root = fixedContext.rootdir;
-    if (!util.isNullOrUndefined(fixedContext.outputdir)) {
+    if (fixedContext.outputdir) {
       this.api.outputDirectory = fixedContext.outputdir;
     }
-    return BBPromise.resolve(fixedContext);
+    return Promise.resolve(fixedContext);
   }
 
   execute(context) {
-    return MetadataRegistry.initializeMetadataTypeInfos(this.org)
-      .then(() => {
-        this.api.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
-        return this.api.convertSource(this.org, context);
-      })
+    const sourceConvertOptions = Object.assign({}, context);
+    this.api.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
+    return this.api
+      .convertSource(this.org, sourceConvertOptions)
       .then(outputElements =>
         srcDevUtil
           .logUnsupportedMimeTypeError(this.api.unsupportedMimeTypes, this.logger, this.force)

@@ -26,7 +26,7 @@ export class CustomObjectTranslationSubtypeMetadataType extends DefaultMetadataT
     return PathUtil.getParentDirectoryName(filePath);
   }
 
-  getAggregateMetadataFilePathFromWorkspacePath(filePath): string {
+  getAggregateMetadataFilePathFromWorkspacePath(filePath: string): string {
     const aggregateFullName = this.getAggregateFullNameFromFilePath(filePath);
     const pathToDefaultDir = PathUtil.getPathToDir(filePath, this.typeDefObj.parent.defaultDirectory);
     const fileName = `${aggregateFullName}.${this.typeDefObj.parent.ext}${MetadataRegistry.getMetadataFileExt()}`;

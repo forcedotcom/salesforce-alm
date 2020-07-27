@@ -21,6 +21,8 @@ class PackageCreateCommand {
     this.logger = logger.child('package:create');
   }
 
+  orgDependent = false;
+
   /**
    * Convert the list of command line options to a JSON object that can be used to create a Package2 entity.
    * @param context
@@ -29,11 +31,13 @@ class PackageCreateCommand {
    */
   _createPackage2RequestFromContext(context) {
     const namespace = context.flags.nonamespace ? '' : context.org.force.config.getConfigContent().namespace;
+    this.orgDependent = context.flags.orgdependent;
     return {
       Name: context.flags.name,
       Description: context.flags.description,
       NamespacePrefix: namespace,
-      ContainerOptions: context.flags.packagetype
+      ContainerOptions: context.flags.packagetype,
+      IsOrgDependent: context.flags.orgdependent
     };
   }
 
@@ -171,6 +175,10 @@ class PackageCreateCommand {
         { key: 'value', label: 'Value' }
       ]
     });
+    if (this.orgDependent) {
+      this.logger.log('This package depends on unpackaged metadata in the installation org, and is a beta feature.');
+      this.logger.log('Use Source Tracking in Sandboxes (Beta), to develop your org-dependent unlocked package.');
+    }
 
     return '';
   }

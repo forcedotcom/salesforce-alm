@@ -31,7 +31,7 @@ export class DataBulkUpsertCommand {
   async execute(context): Promise<any> {
     let csvStream: fs.ReadStream;
     let conn: Connection = await Config.getActiveConnection(context);
-
+    context.ux.startSpinner();
     try {
       fs.statSync(context.flags.csvfile);
     } catch (err) {
@@ -51,6 +51,7 @@ export class DataBulkUpsertCommand {
 
     return new Promise(async (resolve, reject) => {
       job.on('error', function(err): void {
+        context.ux.stopSpinner();
         reject(err);
       });
 
@@ -64,6 +65,7 @@ export class DataBulkUpsertCommand {
 
       try {
         resolve(await createAndExecuteBatches(conn, job, batches, context.flags.sobjectType, context.flags.wait));
+        context.ux.stopSpinner();
       } catch (e) {
         return reject(e);
       }

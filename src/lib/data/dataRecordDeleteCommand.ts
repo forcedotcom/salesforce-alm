@@ -18,13 +18,14 @@ export class DataRecordDeleteCommand {
 
     const conn: Connection = await Config.getActiveConnection(context);
     const sobjectid = await DataRecordUtils.retrieveId(conn, context);
-
+    context.ux.startSpinner(`Deleting Record`);
     // TODO: delete() returns RecordResult[] so this may be a bug in the impl unless we know
     //       we are assured of only deleting 1 record.
     const result: any = context.flags.usetoolingapi
       ? await conn.tooling.destroy(context.flags.sobjecttype, sobjectid)
       : await conn.sobject(context.flags.sobjecttype).destroy(sobjectid);
     if (result.success) {
+      context.ux.stopSpinner();
       Display.success(Messages.get('DataRecordDeleteSuccess', sobjectid));
     } else {
       let errors = '';
@@ -34,6 +35,7 @@ export class DataRecordDeleteCommand {
           errors += '  ' + err + '\n';
         });
       }
+      context.ux.stopSpinner();
       Display.failure(Messages.get('DataRecordDeleteFailure', errors));
     }
     return result as RecordResult;

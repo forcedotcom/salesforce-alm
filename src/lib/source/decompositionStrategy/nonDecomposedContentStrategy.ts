@@ -46,7 +46,8 @@ export class NonDecomposedContentStrategy implements ContentDecompositionStrateg
     retrievedContentFilePaths: string[],
     retrievedMetadataFilePath: string,
     createDuplicates: boolean,
-    unsupportedMimeTypes: string[]
+    unsupportedMimeTypes: string[],
+    forceoverwrite = false
   ): [string[], string[], string[], string[]] {
     const newPaths = [];
     const updatedPaths = [];
@@ -59,7 +60,10 @@ export class NonDecomposedContentStrategy implements ContentDecompositionStrateg
         retrievedContentFilePath
       );
       if (srcDevUtil.pathExistsSync(workspaceContentFilePath)) {
-        if (!NonDecomposedContentStrategy.filesAreEqual(retrievedContentFilePath, workspaceContentFilePath)) {
+        if (
+          forceoverwrite ||
+          !NonDecomposedContentStrategy.filesAreEqual(retrievedContentFilePath, workspaceContentFilePath)
+        ) {
           if (createDuplicates) {
             const dupPath = workspaceContentFilePath + '.dup';
             fs.copySync(retrievedContentFilePath, dupPath);

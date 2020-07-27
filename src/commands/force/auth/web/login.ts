@@ -16,6 +16,7 @@ import { ToolbeltCommand } from '../../../../ToolbeltCommand';
 
 import { SfdxError } from '@salesforce/core';
 import * as util from 'util';
+
 const messages = Messages();
 
 export class AuthWebLoginCommand extends ToolbeltCommand {

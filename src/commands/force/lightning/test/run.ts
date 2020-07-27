@@ -22,6 +22,10 @@ export class LightningTestRunCommand extends ReporterCommand {
     [],
     'lightning_test'
   );
+  public static deprecated = {
+    version: 50.0,
+    message: messages.getMessage('lightningTestingServiceDeprecated', [], 'lightning_test')
+  };
   public static readonly help = messages.getMessage('lightningTestCommandHelp', [], 'lightning_test');
   public static readonly requiresProject = false;
   public static readonly requiresUsername = true;

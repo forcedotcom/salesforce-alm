@@ -166,11 +166,12 @@ const _localOrgMetaConfigsReduction = function(metaConfigs) {
     // devhubs have ScratchOrgInfo objects keyed by username. Need to consolidate down to one map. The third index
     // of current value will contain devHub member data. an error object otherwise.
     if (_.isError(currentValue[2])) {
-      if (currentValue[2].errorCode === 'INVALID_TYPE') {
+      if (currentValue[2]['errorCode'] === 'INVALID_TYPE') {
         // Invalid type means we connected and there is not an sobject ScratchOrgInfo
         currentValue[1].connectedStatus = 'Connected';
       } else {
-        currentValue[1].connectedStatus = currentValue[2].code || currentValue[2].errorCode || currentValue[2].name;
+        currentValue[1].connectedStatus =
+          currentValue[2]['code'] || currentValue[2]['errorCode'] || currentValue[2].name;
       }
     }
     // Not nil and not an error it must be a hub org.
@@ -472,15 +473,6 @@ class Org {
    */
   getSourcePathInfos() {
     return new StateFile(this.config, this.getDataPath('sourcePathInfos.json'));
-  }
-
-  /**
-   * Get the full path to the file storing the workspace metadata typeDefs
-   * @param wsPath - The root path of the workspace
-   * @returns {*}
-   */
-  getMetadataTypeInfos() {
-    return new StateFile(this.config, this.getDataPath('metadataTypeInfos.json'));
   }
 
   /**

@@ -9,7 +9,6 @@
 import * as util from 'util';
 // Local
 import MetadataRegistry = require('./metadataRegistry');
-import srcDevUtil = require('../core/srcDevUtil');
 import * as sourceState from './sourceState';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { MetadataTypeFactory } from './metadataTypeFactory';
@@ -17,13 +16,15 @@ import { ForceIgnore } from './forceIgnore';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AsyncCreatable } from '@salesforce/kit';
 import { Logger } from '@salesforce/core';
-import { getRevisionFieldName } from './sourceUtil';
+import { MaxRevision } from './MaxRevision';
+import { SourceMember } from './SourceMember';
+import { PackageInfoCache } from './packageInfoCache';
 
 export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
   public scratchOrg: any;
   public force: any;
   public swa: SourceWorkspaceAdapter;
-  public maxRevisionFile: any;
+  public maxRevision: MaxRevision;
   public locallyChangedWorkspaceElements: any[];
   public localChanges: any[];
   public remoteChanges: any[];
@@ -35,7 +36,6 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     this.scratchOrg = options.org;
     this.force = this.scratchOrg.force;
     this.swa = options.adapter;
-    this.maxRevisionFile = this.scratchOrg.getMaxRevision();
     this.locallyChangedWorkspaceElements = [];
     this.localChanges = [];
     this.remoteChanges = [];
@@ -44,6 +44,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
 
   protected async init(): Promise<void> {
     this.logger = await Logger.child(this.constructor.name);
+    this.maxRevision = await MaxRevision.getInstance({ username: this.scratchOrg.name });
     if (!this.swa) {
       const options: SourceWorkspaceAdapter.Options = {
         org: this.scratchOrg,
@@ -55,11 +56,18 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     }
   }
 
-  doStatus(options) {
-    return Promise.resolve()
-      .then(() => this.populateLocalChanges(options))
-      .then(() => this.populateServerChanges(options))
-      .then(() => this.markConflicts(options));
+  async doStatus(options): Promise<void | any[]> {
+    this.populateLocalChanges(options);
+    await this.populateServerChanges(options);
+    await this.populateRemoteChangesFromFile(options);
+    return this.markConflicts(options);
+  }
+
+  private async populateRemoteChangesFromFile(options) {
+    if (!options.remote) {
+      return;
+    }
+    await this.convertSourceMembersToRemoteChanges(await this.maxRevision.retrieveChangedElements());
   }
 
   private populateLocalChanges(options) {
@@ -67,72 +75,74 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
       return [];
     }
 
-    const localSourceElementsMap = this.swa.changedSourceElementsCache;
-    return localSourceElementsMap.forEach(value => {
-      value.getWorkspaceElements().forEach(workspaceElement => {
-        value.validateIfDeletedWorkspaceElement(workspaceElement);
-        if (options.local && !options.remote) {
-          const localChange = {
-            state: workspaceElement.getState(),
-            fullName: workspaceElement.getFullName(),
-            type: workspaceElement.getMetadataName(),
-            filePath: workspaceElement.getSourcePath(),
-            deleteSupported: workspaceElement.getDeleteSupported()
-          };
-          this.localChanges.push(localChange);
-        } else {
-          // if we want to find source conflicts between the workspace and the server,
-          // then pass along the locally changed workspace elements and
-          // populate this.localChanges during the _markConflicts() step
-          this.locallyChangedWorkspaceElements.push(workspaceElement);
-        }
+    const localSourceElementsMapByPkg = this.swa.changedSourceElementsCache;
+    return localSourceElementsMapByPkg.forEach(localSourceElementsMap => {
+      return localSourceElementsMap.forEach(value => {
+        value.getWorkspaceElements().forEach(workspaceElement => {
+          value.validateIfDeletedWorkspaceElement(workspaceElement);
+          if (options.local && !options.remote) {
+            this.localChanges.push(workspaceElement.toObject());
+          } else {
+            // if we want to find source conflicts between the workspace and the server,
+            // then pass along the locally changed workspace elements and
+            // populate this.localChanges during the _markConflicts() step
+            this.locallyChangedWorkspaceElements.push(workspaceElement);
+          }
+        });
       });
     });
   }
 
-  private populateServerChanges(options) {
+  private async populateServerChanges(options) {
     if (!options.remote) {
       return [];
     }
-    return srcDevUtil
-      .getMaxRevision(this.maxRevisionFile.path)
-      .then(maxRevision => {
-        this.logger.debug(`populateServerChanges maxrevision: ${maxRevision}`);
-        return this.force.toolingFind(
-          this.scratchOrg,
-          'SourceMember',
-          { [getRevisionFieldName()]: { $gt: maxRevision } },
-          ['MemberType', 'MemberName', 'IsNameObsolete']
-        );
-      })
-      .then(sourceMembers => {
-        sourceMembers.forEach(sourceMember => {
-          const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
-            sourceMember.MemberType,
-            this.swa.metadataRegistry
-          );
 
-          if (sourceMemberMetadataType) {
-            sourceMember.MemberName = sourceMemberMetadataType.handleSlashesForSourceMemberName(
-              sourceMember.MemberName
-            );
-          }
-          if (this.forceIgnoreSourceMember(sourceMember, sourceMemberMetadataType)) {
-            return;
-          }
+    const maxRevisionNum = this.maxRevision.getServerMaxRevision();
+    this.logger.debug(`populateServerChanges maxrevision: ${maxRevisionNum}`);
+    const sourceMembers: SourceMember[] = await this.maxRevision.querySourceMembersFrom(maxRevisionNum);
+    await this.convertSourceMembersToRemoteChanges(sourceMembers);
 
-          const remoteChangeElements = this.createRemoteChangeElementsFromSourceMember(sourceMember);
-          this.remoteChanges = this.remoteChanges.concat(remoteChangeElements);
-        });
-      })
-      .then(() => {
-        this.remoteChanges = this.remoteChanges.filter(
-          sm => !(sm.state === sourceState.DELETED && util.isNullOrUndefined(sm.filePath))
-        );
-      });
+    // filter the sourcemembers from the forceignore and only store the not-ignored ones in maxRevision.json
+    sourceMembers.filter(sourceMember => {
+      const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
+        sourceMember.MemberType,
+        this.swa.metadataRegistry
+      );
+
+      if (sourceMemberMetadataType) {
+        sourceMember.MemberName = sourceMemberMetadataType.handleSlashesForSourceMemberName(sourceMember.MemberName);
+      }
+
+      return this.forceIgnoreSourceMember(sourceMember, sourceMemberMetadataType);
+    });
+
+    await this.maxRevision.writeSourceMembers(sourceMembers);
   }
 
-  private forceIgnoreSourceMember(sourceMember, sourceMemberMetadataType) {
+  private async convertSourceMembersToRemoteChanges(sourceMembers: SourceMember[]) {
+    let allRemoteChanges: SourceMember[] = [];
+    for (const sourceMember of sourceMembers) {
+      const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
+        sourceMember.MemberType,
+        this.swa.metadataRegistry
+      );
+      if (sourceMemberMetadataType) {
+        sourceMember.MemberName = sourceMemberMetadataType.handleSlashesForSourceMemberName(sourceMember.MemberName);
+      }
+      if (!this.forceIgnoreSourceMember(sourceMember, sourceMemberMetadataType)) {
+        const els = await this.createRemoteChangeElementsFromSourceMember(sourceMember);
+        allRemoteChanges = [...allRemoteChanges, ...els];
+      }
+    }
+
+    const remoteChanges = allRemoteChanges.reduce((x: any[], y: any) => x.concat(y), []) as any[];
+    this.remoteChanges = remoteChanges.filter(
+      sm => !(sm.state === sourceState.DELETED && util.isNullOrUndefined(sm.filePath))
+    );
+  }
+
+  private forceIgnoreSourceMember(sourceMember: SourceMember, sourceMemberMetadataType) {
     // if user wants to ignore a permissionset with fullname abc then we check if forceignore denies abc.permissionset
     if (sourceMemberMetadataType) {
       const filename = `${sourceMemberMetadataType.getAggregateFullNameFromSourceMemberName(
@@ -145,7 +155,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     return false;
   }
 
-  private createRemoteChangeElementsFromSourceMember(sourceMember) {
+  private async createRemoteChangeElementsFromSourceMember(sourceMember: SourceMember) {
     const remoteChangeElements = [];
     const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
       sourceMember.MemberType,
@@ -153,7 +163,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     );
     if (sourceMemberMetadataType) {
       if (sourceMemberMetadataType.trackRemoteChangeForSourceMemberName(sourceMember.MemberName)) {
-        const correspondingWorkspaceElements = this.getCorrespondingWorkspaceElements(
+        const correspondingWorkspaceElements = await this.getCorrespondingWorkspaceElements(
           sourceMember,
           sourceMemberMetadataType
         );
@@ -171,7 +181,8 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
                 state,
                 fullName: workspaceElement.getFullName(),
                 type: sourceMemberMetadataType.getDisplayNameForRemoteChange(sourceMember.MemberType),
-                filePath: workspaceElement.getSourcePath()
+                filePath: workspaceElement.getSourcePath(),
+                revisionCounter: sourceMember.RevisionCounter
               };
 
               remoteChangeElements.push(remoteChangeElement);
@@ -180,7 +191,8 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
             const remoteChangeElement = {
               state,
               fullName: sourceMember.MemberName,
-              type: sourceMemberMetadataType.getDisplayNameForRemoteChange(sourceMember.MemberType)
+              type: sourceMemberMetadataType.getDisplayNameForRemoteChange(sourceMember.MemberType),
+              revisionCounter: sourceMember.RevisionCounter
             };
             remoteChangeElements.push(remoteChangeElement);
           }
@@ -191,7 +203,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     return remoteChangeElements;
   }
 
-  private getRemoteChangeState(sourceMember, correspondingLocalWorkspaceElements) {
+  private getRemoteChangeState(sourceMember: SourceMember, correspondingLocalWorkspaceElements) {
     if (sourceMember.IsNameObsolete) {
       return sourceState.DELETED;
     } else if (
@@ -204,16 +216,25 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     }
   }
 
-  private getCorrespondingWorkspaceElements(sourceMember, sourceMemberMetadataType) {
-    const allLocalAggregateElements = this.swa.getAggregateSourceElements(false);
-    if (!util.isNullOrUndefined(allLocalAggregateElements)) {
+  private async getCorrespondingWorkspaceElements(sourceMember: SourceMember, sourceMemberMetadataType) {
+    const allLocalAggregateElements = await this.swa.getAggregateSourceElements(false);
+    if (!allLocalAggregateElements.isEmpty()) {
       if (sourceMemberMetadataType) {
         const aggregateFullName = sourceMemberMetadataType.getAggregateFullNameFromSourceMemberName(
           sourceMember.MemberName
         );
         const aggregateMetadataName = sourceMemberMetadataType.getAggregateMetadataName();
         const key = AggregateSourceElement.getKeyFromMetadataNameAndFullName(aggregateMetadataName, aggregateFullName);
-        const localAggregateSourceElement = allLocalAggregateElements.get(key);
+        const fileLocation = this.swa.sourceLocations.getFilePath(aggregateMetadataName, sourceMember.MemberName);
+        // if we cannot find an existing fileLocation, it means that the SourceMember has been deleted
+        if (!fileLocation) {
+          this.logger.debug(
+            `getCorrespondingWorkspaceElements: Did not find any existing source files for member ${sourceMember.MemberName}. Returning empty array...`
+          );
+          return [];
+        }
+        const pkgName = PackageInfoCache.getInstance().getPackageNameFromSourcePath(fileLocation);
+        const localAggregateSourceElement = allLocalAggregateElements.getSourceElement(pkgName, key);
         if (!util.isNullOrUndefined(localAggregateSourceElement)) {
           const workspaceElements = localAggregateSourceElement.getWorkspaceElements();
           if (workspaceElements.length > 0) {
