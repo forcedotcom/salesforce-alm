@@ -35,5 +35,6 @@ export = {
   USER_PROFILE_NAME: { name: 'userProfileName', required: false },
   USER_ID: { name: 'userId', required: false },
   TRIAL_EXPIRATION_DATE: { name: 'trialExpirationDate', required: false },
-  SNAPSHOT: { name: 'snapshot', required: false }
+  SNAPSHOT: { name: 'snapshot', required: false },
+  EXPIRATION_DATE: { name: 'expirationDate', required: false }
 };

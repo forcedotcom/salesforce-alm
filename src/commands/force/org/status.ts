@@ -27,6 +27,7 @@ export class OrgStatusCommand extends SfdxCommand {
   public static readonly description = messages.getMessage('commandDescription') + '\n\n' + OrgStatusCommand.help;
   public static readonly requiresProject = false;
   public static readonly requiresUsername = true;
+
   public static readonly flagsConfig: FlagsConfig = {
     sandboxname: flags.string({
       char: 'n',

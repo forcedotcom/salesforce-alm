@@ -15,6 +15,7 @@
  * ----------------------------------------------------------------------------------------------------------------- */
 
 import * as Messages from './force-cli-messages';
+import { isObject } from '@salesforce/ts-types';
 
 /**
  * Takes a sequence of key=value string pairs and produces an object out of them.
@@ -32,13 +33,32 @@ export function transformKeyValueSequence(keyValuePairs: string[]): Object {
       throw new Error(Messages.get('TextUtilMalformedKeyValuePair', pair));
     } else {
       const key = pair.substr(0, eqPosition);
-      const value = pair.substr(eqPosition + 1);
-      constructedObject[key] = value;
+      let value = pair.substr(eqPosition + 1);
+      // .substr returns as a string, but if that is "NULL"
+      // we need to transform it into a null value instead of a string
+      if (value.toLowerCase() === 'null') {
+        value = null;
+      }
+
+      const parsedValue = safeJsonParse(value);
+      if (isObject(parsedValue)) {
+        constructedObject[key] = parsedValue;
+      } else {
+        constructedObject[key] = value;
+      }
     }
   });
 
   return constructedObject;
 }
+
+const safeJsonParse = (value: string) => {
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return value;
+  }
+};
 
 /**
  * Splits a sequence of 'key=value key="leftValue rightValue"   key=value'

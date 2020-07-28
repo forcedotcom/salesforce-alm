@@ -10,9 +10,11 @@ import Command from '../core/command';
 import Alias = require('../core/alias');
 
 import logApi = require('../core/logApi');
+import { AuthFields, AuthInfo, Connection, Org } from '@salesforce/core';
+import Crypto = require('../core/crypto');
 
 export class UserDisplayCommand extends Command {
-  private org;
+  private org: Org;
 
   constructor() {
     super('user:display');
@@ -34,8 +36,14 @@ export class UserDisplayCommand extends Command {
 
   async execute(context: any): Promise<any> {
     const logger = await this.getLogger();
-    const username: string = this.org.getName();
-    const userAuthData: any = await this.org.getConfig();
+    this.org = await Org.create({ aliasOrUsername: context.org.name });
+    await this.org.refreshAuth();
+    const username: string = this.org.getUsername();
+    const userAuthDataArray: AuthInfo[] = await this.org.readUserAuthFiles();
+    // userAuthDataArray contains all of the Org's users AuthInfo, we just need the default or -u, which is in the username variable
+    const userAuthData: AuthFields = userAuthDataArray.find(uat => uat.getFields().username === username).getFields();
+    const conn: Connection = await this.org.getConnection();
+
     const profileNameQuery: string = `SELECT name FROM Profile WHERE Id IN (SELECT profileid FROM User WHERE username='${username}')`;
     const userQuery: string = `SELECT id FROM User WHERE username='${username}'`;
 
@@ -44,7 +52,7 @@ export class UserDisplayCommand extends Command {
     try {
       // the user executing this command may not have access to the Profile sObject.
       if (!profileName) {
-        profileName = _.get(await this.org.force.query(this.org, profileNameQuery), 'records[0].Name');
+        profileName = _.get(await conn.query(profileNameQuery), 'records[0].Name');
       }
     } catch (err) {
       profileName = 'unknown';
@@ -55,7 +63,7 @@ export class UserDisplayCommand extends Command {
 
     try {
       if (!userId) {
-        userId = _.get(await this.org.force.query(this.org, userQuery), 'records[0].Id');
+        userId = _.get(await conn.query(userQuery), 'records[0].Id');
       }
     } catch (err) {
       userId = 'unknown';
@@ -66,8 +74,8 @@ export class UserDisplayCommand extends Command {
       username,
       profileName,
       id: userId,
-      orgId: this.org.authConfig.orgId,
-      accessToken: userAuthData.accessToken,
+      orgId: this.org.getOrgId(),
+      accessToken: conn.accessToken,
       instanceUrl: userAuthData.instanceUrl,
       loginUrl: userAuthData.loginUrl
     };
@@ -79,7 +87,9 @@ export class UserDisplayCommand extends Command {
     }
 
     if (userAuthData.password) {
-      userData['password'] = userAuthData.password;
+      const crypto = new Crypto();
+      await crypto.init();
+      userData['password'] = await crypto.decrypt(userAuthData.password);
     }
 
     return Promise.resolve(userData);

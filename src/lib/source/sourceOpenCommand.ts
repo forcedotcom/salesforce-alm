@@ -64,7 +64,7 @@ export class SourceOpenOperation {
   private get factory(): StrategyFactory {
     if (this._factory === undefined) {
       try {
-        let metadataFactory = new MetadataRegistry(this.context.org);
+        let metadataFactory = new MetadataRegistry();
         this._factory = new StrategyFactory(this.context, metadataFactory);
       } catch (e) {
         throw remapError(e);

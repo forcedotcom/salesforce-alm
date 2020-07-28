@@ -35,6 +35,7 @@ import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { ManifestEntry } from './types';
 import { getFileName } from './sourcePathUtil';
 import { SfdxError } from '@salesforce/core';
+import { AggregateSourceElements } from './aggregateSourceElements';
 
 const fsx_ensureDir = BBPromise.promisify(fsx.ensureDir);
 
@@ -58,10 +59,16 @@ const _normalizePath = function(targetValue) {
  * @param {string} pathWithPackage - the filepath including the metadata package
  * @param {string} fullName - the computed full name  @see _getFullName
  * @param sourceWorkspaceAdapter - the org/source workspace adapter
- * @param {[]} sourceElements - accumulator of created source elements
+ * @param {AggregateSourceElements} sourceElements - accumulator of created AggregateSourceElements
  * @private
  */
-const _processFile = function(metadataType, pathWithPackage, fullName, sourceWorkspaceAdapter, sourceElements) {
+const _processFile = function(
+  metadataType,
+  pathWithPackage,
+  fullName,
+  sourceWorkspaceAdapter,
+  sourceElements: AggregateSourceElements
+) {
   const fileProperties = {
     type: metadataType.getMetadataName(),
     fileName: pathWithPackage,
@@ -123,10 +130,10 @@ const _processFile = function(metadataType, pathWithPackage, fullName, sourceWor
  * @param {object} item - the path item
  * @param {object} metadataRegistry - describe metadata
  * @param {object} sourceWorkspaceAdapter - workspace adapter
- * @param {array} sourceElements - accumulator of created source elements
+ * @param {AggregateSourceElements} sourceElements - accumulator of created AggregateSourceElements
  * @private
  */
-const _processPath = function(item, metadataRegistry, sourceWorkspaceAdapter, sourceElements) {
+const _processPath = function(item, metadataRegistry, sourceWorkspaceAdapter, sourceElements: AggregateSourceElements) {
   const pkgRelativePath = path.relative(this._package_root, item.path);
   if (pkgRelativePath.length > 0) {
     // Ignore the package root itself
@@ -143,7 +150,11 @@ const _processPath = function(item, metadataRegistry, sourceWorkspaceAdapter, so
         if (metadataType.hasContent()) {
           const indexOfMetaExt = item.path.indexOf(MetadataRegistry.getMetadataFileExt());
           const retrievedContentPath = item.path.substring(0, indexOfMetaExt);
-          if (!srcDevUtil.pathExistsSync(retrievedContentPath)) {
+          //Skipping content file validation for ExperienceBundle metadata type since it is a special case and does not have a corresponding content file.
+          if (
+            metadataType.getMetadataName() !== 'ExperienceBundle' &&
+            !srcDevUtil.pathExistsSync(retrievedContentPath)
+          ) {
             const err = new Error();
             err['name'] = 'Missing content file';
             err['message'] = messages.getMessage('MissingContentFile', retrievedContentPath);
@@ -159,12 +170,11 @@ const _processPath = function(item, metadataRegistry, sourceWorkspaceAdapter, so
 
 /**
  * Converts an array of aggregateSourceElements into objects suitable for a return to the caller.
- * @param {[]} aggregateSourceElements - array of aggregateSourceElements
  * @returns {[{state, fullName, type, filePath}]}
  */
-const _mapToOutputElements = function(aggregateSourceElements) {
+const _mapToOutputElements = function(aggregateSourceElements: AggregateSourceElements) {
   let allWorkspaceElements = [];
-  aggregateSourceElements.forEach(aggregateSourceElement => {
+  aggregateSourceElements.getAllSourceElements().forEach(aggregateSourceElement => {
     allWorkspaceElements = allWorkspaceElements.concat(aggregateSourceElement.getWorkspaceElements());
   });
 
@@ -344,7 +354,7 @@ class MdapiConvertApi {
       if (metadataName === entry.name) {
         foundInManifest = true;
       } else if (itemPath.includes(entry.name)) {
-      /** For folder type structure  */
+        /** For folder type structure  */
         foundInManifest = true;
       }
     });
@@ -357,7 +367,6 @@ class MdapiConvertApi {
    */
   convertSource(org, context?) {
     // Walk the metadata package elements.
-
     let validMetatdata;
     return org
       .resolveDefaultName()
@@ -379,15 +388,13 @@ class MdapiConvertApi {
       })
       .then(result => {
         validMetatdata = result;
-      })
-      .then(() =>
-        SourceWorkspaceAdapter.create({
+        return SourceWorkspaceAdapter.create({
           org: org,
           metadataRegistryImpl: MetadataRegistry,
           defaultPackagePath: path.relative(this.projectPath, this.outputDirectory),
           fromConvert: true
-        })
-      )
+        });
+      })
       .then((sourceWorkspaceAdapter: SourceWorkspaceAdapter) => {
         if (this.logger.isDebugEnabled()) {
           [
@@ -397,11 +404,10 @@ class MdapiConvertApi {
             this.logger.debug(`Processing mdapi convert with ${attribute.name}: ${attribute.value}`);
           });
         }
-
         this.logger.debug(`Processing mdapi convert with package root: ${this._package_root}`);
 
-        const metadataRegistry = new MetadataRegistry(org);
-        const aggregateSourceElements = new Map();
+        const metadataRegistry = sourceWorkspaceAdapter.metadataRegistry;
+        const aggregateSourceElements = new AggregateSourceElements();
         this.forceIgnore = new ForceIgnore(this._package_root);
 
         // Use a "new" promise to block the promise chain until the source metadata package is processed.
@@ -442,20 +448,18 @@ class MdapiConvertApi {
                 }
               }
             })
-            .on('end', () => {
-              if (!errorFoundProcessingPath && aggregateSourceElements.size > 0) {
-                sourceWorkspaceAdapter.updateSource(
+            .on('end', async () => {
+              if (!errorFoundProcessingPath && !aggregateSourceElements.isEmpty()) {
+                await sourceWorkspaceAdapter.updateSource(
                   aggregateSourceElements,
-                  undefined,
-                  undefined,
                   undefined,
                   true /** checkForDuplicates */,
                   this.unsupportedMimeTypes
                 );
                 if (this.logger.isDebugEnabled()) {
                   const allPaths = [];
-                  aggregateSourceElements.forEach(aggregateSourceElement => {
-                    const workspaceElements = aggregateSourceElement.getWorkspaceElements();
+                  aggregateSourceElements.getAllSourceElements().forEach(sourceElement => {
+                    const workspaceElements = sourceElement.getWorkspaceElements();
                     workspaceElements.forEach(workspaceElement => {
                       allPaths.push(workspaceElement.getSourcePath());
                     });

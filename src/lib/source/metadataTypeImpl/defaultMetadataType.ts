@@ -251,6 +251,10 @@ export class DefaultMetadataType implements MetadataType {
     return this.typeDefObj.hasContent;
   }
 
+  hasParent(): boolean {
+    return !!this.typeDefObj.parent;
+  }
+
   getAggregateFullNameFromComponentFailure(componentFailure): string {
     return componentFailure.fullName;
   }

@@ -14,9 +14,10 @@ const messages = Messages();
 import logger = require('../core/logApi');
 import pkgUtils = require('./packageUtils');
 
+// Stripping CodeCoverage, HasPassedCodeCoverageCheck as they are causing a perf issue in 49.0+ W-7495440
 const QUERY =
   'SELECT Id, Package2Id, SubscriberPackageVersionId, Name, Description, Tag, Branch, AncestorId, ValidationSkipped, ' +
-  'MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, CodeCoverage, HasPassedCodeCoverageCheck ' +
+  'MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, ConvertedFromVersionId, Package2.IsOrgDependent ' +
   'FROM Package2Version ' +
   "WHERE Id = '%s' " +
   'ORDER BY Package2Id, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber';
@@ -63,18 +64,26 @@ class PackageVersionReportCommand {
         record.Version = [record.MajorVersion, record.MinorVersion, record.PatchVersion, record.BuildNumber].join('.');
 
         let ancestorVersion = null;
+        const containerOptions = await pkgUtils.getContainerOptions([record.Package2Id], this.force, this.org);
+        let packageType = containerOptions.get(record.Package2Id);
         if (record.AncestorId) {
           // lookup AncestorVersion value
           const ancestorVersionMap = await pkgUtils.getPackageVersionStrings([record.AncestorId], this.force, this.org);
           ancestorVersion = ancestorVersionMap.get(record.AncestorId);
         } else {
           // otherwise display 'N/A' if package is Unlocked Packages
-          const containerOptions = await pkgUtils.getContainerOptions([record.Package2Id], this.force, this.org);
-          if (containerOptions.get(record.Package2Id) !== 'Managed') {
+          if (packageType !== 'Managed') {
             ancestorVersion = 'N/A';
             record.AncestorId = 'N/A';
           }
         }
+        record.Package2.IsOrgDependent =
+          packageType === 'Managed' ? 'N/A' : record.Package2.IsOrgDependent === true ? 'Yes' : 'No';
+
+        // For the stripped code coverage values, use Data unavailable
+        record.CodeCoverage = 'Data unavailable';
+        record.HasPassedCodeCoverageCheck = 'Data unavailable';
+
         if (context.flags.json) {
           // add AncestorVersion to the json record
           record.AncestorVersion = ancestorVersion;
@@ -121,19 +130,29 @@ class PackageVersionReportCommand {
               { key: 'Ancestor Version', value: ancestorVersion },
               {
                 key: messages.getMessage('codeCoverage', [], 'package_version_list'),
-                value: record.CodeCoverage == null ? ' ' : `${record.CodeCoverage['apexCodeCoveragePercentage']}%`
+                value: 'Data unavailable'
               },
               {
                 key: messages.getMessage('hasPassedCodeCoverageCheck', [], 'package_version_list'),
-                value: record.HasPassedCodeCoverageCheck
+                value: 'Data unavailable'
+              },
+              {
+                key: messages.getMessage('convertedFromVersionId', [], 'package_version_list'),
+                value: record.ConvertedFromVersionId == null ? ' ' : record.ConvertedFromVersionId
+              },
+              {
+                key: messages.getMessage('isOrgDependent', [], 'package_list'),
+                value: record.Package2.IsOrgDependent
               }
             ];
         if (!this.verbose) {
           // only expose Id in verbose output
           if (context.flags.json) {
             delete retRecord.Id;
+            delete retRecord.ConvertedFromVersionId;
           } else {
             retRecord.splice(retRecord.map(e => e.key).indexOf('Id'), 1);
+            retRecord.splice(retRecord.map(e => e.key).indexOf('ConvertedFromVersionId'), 1);
           }
         }
         return retRecord;

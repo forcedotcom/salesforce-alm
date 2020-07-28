@@ -8,11 +8,11 @@
 import * as SourceUtil from './sourceUtil';
 import { ManifestEntry } from './types';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { AggregateSourceElement } from './aggregateSourceElement';
 import { SfdxError } from '@salesforce/core';
 import * as util from 'util';
 import * as path from 'path';
 import messages = require('../../lib/messages');
+import { AggregateSourceElements } from './aggregateSourceElements';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 const message = messages();
 
@@ -31,7 +31,7 @@ export class SourceElementsResolver {
    */
   public async getSourceElementsFromManifest(optionsManifest: any): Promise<any> {
     const typeNamePairs = await SourceUtil.parseToManifestEntriesArray(optionsManifest);
-    return this.parseTypeNamePairs(typeNamePairs, this.sourceWorkSpaceAdapter.getAggregateSourceElements(false));
+    return this.parseTypeNamePairs(typeNamePairs, await this.sourceWorkSpaceAdapter.getAggregateSourceElements(false));
   }
 
   /**
@@ -41,8 +41,11 @@ export class SourceElementsResolver {
    * @return {Map} aggregateSoureElements
    */
 
-  private parseTypeNamePairs(typeNamePairs: ManifestEntry[], sourceElements): Map<string, AggregateSourceElement> {
-    let aggregateSourceElements: Map<string, AggregateSourceElement> = new Map();
+  private parseTypeNamePairs(
+    typeNamePairs: ManifestEntry[],
+    sourceElements: AggregateSourceElements
+  ): AggregateSourceElements {
+    let aggregateSourceElements = new AggregateSourceElements();
     typeNamePairs.forEach((entry: ManifestEntry) => {
       if (entry.name.includes('*')) {
         let keyMetadataType = entry.type;
@@ -59,29 +62,28 @@ export class SourceElementsResolver {
           // In this case we are dealing with a decomposed item, so reload using the parent name
           keyMetadataType = metadataType.getAggregateMetadataName();
         }
-        const wildcards: ManifestEntry[] = [...sourceElements.keys()]
-          .filter(item => item.includes(keyMetadataType))
-          .map(
-            (typeAnyName: string): ManifestEntry => {
-              let [mdType, ...rest] = typeAnyName.split('__');
-              const mdName = rest.join('__');
-              return {
-                type: mdType,
-                name: mdName
-              };
-            }
-          );
-        aggregateSourceElements = new Map([
-          ...aggregateSourceElements,
-          ...this.parseTypeNamePairs(wildcards, sourceElements)
-        ]);
+        sourceElements.forEach(elements => {
+          const wildcards: ManifestEntry[] = [...elements.keys()]
+            .filter(item => item.includes(keyMetadataType))
+            .map(
+              (typeAnyName: string): ManifestEntry => {
+                let [mdType, ...rest] = typeAnyName.split('__');
+                const mdName = rest.join('__');
+                return {
+                  type: mdType,
+                  name: mdName
+                };
+              }
+            );
+          aggregateSourceElements.merge(this.parseTypeNamePairs(wildcards, sourceElements));
+        });
       } else {
-        const ase: AggregateSourceElement = SourceUtil.loadSourceElement(
+        const ase = SourceUtil.loadSourceElement(
           sourceElements,
           `${entry.type}__${entry.name}`,
           this.sourceWorkSpaceAdapter.metadataRegistry
         );
-        aggregateSourceElements.set(ase.getKey(), ase);
+        aggregateSourceElements.setIn(ase.getPackageName(), ase.getKey(), ase);
       }
     });
     return aggregateSourceElements;
@@ -96,7 +98,7 @@ export class SourceElementsResolver {
 
   public async getSourceElementsFromMetadata(
     options: any,
-    aggregateSourceElements: Map<string, AggregateSourceElement>,
+    aggregateSourceElements: AggregateSourceElements,
     tmpOutputDir?: string
   ): Promise<any> {
     tmpOutputDir = util.isNullOrUndefined(tmpOutputDir)

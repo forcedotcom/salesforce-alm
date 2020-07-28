@@ -319,7 +319,7 @@ export class ApexLogApi {
     );
     let log = '';
     // We don't care about the callback because requestGet also returns a promise
-    const response = await conn.request(geturl, () => {});
+    const response = await conn.request(geturl);
     log = response.toString();
 
     return { log };
@@ -356,7 +356,7 @@ export class ApexLogApi {
 
   async _getReq(conn: Connection, geturl: string, callback: (res) => void): Promise<void> {
     const logger = this.logger;
-    await conn.request(geturl, function(err: Error, response) {
+    await conn.request(geturl, undefined, function(err: Error, response) {
       if (err) {
         logger.error(err);
         Error.exitWithMessage(err.message);

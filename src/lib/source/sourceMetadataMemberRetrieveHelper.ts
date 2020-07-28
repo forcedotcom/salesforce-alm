@@ -5,45 +5,45 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Node
-import * as util from 'util';
-
-// Thirdparty
-import * as BBPromise from 'bluebird';
-
 // Local
 import MdapiPackage = require('./mdapiPackage');
 import { MetadataTypeFactory } from './metadataTypeFactory';
 import { ForceIgnore } from './forceIgnore';
 import * as almError from '../core/almError';
-import srcDevUtil = require('../core/srcDevUtil');
 import logger = require('../core/logApi');
 import Messages = require('../../lib/messages');
-import { getRevisionFieldName } from './sourceUtil';
+import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
+import MetadataRegistry = require('./metadataRegistry');
+import { MaxRevision } from './MaxRevision';
+import { PackageInfoCache } from './packageInfoCache';
+import { NonDecomposedElementsIndex } from './nonDecomposedElementsIndex';
 const messages = Messages();
 
-/**
- * private helper to ensure the revision is a valid int.
- * @param {number} revision - the revision number
- * @returns {number} revision as a primitive integer
- * @private
- */
-const _parseRevisionIntOrZero = function(revision) {
-  let localRev = 0;
-  if (srcDevUtil.isInt(revision)) {
-    localRev = parseInt(revision);
-  }
+interface MdapiPackages {
+  [key: string]: MdapiPackage;
+}
 
-  return localRev;
-};
+interface MdApiItem {
+  fullName: string;
+  type: string;
+  isNameObsolete?: boolean;
+}
 
 /**
  * Helper that checks if the md item was set to obsolete in the org and returns true if so
  * @param mdApiItem
+ * @param obsoleteNames
+ * @param metadataRegistry
+ * @param forceIgnore
  * @returns {boolean} true - if the item is obsolete and should not be part of the md package
  * @private
  */
-const _shouldExcludeFromMetadataPackage = function(mdApiItem, obsoleteNames, metadataRegistry, forceIgnore) {
+const _shouldExcludeFromMetadataPackage = function(
+  mdApiItem: MdApiItem,
+  obsoleteNames: MdApiItem[],
+  metadataRegistry: MetadataRegistry,
+  forceIgnore: ForceIgnore
+) {
   const mdFullName = mdApiItem.fullName;
 
   if (mdApiItem.isNameObsolete) {
@@ -52,7 +52,7 @@ const _shouldExcludeFromMetadataPackage = function(mdApiItem, obsoleteNames, met
   }
 
   // check if the entity is a supported type
-  if (!metadataRegistry.isSupported(mdApiItem.type)) {
+  if (!metadataRegistry.isSupported(mdApiItem.type) && !NonDecomposedElementsIndex.isSupported(mdApiItem.type)) {
     return true;
   }
 
@@ -72,55 +72,23 @@ const _shouldExcludeFromMetadataPackage = function(mdApiItem, obsoleteNames, met
  * Class used to derive changed org metadata.
  */
 class SourceMetadataMemberRetrieveHelper {
-  // TODO: proper property typing
-  [property: string]: any;
+  private swa: SourceWorkspaceAdapter;
+  public readonly metadataRegistry: MetadataRegistry;
+  private readonly forceIgnore: ForceIgnore;
+  private logger: typeof logger;
+  private packageInfoCache: PackageInfoCache;
+  private readonly username: string;
 
-  constructor(metadataRegistry) {
-    this.metadataRegistry = metadataRegistry;
-    this.scratchOrg = metadataRegistry.org;
-    this.force = this.scratchOrg.force;
+  constructor(sourceWorkspaceAdapter?: SourceWorkspaceAdapter) {
+    this.swa = sourceWorkspaceAdapter;
+    this.metadataRegistry = sourceWorkspaceAdapter.metadataRegistry;
     this.forceIgnore = new ForceIgnore();
     this.logger = logger.child('SourceMetadataMemberRetrieveHelper');
+    this.packageInfoCache = PackageInfoCache.getInstance();
+    this.username = this.swa.options.org.name;
   }
 
-  /**
-   * returns the last edit revision count on the scratch org.
-   * @returns {BBPromise}
-   */
-  // TODO: We should be able to get this when we are querying the SourceMember initially.
-  getLatestSourceRevisionCount() {
-    const query = `SELECT MAX(${getRevisionFieldName()}) maxRev from SourceMember`;
-    return this.force.toolingQuery(this.scratchOrg, query).then(result => {
-      if (!util.isNullOrUndefined(result) && result.records.length > 0) {
-        return BBPromise.resolve(result.records[0].maxRev);
-      }
-      return BBPromise.reject(almError('invalidResponseFromQuery', [query]));
-    });
-  }
-
-  getRevisionNums(members: string[] = []): Promise<string[]> {
-    if (!members.length) return BBPromise.resolve([]);
-    const membersString = members.map(m => `'${m}'`).join(',');
-    const query = `SELECT RevisionNum from SourceMember WHERE MemberName in (${membersString})`;
-    return this.force.toolingQuery(this.scratchOrg, query).then(result => {
-      if (!util.isNullOrUndefined(result) && result.records.length > 0) {
-        return BBPromise.resolve(result.records.map(r => r.RevisionNum));
-      }
-      return BBPromise.reject(almError('invalidResponseFromQuery', [query]));
-    });
-  }
-
-  getAllMemberNames(): Promise<string[]> {
-    const query = `SELECT MemberName from SourceMember`;
-    return this.force.toolingQuery(this.scratchOrg, query).then(result => {
-      if (!util.isNullOrUndefined(result) && result.records.length > 0) {
-        return BBPromise.resolve(result.records.map(r => r.MemberName));
-      }
-      return BBPromise.reject(almError('invalidResponseFromQuery', [query]));
-    });
-  }
-
-  shouldAddMember(mdApiItem, obsoleteNames) {
+  shouldAddMember(mdApiItem: MdApiItem, obsoleteNames: MdApiItem[]) {
     return (
       mdApiItem !== null &&
       !_shouldExcludeFromMetadataPackage.call(this, mdApiItem, obsoleteNames, this.metadataRegistry, this.forceIgnore)
@@ -129,7 +97,6 @@ class SourceMetadataMemberRetrieveHelper {
 
   /**
    * gets all source metadata revisions from the server from <fromRevision>.
-   * @param {number} fromRevision - get all changes after this revision number
    * @returns
    * "Package": {
    *   "$": {
@@ -145,52 +112,76 @@ class SourceMetadataMemberRetrieveHelper {
    *   "version": 38
    *}
    */
-  getRevisionsAsPackage(fromRevision, obsoleteNames?) {
-    const localFromRevision = _parseRevisionIntOrZero(fromRevision);
-    const mdPackage = new MdapiPackage();
-    const revisionFieldName = getRevisionFieldName();
+  async getRevisionsAsPackage(obsoleteNames?: MdApiItem[]): Promise<MdapiPackages> {
+    const maxRevision: MaxRevision = await MaxRevision.getInstance({ username: this.username });
+    const changedElements = await maxRevision.retrieveChangedElements();
+    const nonDecomposedElementsIndex = await NonDecomposedElementsIndex.getInstance({
+      username: this.username,
+      metadataRegistry: this.metadataRegistry
+    });
+    const relatedElements = nonDecomposedElementsIndex.getRelatedNonDecomposedElements(changedElements);
+    const allElements = changedElements.concat(relatedElements);
+    const parsePromises = allElements.map(sourceMember => {
+      const memberType = sourceMember.MemberType;
+      const memberName = sourceMember.MemberName;
 
-    const whereClause = { [revisionFieldName]: { $gt: localFromRevision } };
+      if (!memberType || !memberName) {
+        throw almError('fullNameIsRequired');
+      }
 
-    return this.force
-      .toolingFind(this.scratchOrg, 'SourceMember', whereClause, [
-        'MemberIdOrName',
-        revisionFieldName,
-        'MemberType',
-        'MemberName',
-        'IsNameObsolete'
-      ])
-      .then(results => {
-        const parsePromises = results.map(sourceMember => {
-          const memberType = sourceMember.MemberType;
-          const memberName = sourceMember.MemberName;
+      const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(memberType, this.metadataRegistry);
+      if (metadataType) {
+        return metadataType.parseSourceMemberForMetadataRetrieve(
+          sourceMember.MemberName,
+          sourceMember.MemberType,
+          sourceMember.IsNameObsolete
+        );
+      } else {
+        this.logger.log(messages.getMessage('metadataTypeNotSupported', [memberType, memberName]));
+        return null;
+      }
+    });
 
-          if (util.isNullOrUndefined(memberType) || util.isNullOrUndefined(memberName)) {
-            throw almError('fullNameIsRequired');
-          }
+    const promisedResults: MdApiItem[] = await Promise.all(parsePromises);
+    const packages: MdapiPackages = {};
+    this.packageInfoCache.packageNames.forEach((pkg: string) => {
+      packages[pkg] = new MdapiPackage();
+    });
 
-          const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(memberType, this.metadataRegistry);
-          if (metadataType) {
-            return metadataType.parseSourceMemberForMetadataRetrieve(
-              sourceMember.MemberName,
-              sourceMember.MemberType,
-              sourceMember.IsNameObsolete
-            );
-          } else {
-            this.logger.log(messages.getMessage('metadataTypeNotSupported', [memberType, memberType]));
-            return null;
-          }
-        });
-        return BBPromise.all(parsePromises);
-      })
-      .then(promisedResults => {
-        promisedResults.forEach(mdApiItem => {
-          if (this.shouldAddMember(mdApiItem, obsoleteNames)) {
-            mdPackage.addMember(mdApiItem.fullName, mdApiItem.type);
-          }
-        });
-        return mdPackage;
-      });
+    promisedResults.forEach(mdApiItem => {
+      if (!this.shouldAddMember(mdApiItem, obsoleteNames)) return;
+
+      const pkg = this.determinePackage(mdApiItem);
+      packages[pkg].addMember(mdApiItem.fullName, mdApiItem.type);
+    });
+    return packages;
+  }
+
+  private determinePackage(mdApiItem: MdApiItem): string {
+    const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
+      mdApiItem.type,
+      this.metadataRegistry
+    );
+    let fileLocation = this.swa.sourceLocations.getFilePath(
+      sourceMemberMetadataType.getAggregateMetadataName(),
+      mdApiItem.fullName
+    );
+
+    if (!fileLocation && sourceMemberMetadataType.hasParent()) {
+      // Try to get a fileLocation using the parent fullName. We do this to match a new remote
+      // field with its parent custom object location rather than assuming the default package.
+      fileLocation = this.swa.sourceLocations.getFilePath(
+        sourceMemberMetadataType.getAggregateMetadataName(),
+        sourceMemberMetadataType.getAggregateFullNameFromSourceMemberName(mdApiItem.fullName)
+      );
+    }
+
+    const defaultPackage = this.packageInfoCache.defaultPackage.name;
+    if (fileLocation) {
+      return this.packageInfoCache.getPackageNameFromSourcePath(fileLocation) || defaultPackage;
+    } else {
+      return defaultPackage;
+    }
   }
 }
 

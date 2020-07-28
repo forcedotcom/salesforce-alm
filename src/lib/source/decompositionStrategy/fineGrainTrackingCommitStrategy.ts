@@ -31,7 +31,8 @@ export class FineGrainTrackingCommitStrategy implements DecompositionCommitStrat
   commit(
     documents: Map<string, MetadataDocument>,
     existingPaths: string[],
-    createDuplicates: boolean
+    createDuplicates: boolean,
+    forceoverwrite = false
   ): [string[], string[], string[], string[]] {
     let newPaths: string[];
     let updatedPaths: string[];
@@ -40,7 +41,7 @@ export class FineGrainTrackingCommitStrategy implements DecompositionCommitStrat
     let dupPaths: string[] = [];
 
     updatedPaths = updatedPaths.filter(updatedPath => {
-      if (FineGrainTrackingCommitStrategy.isUpdatedFile(updatedPath, documents.get(updatedPath))) {
+      if (forceoverwrite || FineGrainTrackingCommitStrategy.isUpdatedFile(updatedPath, documents.get(updatedPath))) {
         if (createDuplicates) {
           const dupPath = updatedPath + '.dup';
           fs.writeFileSync(dupPath, documents.get(updatedPath).getRepresentation());

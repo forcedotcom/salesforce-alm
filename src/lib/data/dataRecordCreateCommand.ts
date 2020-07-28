@@ -27,6 +27,7 @@ export const createRecord = async function(context: any): Promise<RecordResult> 
   const conn: Connection = await Config.getActiveConnection(context);
   const sobject: string = context.flags.sobjecttype;
   const insertObject = await createInsertObject(context);
+  context.ux.startSpinner(`Creating Record for ${sobject}`);
 
   // TODO: create() returns RecordResult | RecordResult[] so this may be a bug in the impl unless we know
   //        we are assured of only creating 1 record.
@@ -39,6 +40,7 @@ export const createRecord = async function(context: any): Promise<RecordResult> 
     if (result.id) {
       id = result.id;
     }
+    context.ux.stopSpinner();
     Display.success(Messages.get('DataRecordCreateSuccess', id));
   } else {
     let errors = '';
@@ -48,6 +50,7 @@ export const createRecord = async function(context: any): Promise<RecordResult> 
         errors += '  ' + err + '\n';
       });
     }
+    context.ux.stopSpinner();
     Display.failure(Messages.get('DataRecordCreateFailure', errors));
   }
   return result;

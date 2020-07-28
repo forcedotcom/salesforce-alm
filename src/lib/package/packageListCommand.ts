@@ -12,7 +12,7 @@ import logger = require('../core/logApi');
 import pkgUtils = require('./packageUtils');
 
 const QUERY =
-  'SELECT Id, SubscriberPackageId, Name, Description, NamespacePrefix, ContainerOptions ' +
+  'SELECT Id, SubscriberPackageId, Name, Description, NamespacePrefix, ContainerOptions, IsOrgDependent, ConvertedFromPackageId ' +
   'FROM Package2 ' +
   'ORDER BY NamespacePrefix, Name';
 
@@ -43,9 +43,19 @@ class PackageListCommand {
       const records = queryResult.records;
       if (records && records.length > 0) {
         this.results = records.map(
-          ({ Id, SubscriberPackageId, Name, Description, NamespacePrefix, ContainerOptions }) => {
+          ({
+            Id,
+            SubscriberPackageId,
+            Name,
+            Description,
+            NamespacePrefix,
+            ContainerOptions,
+            ConvertedFromPackageId,
+            IsOrgDependent
+          }) => {
             const aliases = pkgUtils.getPackageAliasesFromId(Id, this.force);
             const Alias = aliases.join();
+            IsOrgDependent = ContainerOptions === 'Managed' ? 'N/A' : IsOrgDependent === true ? 'Yes' : 'No';
             return {
               Id,
               SubscriberPackageId,
@@ -53,7 +63,9 @@ class PackageListCommand {
               Description,
               NamespacePrefix,
               ContainerOptions,
-              Alias
+              ConvertedFromPackageId,
+              Alias,
+              IsOrgDependent
             };
           }
         );
@@ -86,6 +98,14 @@ class PackageListCommand {
       columns.push({
         key: 'SubscriberPackageId',
         label: messages.getMessage('packageId', [], 'package_list')
+      });
+      columns.push({
+        key: 'ConvertedFromPackageId',
+        label: messages.getMessage('convertedFromPackageId', [], 'package_list')
+      });
+      columns.push({
+        key: 'IsOrgDependent',
+        label: messages.getMessage('isOrgDependent', [], 'package_list')
       });
     }
 

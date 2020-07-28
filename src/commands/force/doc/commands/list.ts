@@ -23,6 +23,14 @@ export class DocListCommand extends ToolbeltCommand {
   public static readonly longDescription = messages.getMessage('docCommandsListDescriptionLong');
   public static readonly help = messages.getMessage('docCommandsListHelp');
   public static readonly requiresProject = false;
+
+  public static readonly hidden = true;
+
+  public static readonly deprecated = {
+    version: 48.0,
+    to: 'sfdx commands'
+  };
+
   public static readonly flagsConfig: FlagsConfig = {
     usage: flags.boolean({
       char: 'u',

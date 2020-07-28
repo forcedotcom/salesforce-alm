@@ -26,7 +26,7 @@ class OrgShapeListCommand {
 
   constructor() {
     this.logger = logger.child('OrgShapeListCommand');
-    this.orgDecorator = new OrgDecorator(this.logger);
+    this.orgDecorator = new OrgDecorator(this.logger.humanConsumable);
   }
 
   execute() {

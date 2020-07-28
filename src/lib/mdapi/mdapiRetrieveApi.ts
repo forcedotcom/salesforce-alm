@@ -29,6 +29,7 @@ export interface MdRetrieveOptions {
   retrievetargetdir?: string;
   unpackaged?: string;
   autoUpdatePackage?: boolean;
+  rollbackOnError?: boolean;
   runTest?: boolean;
   unzip?: boolean;
   disableLogging?: boolean;
@@ -120,6 +121,7 @@ export class MdRetrieveApi {
   static getDefaultOptions(): MdRetrieveOptions {
     return {
       autoUpdatePackage: true,
+      rollbackOnError: true,
       runTest: false,
       unzip: true,
       disableLogging: true,

@@ -42,7 +42,7 @@ export class MdDescribemetadataApi {
     }
 
     const retrieveOptions = this.formatRetrieveOptions(options);
-    let result = await this.retrieveDescribemetadata(this.org, retrieveOptions);
+    let result: DescribeMetadataResult = await this.retrieveDescribemetadata(this.org, retrieveOptions);
 
     if (options.filterknown) {
       result = await this.filterResult(result);
@@ -62,9 +62,8 @@ export class MdDescribemetadataApi {
    * @param result The result to filter
    */
   private async filterResult(result: DescribeMetadataResult): Promise<DescribeMetadataResult> {
-    await MetadataRegistry.initializeMetadataTypeInfos(this.org);
-    const registry = new MetadataRegistry(this.org);
-    const registeredTypeDefs: DescribeMetadataResult = registry.getMetadataTypeDefs();
+    const registry = new MetadataRegistry();
+    const registeredTypeDefs = registry.getMetadataTypeDefs();
 
     const map: Map<string, MetadataObject> = new Map();
     // Begin O2n Perf

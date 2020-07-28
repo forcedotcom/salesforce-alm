@@ -18,10 +18,16 @@ import * as _ from 'lodash';
 const xml2js = BBPromise.promisifyAll(require('xml2js'));
 
 // Local
+// New messages (move to this)
+import { SfdxError, Messages } from '@salesforce/core';
+Messages.importMessagesDirectory(__dirname);
+
+// Old style messages
+import MessagesLocal = require('../messages');
+const messages = MessagesLocal();
+
 import * as almError from '../core/almError';
-import Messages = require('../messages');
-const messages = Messages();
-import MetadataRegistry = require('../source/metadataRegistry');
+
 import logApi = require('../core/logApi');
 import srcDevUtil = require('../core/srcDevUtil');
 import PackageVersionCreateRequestApi = require('./packageVersionCreateRequestApi');
@@ -32,15 +38,10 @@ import SettingsGenerator = require('../org/scratchOrgSettingsGenerator');
 
 import consts = require('../core/constants');
 
-const STATUS_ERROR = 'Error';
-const STATUS_SUCCESS = 'Success';
-const STATUS_UNKNOWN = 'Unknown';
-
 const DESCRIPTOR_FILE = 'package2-descriptor.json';
 
 let logger;
 
-const POLL_INTERVAL_SECONDS = 30;
 const POLL_INTERVAL_WITHOUT_VALIDATION_SECONDS = 5;
 
 class PackageVersionCreateCommand {
@@ -48,7 +49,7 @@ class PackageVersionCreateCommand {
   [property: string]: any;
 
   constructor() {
-    this.pollInterval = POLL_INTERVAL_SECONDS;
+    this.pollInterval = pkgUtils.POLL_INTERVAL_SECONDS;
     this.maxRetries = 0;
     logger = logApi.child('package:version:create');
   }
@@ -201,99 +202,19 @@ class PackageVersionCreateCommand {
     }
   }
 
-  /*
-   * Delete the metadata files for flow that are for inactive versions.
-   * The activeFlow record contains a 'name' & 'version' for the active flow.
-   *
-   * 1) Remove any flows with the same name and a different version.
-   * 2) Return an array of all the flows that were removed so they can also be excluded
-   *    later when the manifest is built.
-   */
-  _deleteInactiveFlows(activeFlow, flowFiles, packageVersMetadataFolder) {
-    const flowDir = path.join(packageVersMetadataFolder, 'flows');
-    const inactiveFlows = [];
-    const unlinkPromises = [];
-    flowFiles.forEach(file => {
-      const name = file.substring(0, file.lastIndexOf('-'));
-      if (activeFlow.name === name) {
-        const version = file.substring(file.lastIndexOf('-') + 1, file.lastIndexOf(pkgUtils.VERSION_NUMBER_SEP));
-        if (version !== activeFlow.version) {
-          // found an inactive version, remove it so it will be excluded from the MD zip
-          unlinkPromises.push(fs.unlinkAsync(path.join(flowDir, file)));
-          inactiveFlows.push({ name: `${name}-${version}`, type: 'Flow' });
-        }
-      }
+  _getPackageDescriptorJsonFromPackageId(packageId, flags) {
+    const artDir = flags.path;
+
+    const packageDescriptorJson = this.packageDirs.find(packageDir => {
+      const packageDirPackageId = pkgUtils.getPackageIdFromAlias(packageDir.package, this.force);
+      return !_.isNil(packageDirPackageId) && packageDirPackageId === packageId ? packageDir : null;
     });
-    return { promises: BBPromise.all(unlinkPromises), flows: inactiveFlows };
-  }
 
-  /*
-   * Only active flow versions should be passed in the metadata zip.
-   * - Flow definitions are in the 'flowDefinitions' metadata folder and contain xml that indicates the active version
-   *   (<activeVersionNumber>)
-   * - Flows are contained in the 'flows' metadata folder.  Each flow has a name formatted as:
-   *   <Flow Name>-<Version Number>  (e.g. MyTestFlow-2)
-   *
-   * This method:
-   *  1) Reads all the Flow Definitions metadata files and extracts the version number for each one.
-   *  2) Finds all the Flow version files.
-   *  3) Iterates through each Flow Definition and calls _deleteInactiveFlows to find & delete any inactive flow vers.
-   *
-   */
-  _filterOutInactiveFlows(packageVersMetadataFolder) {
-    const flowDefinitionDir = path.join(packageVersMetadataFolder, 'flowDefinitions');
-    const flowsDir = path.join(packageVersMetadataFolder, 'flows');
-    const inactiveFlows = [];
-    const activeFlows = [];
-    return fs
-      .readdirAsync(flowDefinitionDir)
-      .then(files => {
-        const promises = [];
-        files.forEach(file => {
-          promises.push(fs.readFileAsync(path.join(flowDefinitionDir, file), 'utf8'));
-        });
-        return [BBPromise.all(promises), files];
-      })
-      .spread((metadataXmls, files) => {
-        const parser = new xml2js.Parser();
-        metadataXmls.forEach((metadataXml, i) => {
-          parser.parseString(metadataXml, (err, result) => {
-            const json = JSON.parse(JSON.stringify(result));
-            const activeVersionNumber = json.FlowDefinition.activeVersionNumber[0];
-            const flowName = files[i].split(pkgUtils.VERSION_NUMBER_SEP)[0];
-            // save the flow name & active version in an array for each flow definition
-            activeFlows.push({ name: flowName, version: activeVersionNumber });
-          });
-        });
-        return fs
-          .readdirAsync(flowsDir)
-          .then(flows => {
-            const deleteInactiveFlowsPromises = [];
+    if (!packageDescriptorJson) {
+      throw new Error(`${consts.WORKSPACE_CONFIG_FILENAME} does not contain a packaging directory for ${artDir}`);
+    }
 
-            // for each flow find and delete any inactive versions
-            activeFlows.forEach(activeFlow => {
-              const result = this._deleteInactiveFlows(activeFlow, flows, packageVersMetadataFolder);
-              deleteInactiveFlowsPromises.push(result);
-              Array.prototype.push.apply(deleteInactiveFlowsPromises, result.promises);
-              Array.prototype.push.apply(inactiveFlows, result.flows);
-            });
-            return [BBPromise.all(deleteInactiveFlowsPromises), inactiveFlows];
-          })
-          .catch(err => {
-            if (err.code === 'ENOENT') {
-              throw new Error(`flowDefinition directory exists with flows directory: ${err.cause.message}`);
-            }
-            throw new Error(err.message);
-          });
-      })
-      .catch(err => {
-        if (err.code === 'ENOENT') {
-          // If there is no flow metadata. This is a no-op.
-          return;
-        }
-
-        throw new Error(err.message);
-      });
+    return packageDescriptorJson;
   }
 
   /**
@@ -326,21 +247,13 @@ class PackageVersionCreateCommand {
       sourcedir: sourceBaseDir
     };
 
-    let metadataExclusions = [];
     const settingsGenerator = new SettingsGenerator();
 
     // Copy all of the metadata from the workspace to a tmp folder
     return (
       this._generateMDFolderForArtifact(mdOptions)
         .then(async () => {
-          const packageDescriptorJson = this.packageDirs.find(packageDir => {
-            const packageDirPackageId = pkgUtils.getPackageIdFromAlias(packageDir.package, this.force);
-            return !_.isNil(packageDirPackageId) && packageDirPackageId === packageId ? packageDir : null;
-          });
-
-          if (!packageDescriptorJson) {
-            throw new Error(`${consts.WORKSPACE_CONFIG_FILENAME} does not contain a packaging directory for ${artDir}`);
-          }
+          const packageDescriptorJson = this._getPackageDescriptorJsonFromPackageId(packageId, context.flags);
 
           if (Object.prototype.hasOwnProperty.call(packageDescriptorJson, 'package')) {
             delete packageDescriptorJson.package;
@@ -378,15 +291,9 @@ class PackageVersionCreateCommand {
             });
           }
 
-          return [this._filterOutInactiveFlows(packageVersMetadataFolder), packageDescriptorJson];
+          return [packageDescriptorJson];
         })
-        .spread((exclusions, packageDescriptorJson) => {
-          // Inactive flows are excluded from the package. These should be saved so that they can be removed
-          // from the package.xml
-          if (exclusions) {
-            metadataExclusions = exclusions[1];
-          }
-
+        .spread(packageDescriptorJson => {
           // All dependencies for the packaging dir should be resolved to an 04t id to be passed to the server.
           // (see _retrieveSubscriberPackageVersionId for details)
           const dependencies = packageDescriptorJson.dependencies;
@@ -424,7 +331,7 @@ class PackageVersionCreateCommand {
         })
         // As part of the source convert process, the package.xml has been written into the tmp metadata directory.
         // The package.xml may need to be manipulated due to processing profiles in the workspace or additional
-        // metadata exclusions (such as inactive flows). If necessary, read the existing package.xml and then re-write it.
+        // metadata exclusions. If necessary, read the existing package.xml and then re-write it.
         .then(() => fs.readFileAsync(path.join(packageVersMetadataFolder, 'package.xml'), 'utf8'))
         .then(currentPackageXml =>
           // convert to json
@@ -436,18 +343,6 @@ class PackageVersionCreateCommand {
 
           // Apply any necessary exclusions to typesArr.
           let typesArr = packageJson.Package.types;
-          if (metadataExclusions && metadataExclusions.length > 0) {
-            typesArr = packageJson.Package.types.map(element => {
-              const obj: any = {};
-              obj.name = element.name;
-              obj.members = element.members.filter(member =>
-                _.isNil(
-                  metadataExclusions.find(exclusion => exclusion.type === element.name[0] && exclusion.name === member)
-                )
-              );
-              return obj;
-            });
-          }
 
           typesArr = this.profileApi.filterAndGenerateProfilesForManifest(typesArr);
 
@@ -489,91 +384,6 @@ class PackageVersionCreateCommand {
           this._createRequestObject(packageId, context, preserveFiles, packageVersTmpRoot, packageVersBlobZipFile)
         )
     );
-  }
-
-  _pollForStatus(context, id, retries, packageId) {
-    return this.packageVersionCreateRequestApi.byId(id).then(async results => {
-      if (this._isStatusEqualTo(results, [STATUS_SUCCESS, STATUS_ERROR])) {
-        // complete
-        if (this._isStatusEqualTo(results, [STATUS_SUCCESS])) {
-          // success
-          if (!process.env.SFDX_PROJECT_AUTOUPDATE_DISABLE_FOR_PACKAGE_VERSION_CREATE) {
-            const query = `SELECT MajorVersion, MinorVersion, PatchVersion, BuildNumber FROM Package2Version WHERE Id = '${results[0].Package2VersionId}'`;
-            const package2VersionVersionString = await this.force.toolingQuery(this.org, query).then(pkgQueryResult => {
-              const record = pkgQueryResult.records[0];
-              return `${record.MajorVersion}.${record.MinorVersion}.${record.PatchVersion}-${record.BuildNumber}`;
-            });
-            const newConfig = await this._generatePackageAliasEntry(
-              context,
-              results[0].SubscriberPackageVersionId,
-              package2VersionVersionString,
-              context.flags.branch,
-              packageId
-            );
-            await pkgUtils._writeProjectConfigToDisk(context, newConfig, logger);
-          }
-          return results[0];
-        } else {
-          let status = 'Unknown Error';
-          if (results && results.length > 0 && results[0].Error.length > 0) {
-            status = results[0].Error;
-          }
-          throw new Error(status);
-        }
-      } else {
-        if (retries > 0) {
-          // poll/retry
-          let currentStatus = STATUS_UNKNOWN;
-          if (results && results.length > 0) {
-            currentStatus = results[0].Status;
-          }
-          logger.log(
-            `Request in progress. Sleeping ${this.pollInterval} seconds. Will wait a total of ${this.pollInterval *
-              retries} more seconds before timing out. Current Status='${pkgUtils.convertCamelCaseStringToSentence(
-              currentStatus
-            )}'`
-          );
-          return BBPromise.delay(this.pollInterval * 1000).then(() =>
-            this._pollForStatus(context, id, retries - 1, packageId)
-          );
-        } else {
-          // Timed out
-        }
-      }
-
-      return results;
-    });
-  }
-
-  /**
-   * Generate package alias json entry for this package version that can be written to sfdx-project.json
-   * @param context
-   * @param packageVersionId 04t id of the package to create the alias entry for
-   * @param packageVersionNumber that will be appended to the package name to form the alias
-   * @param packageId the 0Ho id
-   * @private
-   */
-  async _generatePackageAliasEntry(context, packageVersionId, packageVersionNumber, branch, packageId) {
-    const configContent = this.force.config.getConfigContent();
-    const packageAliases = configContent.packageAliases || {};
-    const aliasForPackageId = pkgUtils.getPackageAliasesFromId(packageId, this.force);
-    let packageName;
-    if (!aliasForPackageId || aliasForPackageId.length === 0) {
-      const query = `SELECT Name FROM Package2 WHERE Id = '${packageId}'`;
-      packageName = await this.force.toolingQuery(this.org, query).then(pkgQueryResult => {
-        const record = pkgQueryResult.records[0];
-        return record.Name;
-      });
-    } else {
-      packageName = aliasForPackageId[0];
-    }
-
-    const packageAlias = branch
-      ? `${packageName}@${packageVersionNumber}-${branch}`
-      : `${packageName}@${packageVersionNumber}`;
-    packageAliases[packageAlias] = packageVersionId;
-
-    return { packageAliases };
   }
 
   _getPackagePropertyFromPackage(packageDirs, packageValue, context) {
@@ -883,6 +693,8 @@ class PackageVersionCreateCommand {
       // need to validate that the Id is correct.
       pkgUtils.validateId(pkgUtils.BY_LABEL.PACKAGE_ID, resolvedPackageId);
 
+      await this._validateFlagsForPackageType(resolvedPackageId, context.flags);
+
       // validate the versionNumber flag value if specified, otherwise the descriptor value
       const versionNumber = context.flags.versionnumber
         ? context.flags.versionnumber
@@ -928,7 +740,19 @@ class PackageVersionCreateCommand {
       }
       this.profileApi = new ProfileApi(this.org, includeProfileUserLicenses);
 
-      return MetadataRegistry.initializeMetadataTypeInfos(this.org).then(() =>
+      // If we are polling check to see if the package is Org-Dependent, if so, update the poll time
+      if (context.flags.wait) {
+        const query = `SELECT IsOrgDependent FROM Package2 WHERE Id = '${resolvedPackageId}'`;
+        this.force.toolingQuery(this.org, query).then(pkgQueryResult => {
+          const subRecords = pkgQueryResult.records;
+          if (subRecords && subRecords.length === 1 && subRecords[0].IsOrgDependent) {
+            this.pollInterval = POLL_INTERVAL_WITHOUT_VALIDATION_SECONDS;
+            this.maxRetries = (60 / this.pollInterval) * context.flags.wait;
+          }
+        });
+      }
+
+      return Promise.resolve().then(() =>
         this._createPackageVersionCreateRequestFromOptions(context, resolvedPackageId)
           .then(request => this.force.toolingCreate(this.org, 'Package2VersionCreateRequest', request))
           .then(createResult => {
@@ -944,7 +768,30 @@ class PackageVersionCreateCommand {
           })
           .then(id => {
             if (context.flags.wait) {
-              return this._pollForStatus(context, id, this.maxRetries, resolvedPackageId);
+              if (this.pollInterval) {
+                return pkgUtils.pollForStatusWithInterval(
+                  context,
+                  id,
+                  this.maxRetries,
+                  resolvedPackageId,
+                  logger,
+                  true,
+                  this.force,
+                  this.org,
+                  this.pollInterval
+                );
+              } else {
+                return pkgUtils.pollForStatus(
+                  context,
+                  id,
+                  this.maxRetries,
+                  resolvedPackageId,
+                  logger,
+                  true,
+                  this.force,
+                  this.org
+                );
+              }
             } else {
               return this.packageVersionCreateRequestApi.byId(id);
             }
@@ -952,6 +799,52 @@ class PackageVersionCreateCommand {
           .then(result => (util.isArray(result) ? result[0] : result))
       );
     });
+  }
+
+  public rejectWithInstallKeyError(context: any) {
+    // This command also requires either the installationkey flag or installationkeybypass flag
+    const installationKeyFlag = context.command.flags.find(x => x.name === 'installationkey');
+    const installationKeyBypassFlag = context.command.flags.find(x => x.name === 'installationkeybypass');
+    const errorString = messages.getMessage(
+      'errorMissingFlagsInstallationKey',
+      [
+        `--${installationKeyFlag.name} (-${installationKeyFlag.char})`,
+        `--${installationKeyBypassFlag.name} (-${installationKeyBypassFlag.char})`
+      ],
+      'package_version_create'
+    );
+    const error = new Error(errorString);
+    error['name'] = 'requiredFlagMissing';
+    return BBPromise.reject(error);
+  }
+
+  async _validateFlagsForPackageType(packageId: string, flags: any) {
+    let packageType = await pkgUtils.getPackage2Type(packageId, this.force, this.org);
+
+    if (packageType == 'Unlocked') {
+      if (flags.postinstallscript || flags.uninstallscript) {
+        throw SfdxError.create(
+          'salesforce-alm',
+          'packaging',
+          'version_create.errorScriptsNotApplicableToUnlockedPackage'
+        );
+      }
+
+      // Don't allow ancestor in unlocked packages
+
+      const packageDescriptorJson = this._getPackageDescriptorJsonFromPackageId(packageId, flags);
+
+      let ancestorId = packageDescriptorJson.ancestorId;
+      let ancestorVersion = packageDescriptorJson.ancestorVersion;
+
+      if (ancestorId || ancestorVersion) {
+        throw SfdxError.create(
+          'salesforce-alm',
+          'packaging',
+          'version_create.errorAncestorNotApplicableToUnlockedPackage'
+        );
+      }
+    }
   }
 
   /**
@@ -1054,27 +947,6 @@ class PackageVersionCreateCommand {
     if (context.flags.uninstallscript) {
       packageDescriptorJson.uninstallScript = context.flags.uninstallscript;
     }
-  }
-
-  /**
-   * Return true if the queryResult.records[0].Status is equal to one of the values in statuses.
-   * @param results to examine
-   * @param statuses array of statuses to look for
-   * @returns {boolean} if one of the values in status is found.
-   */
-  _isStatusEqualTo(results, statuses?) {
-    if (!results || results.length <= 0) {
-      return false;
-    }
-    const record = results[0];
-    for (let i = 0, len = statuses.length; i < len; i++) {
-      const status = statuses[i];
-      if (record.Status === status) {
-        return true;
-      }
-    }
-
-    return false;
   }
 }
 

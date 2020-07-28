@@ -10,6 +10,12 @@ import almError = require('../core/almError');
 import srcDevUtil = require('../core/srcDevUtil');
 import User from './user';
 
+export interface ReadablePermissionSet {
+  id: string;
+  _fields: object;
+  _permSetName: string;
+}
+
 //
 // API for working with the PermissionSetAssignment SObject.
 //
@@ -113,6 +119,14 @@ class PermissionSetAssignment {
     this._fields = srcDevUtil.toLowerCaseKeys(fields);
 
     return this;
+  }
+
+  get(): ReadablePermissionSet {
+    return {
+      id: this.id,
+      _fields: this._fields,
+      _permSetName: this._permSetName
+    };
   }
 }
 

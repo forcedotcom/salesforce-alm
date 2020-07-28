@@ -20,6 +20,10 @@ import CheckStatus = require('./mdapiCheckStatusApi');
 import consts = require('../core/constants');
 import Stash = require('../core/stash');
 import { env, set } from '@salesforce/kit';
+// for messages in FCT/messages/
+import { Messages as MessagesCore } from '@salesforce/core';
+
+MessagesCore.importMessagesDirectory(__dirname);
 
 const DEPLOY_ERROR_EXIT_CODE = 1;
 
@@ -43,7 +47,7 @@ class MdDeployReportApi {
     this._print = this._print.bind(this);
     this.pollIntervalStrategy = pollIntervalStrategy;
     this.progressBar = cli.progress({
-      format: `${stashkey.split('_')[0]} PROGRESS | {bar} | {value}/{total} Files`,
+      format: `${stashkey.split('_')[0]} PROGRESS | {bar} | {value}/{total} Components`,
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
       linewrap: true
@@ -278,10 +282,19 @@ class MdDeployReportApi {
   _print(options, result) {
     if ((this.loggingEnabled || options.source) && !options.json) {
       if (this.useProgressBar) {
-        this.progressBar.start(
-          result.numberComponentsTotal + result.numberTestsTotal,
-          result.numberComponentsDeployed + result.numberTestsCompleted
-        );
+        const total = result.numberComponentsTotal + result.numberTestsTotal;
+        const actionsDone = result.numberComponentsDeployed + result.numberTestsCompleted;
+        // If the metadata deploy isn't picked up yet, there will be no total of components or tests yet so we
+        // need to start the progressBar again. We shouldn't do it every time because it resets the time on the
+        // progressBar. Also, the total can change when a deploy ha succeeded... for whatever reason.
+        if (this.progressBar.isActive && total === this.progressBar.total) {
+          // Don't update the progress bar if nothing has changed. Removes unnecessary noise in non-tty environments
+          if (actionsDone !== this.progressBar.value) {
+            this.progressBar.update(actionsDone);
+          }
+        } else {
+          this.progressBar.start(total, actionsDone);
+        }
       } else {
         this._printOldOutput(result);
       }
@@ -298,8 +311,18 @@ class MdDeployReportApi {
       if (this.stashkey === 'MDAPI_DEPLOY') {
         this._printComponentSuccess(result, options);
         this._printComponentFailures(result);
-        this._printTests(result);
       }
+      // source:deploy handles success and errors separately, it doesn't handle test output
+      this._printTests(result);
+
+      if (options.checkonly) {
+        this._printComponentFailures(result);
+        if (!result.numberComponentErrors) {
+          const coreMessages = MessagesCore.loadMessages('salesforce-alm', 'source_deploy');
+          this._log(coreMessages.getMessage('sourceDeployCheckOnlySuccess'));
+        }
+      }
+
       this.useProgressBar ? this.progressBar.stop() : this._printOldOutput(result);
     }
 
@@ -310,9 +333,8 @@ class MdDeployReportApi {
     // Logging is enabled if the output is not json and logging is not disabled
     this.loggingEnabled = options.source || options.verbose || (!options.json && !options.disableLogging);
     options.wait = +(options.wait || consts.DEFAULT_MDAPI_WAIT_MINUTES);
-    if (this.loggingEnabled && !options.disableLogging) {
-      this._log(`Job ID | ${options.jobid}`);
-    }
+    this._log(`Job ID | ${options.jobid}`);
+
     // if SFDX_USE_PROGRESS_BAR is true use progress bar, if not use old output
     this.useProgressBar = env.getBoolean('SFDX_USE_PROGRESS_BAR', true);
 

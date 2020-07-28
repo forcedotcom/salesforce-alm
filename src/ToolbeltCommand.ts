@@ -239,7 +239,8 @@ export abstract class ToolbeltCommand extends SfdxCommand {
         this.argv.length > 2 &&
         (this.id.includes('source:deploy') || this.id.includes('source:retrieve')) &&
         param.indexOf('-') != 0 && //if wildcard param will be path, can't start with '-', but flags have to start with '-'
-        param.indexOf('"') <= param.indexOf(', ') && param.indexOf(path.sep) >= 0
+        param.indexOf('"') <= param.indexOf(', ') &&
+        param.indexOf(path.sep) >= 0
       );
     } else {
       return false;
@@ -376,7 +377,8 @@ export abstract class ToolbeltCommand extends SfdxCommand {
     const context: Dictionary<any> = {
       flags: this.flags,
       args: legacyArgs,
-      varargs: this.varargs
+      varargs: this.varargs,
+      ux: this.ux
     };
     if (this.org || this.hubOrg) {
       const org = this.org || this.hubOrg;

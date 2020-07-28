@@ -16,7 +16,6 @@ import * as optional from 'optional-js';
 
 // Local
 import srcDevUtil = require('../core/srcDevUtil');
-import MetadataRegistry = require('./metadataRegistry');
 import SourceConvertApi = require('./sourceConvertApi');
 import Messages = require('../messages');
 const messages = Messages();
@@ -59,17 +58,14 @@ class SourceConvertCommand {
   }
 
   execute(context) {
-    return MetadataRegistry.initializeMetadataTypeInfos(this.scratchOrg)
-      .then(() => {
-        const sourceConvertApi = new SourceConvertApi(this.scratchOrg);
-        context.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
-        return sourceConvertApi
-          .doConvert(context)
-          .then(() =>
-            srcDevUtil.logUnsupportedMimeTypeError(context.unsupportedMimeTypes, this.logger, this.scratchOrg.force)
-          )
-          .then(() => BBPromise.resolve({ location: path.resolve(this.outputDir) }));
-      })
+    const sourceConvertApi = new SourceConvertApi(this.scratchOrg);
+    context.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
+    return sourceConvertApi
+      .doConvert(context)
+      .then(() =>
+        srcDevUtil.logUnsupportedMimeTypeError(context.unsupportedMimeTypes, this.logger, this.scratchOrg.force)
+      )
+      .then(() => BBPromise.resolve({ location: path.resolve(this.outputDir) }))
       .finally(() => this.scratchOrg.cleanData());
   }
 

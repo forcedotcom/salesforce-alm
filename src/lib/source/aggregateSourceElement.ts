@@ -31,6 +31,8 @@ import { FolderMetadataType } from './metadataTypeImpl/folderMetadataType';
 import * as PathUtils from './sourcePathUtil';
 import { checkForXmlParseError } from './sourceUtil';
 import { SfdxError } from '@salesforce/core';
+import { PackageInfoCache } from './packageInfoCache';
+import { FilePathsIndex } from './sourceLocations';
 
 /**
  * Class used to manage top-level metadata
@@ -58,14 +60,18 @@ export class AggregateSourceElement {
 
   metadataFilePath: string;
   deleted: boolean;
-  metadataRegistry;
+  metadataRegistry: MetadataRegistry;
   retrievedMetadataPath: string;
   retrievedContentPaths: string[];
   aggregateFullName: string;
   isDuplicate: boolean;
+  packageName: string;
 
   workspaceElements: WorkspaceElement[];
   pendingDeletedWorkspaceElements: WorkspaceElement[];
+
+  filePathsIndex: FilePathsIndex;
+  packageInfoCache: PackageInfoCache;
 
   /**
    * @param aggregateMetadataType - this is the type for the top-level parent metadata - e.g. ApexClass, CustomObject, etc.
@@ -73,12 +79,19 @@ export class AggregateSourceElement {
    * @param aggregateMetadataFilePath - this is the full file path to the top-level parent metadata
    * @param metadataRegistry
    */
-  constructor(aggregateMetadataType: MetadataType, aggregateFullName, aggregateMetadataFilePath, metadataRegistry) {
+  constructor(
+    aggregateMetadataType: MetadataType,
+    aggregateFullName: string,
+    aggregateMetadataFilePath: string,
+    metadataRegistry: MetadataRegistry
+  ) {
     this.metadataType = aggregateMetadataType;
     this.workspaceVersion = null; // fill this in when the workspace version is known
     this.metadataRegistry = metadataRegistry; // my hope is to be able to get rid of this when typeDefs become first class
     this.aggregateFullName = aggregateFullName;
     this.metadataFilePath = aggregateMetadataFilePath;
+    this.packageInfoCache = PackageInfoCache.getInstance();
+    this.packageName = this.packageInfoCache.getPackageNameFromSourcePath(this.metadataFilePath);
 
     this.decompStrategy = DecompositionStrategyFactory.newDecompositionStrategy(
       this.metadataType.getDecompositionConfig()
@@ -104,7 +117,7 @@ export class AggregateSourceElement {
     return this.metadataType;
   }
 
-  static getKeyFromMetadataNameAndFullName(aggregateMetadataName, aggregateFullName): string {
+  static getKeyFromMetadataNameAndFullName(aggregateMetadataName: string, aggregateFullName: string): string {
     return `${aggregateMetadataName}__${aggregateFullName}`;
   }
 
@@ -130,6 +143,10 @@ export class AggregateSourceElement {
 
   getMetadataName(): string {
     return this.metadataType.getMetadataName();
+  }
+
+  getPackageName(): string {
+    return this.packageName;
   }
 
   /**
@@ -176,7 +193,7 @@ export class AggregateSourceElement {
     });
   }
 
-  addWorkspaceElement(workspaceElement): void {
+  addWorkspaceElement(workspaceElement: WorkspaceElement): void {
     this.workspaceElements.push(workspaceElement);
   }
 
@@ -348,10 +365,11 @@ export class AggregateSourceElement {
   /**
    * Commits changes to the workspace
    * @param manifest
-   * @param unsupportedMimeTypes - the list of non-whitelisted static resource mime types
+   * @param unsupportedMimeTypes - the list of non-allow-listed static resource mime types
+   * @param forceoverwrite
    * @returns {Array[]}
    */
-  commit(manifest, unsupportedMimeTypes: string[]): [string[], string[], string[]] {
+  commit(manifest, unsupportedMimeTypes: string[], forceoverwrite = false): [string[], string[], string[]] {
     let newPaths = [];
     let updatedPaths = [];
     let deletedPaths = [];
@@ -360,11 +378,11 @@ export class AggregateSourceElement {
     this.commitDeletes(deletedPaths);
 
     if (!_.isNil(this.retrievedMetadataPath)) {
-      this.commitMetadata(newPaths, updatedPaths, deletedPaths, dupPaths, manifest);
+      this.commitMetadata(newPaths, updatedPaths, deletedPaths, dupPaths, manifest, forceoverwrite);
     }
 
     if (this.metadataType.hasContent() && !_.isNil(this.retrievedContentPaths)) {
-      this.commitContent(newPaths, updatedPaths, deletedPaths, dupPaths, unsupportedMimeTypes);
+      this.commitContent(newPaths, updatedPaths, deletedPaths, dupPaths, unsupportedMimeTypes, forceoverwrite);
     }
 
     // associate committed source to sourceElement
@@ -398,11 +416,12 @@ export class AggregateSourceElement {
       });
   }
 
-  private commitMetadata(newPaths, updatedPaths, deletedPaths, dupPaths, manifest) {
+  private commitMetadata(newPaths, updatedPaths, deletedPaths, dupPaths, manifest, forceoverwrite) {
     const [newMetaPaths, updatedMetaPaths, deletedMetaPaths, dupMetaPaths] = this.decomposeMetadata(
       this.retrievedMetadataPath,
       this.getMetadataFilePath(),
-      manifest
+      manifest,
+      forceoverwrite
     );
     newPaths.push(...newMetaPaths);
     updatedPaths.push(...updatedMetaPaths);
@@ -410,7 +429,7 @@ export class AggregateSourceElement {
     dupPaths.push(...dupMetaPaths);
   }
 
-  private commitContent(newPaths, updatedPaths, deletedPaths, dupPaths, unsupportedMimeTypes) {
+  private commitContent(newPaths, updatedPaths, deletedPaths, dupPaths, unsupportedMimeTypes, forceoverwrite) {
     const [
       newContentPaths,
       updatedContentPaths,
@@ -421,7 +440,8 @@ export class AggregateSourceElement {
       this.retrievedContentPaths,
       this.retrievedMetadataPath,
       this.isDuplicate,
-      unsupportedMimeTypes
+      unsupportedMimeTypes,
+      forceoverwrite
     );
     newPaths.push(...newContentPaths);
     updatedPaths.push(...updatedContentPaths);
@@ -638,7 +658,8 @@ export class AggregateSourceElement {
   private decomposeMetadata(
     sourceFilePath: string,
     metadataFilePath: string,
-    manifest?
+    manifest?,
+    forceoverwrite = false
   ): [string[], string[], string[], string[]] {
     const composed = this.decompStrategy.newComposedDocument(this.metadataType.getDecompositionConfig().metadataName);
     try {
@@ -659,7 +680,7 @@ export class AggregateSourceElement {
     const documents = this.getPaths(metadataFilePath, container, decompositions);
     const existingPaths = this.getMetadataPaths(metadataFilePath);
 
-    return this.commitStrategy.commit(documents, existingPaths, this.isDuplicate);
+    return this.commitStrategy.commit(documents, existingPaths, this.isDuplicate, forceoverwrite);
   }
 
   private getComposedFilePath(tmpDir: string) {
@@ -681,17 +702,70 @@ export class AggregateSourceElement {
 
     for (const decomposedSubtypeConfig of decompositions.keys()) {
       for (const decomposition of decompositions.get(decomposedSubtypeConfig)) {
-        const sourceDir = this.workspaceStrategy.getDecomposedSubtypeDirFromMetadataFile(
-          metadataFilePath,
-          this.metadataType.getExt(),
-          decomposedSubtypeConfig
-        );
         const annotation: MetadataDocumentAnnotation = decomposition.getAnnotation();
+        const sourceDir = this.getSourceDir(annotation, metadataFilePath, decomposedSubtypeConfig);
+
+        /**
+         * We want to ignore paths that belong to a package other than the package we're processing.
+         * For example, when pulling a CustomObject in PackageA we want to ignore any CustomFields that
+         * belong to PackageB
+         */
+        if (this.shouldIgnorePath(sourceDir)) {
+          continue;
+        }
+
         const fileName = this.workspaceStrategy.getDecomposedFileName(annotation, decomposedSubtypeConfig);
         const decomposedPath = path.join(sourceDir, fileName);
         paths.set(decomposedPath, decomposition);
       }
     }
     return paths;
+  }
+
+  /**
+   * Returns the source dir into which metadata will be decomposed.
+   * It first tries to find an existing directory based on the annotation
+   * If that directory does not exist, if will find the directory based on
+   * the metadata file path
+   * @param annotation
+   * @param metadataFilePath
+   * @param decomposedSubtypeConfig
+   */
+  private getSourceDir(
+    annotation: MetadataDocumentAnnotation,
+    metadataFilePath: string,
+    decomposedSubtypeConfig: DecomposedSubtypeConfig
+  ): string {
+    const existingDir = this.workspaceStrategy.getDecomposedSubtypeDirFromAnnotation(
+      annotation,
+      this.metadataType.getMetadataName(),
+      this.aggregateFullName,
+      decomposedSubtypeConfig
+    );
+    if (existingDir) {
+      return existingDir;
+    } else {
+      return this.workspaceStrategy.getDecomposedSubtypeDirFromMetadataFile(
+        metadataFilePath,
+        this.metadataType.getExt(),
+        decomposedSubtypeConfig
+      );
+    }
+  }
+
+  /**
+   * Returns true if the provided path does not belong to the active package (that is, the package we're in the process of pulling)
+   * For example, when pulling a CustomObject in PackageA, we don't want to update any CustomFields on that object that belong
+   * to PackageB.
+   * For a mdapi:convert, the pkgName should be null. The active package is set by the mdapiConvertCommand to be null as well
+   * so this function returns false (meaning the path is not ignored, which is what we want).  There are no package directories
+   * for mdapi:convert and source:convert.
+   */
+  private shouldIgnorePath(sourceDir: string): boolean {
+    const activePackage = this.packageInfoCache.getActivePackage();
+    const activePackageName = activePackage ? activePackage.name : activePackage;
+    if (!activePackageName) return false;
+    const pkgName = this.packageInfoCache.getPackageNameFromSourcePath(sourceDir);
+    return pkgName !== activePackageName;
   }
 }

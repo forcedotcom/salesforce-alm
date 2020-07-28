@@ -27,7 +27,8 @@ export class VirtualDecompositionCommitStrategy extends FineGrainTrackingCommitS
   commit(
     documents: Map<string, MetadataDocument>,
     existingPaths: string[],
-    createDuplicates: boolean
+    createDuplicates: boolean,
+    forceoverwrite = false
   ): [string[], string[], string[], string[]] {
     let newPaths: string[];
     let deletedPaths: string[];
@@ -36,7 +37,8 @@ export class VirtualDecompositionCommitStrategy extends FineGrainTrackingCommitS
     [newPaths, updatedPaths, deletedPaths, dupPaths] = super.commit(
       documents,
       existingPaths,
-      createDuplicates /** generateDuplicates */
+      createDuplicates /** generateDuplicates */,
+      forceoverwrite
     );
 
     deletedPaths = this.getDeletedPaths(documents, existingPaths); // No fine grain tracking to help us here.

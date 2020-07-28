@@ -57,7 +57,7 @@ const checkHiddenStateFolder = function(projectDir) {
   }
 };
 
-const sfdxProjectBlackList = ['packageAliases'];
+const sfdxProjectBlockList = ['packageAliases'];
 
 // constructor
 export const Config = function(projectDir?) {
@@ -244,6 +244,10 @@ const _extractPackageDirPaths = function(messagesLocale, configObject, workspace
           error['name'] = 'InvalidProjectWorkspace';
           throw error;
         }
+
+        // Change packageDir paths to have path separators that match the OS
+        const regex = path.sep === '/' ? /\\/g : /\//g;
+        packageDir.path = packageDir.path.replace(regex, path.sep);
         pathsArray.push(path.resolve(projectDir, packageDir.path));
       }
       if (!util.isNullOrUndefined(packageDir.default)) {
@@ -283,7 +287,7 @@ Config.prototype._getConfigContent = function(projectDir, workspaceConfigObject)
     configObject = srcDevUtil.getGlobalConfigSync(this.getWorkspaceConfigFilename());
 
     // Verify that the configObject does not have upper case keys; throw if it does.  Must be heads down camelcase.
-    const upperCaseKey = srcDevUtil.findUpperCaseKeys(configObject, sfdxProjectBlackList);
+    const upperCaseKey = srcDevUtil.findUpperCaseKeys(configObject, sfdxProjectBlockList);
     if (upperCaseKey) {
       throw almError('InvalidJsonCasing', [upperCaseKey, JSON.stringify(configObject, null, 4)]);
     }
@@ -299,7 +303,7 @@ Config.prototype._getConfigContent = function(projectDir, workspaceConfigObject)
   const projectConfigDotJsonPath = path.join(projectDir, this.getWorkspaceConfigFilename());
   try {
     // Verify that the workspaceConfigObject does not have upper case keys; throw if it does.  Must be heads down camelcase.
-    const upperCaseKey = srcDevUtil.findUpperCaseKeys(workspaceConfigObject, sfdxProjectBlackList);
+    const upperCaseKey = srcDevUtil.findUpperCaseKeys(workspaceConfigObject, sfdxProjectBlockList);
     if (upperCaseKey) {
       throw almError('InvalidJsonCasing', [upperCaseKey, JSON.stringify(workspaceConfigObject, null, 4)]);
     }

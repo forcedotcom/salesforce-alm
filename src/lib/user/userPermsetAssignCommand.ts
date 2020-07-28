@@ -28,8 +28,8 @@ interface FailureMsg {
 export class UserPermsetAssignCommand extends Command {
   private org;
   private usernames: string[];
-  private successes: SuccessMsg[];
-  private failures: FailureMsg[];
+  private readonly successes: SuccessMsg[];
+  private readonly failures: FailureMsg[];
 
   constructor() {
     super('user:permset:assign');
@@ -54,8 +54,15 @@ export class UserPermsetAssignCommand extends Command {
    * @returns {Promise}
    */
   async execute(context: any): Promise<any> {
-    this.usernames = _.map((_.get(context, 'flags.onbehalfof') || this.org.getName()).split(','), _.trim);
-
+    if (context.flags && context.flags.onbehalfof && context.flags.onbehalfof.length > 0) {
+      this.usernames = context.flags.onbehalfof.split(',').map(_.trim);
+    } else if (this.org.usingAccessToken) {
+      const force = this.org.force;
+      const userInfo = await force.request(this.org, 'GET', '/services/oauth2/userinfo');
+      this.usernames = [userInfo.preferred_username];
+    } else {
+      this.usernames = [this.org.getName()];
+    }
     // Convert any aliases to usernames
     const aliases = await Alias.list();
     this.usernames = this.usernames.map(username => aliases[username] || username);
@@ -109,6 +116,9 @@ export class UserPermsetAssignCommand extends Command {
           { key: 'message', label: 'Error Message' }
         ]
       });
+      // legacy error output, keep for --json continuity
+      // but no error was ever thrown
+      process.exitCode = 1;
     }
   }
 }

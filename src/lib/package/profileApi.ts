@@ -28,6 +28,7 @@ class ProfileApi {
 
   constructor(org, includeUserLicenses) {
     this.org = org;
+    this.includeUserLicenses = includeUserLicenses;
     this.config = this.org.config;
     this.apiVersion = this.config.getApiVersion();
     this.logger = logApi.child('profile');

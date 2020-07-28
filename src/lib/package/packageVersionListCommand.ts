@@ -26,7 +26,7 @@ const DEFAULT_SELECT =
 const VERBOSE_SELECT =
   'SELECT Id, Package2Id, SubscriberPackageVersionId, Name, Package2.Name, Package2.NamespacePrefix, ' +
   'Description, Tag, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, ' +
-  'CreatedDate, LastModifiedDate, IsPasswordProtected, CodeCoverage, HasPassedCodeCoverageCheck, AncestorId, ValidationSkipped ' +
+  'CreatedDate, LastModifiedDate, IsPasswordProtected, AncestorId, ValidationSkipped, ConvertedFromVersionId, Package2.IsOrgDependent ' +
   'FROM Package2Version';
 
 const DEFAULT_ORDER_BY_FIELDS = 'Package2Id, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber';
@@ -74,19 +74,10 @@ class PackageVersionListCommand {
         if (ancestorIds && ancestorIds.length > 0) {
           ancestorVersionsMap = await pkgUtils.getPackageVersionStrings(ancestorIds, this.force, this.org);
         }
-        // lookup container options for records that don't have an ancestorId; we'll need this to display N/A for Unlocked Packages
-        const idsWithoutAncestor = [
-          ...new Set(
-            records
-              .filter(record => {
-                return !record.AncestorId;
-              })
-              .map(record => record.Package2Id)
-          )
-        ];
-        if (idsWithoutAncestor && idsWithoutAncestor.length > 0) {
-          containerOptionsMap = await pkgUtils.getContainerOptions(idsWithoutAncestor, this.force, this.org);
-        }
+
+        // Get the container options for each package version. We need this for determining if the version is OrgDependent
+        const recordIds = [...new Set(records.map(record => record.Package2Id))];
+        containerOptionsMap = await pkgUtils.getContainerOptions(recordIds, this.force, this.org);
 
         records.forEach(record => {
           const ids = [record.Id, record.SubscriberPackageVersionId];
@@ -109,6 +100,13 @@ class PackageVersionListCommand {
             record.AncestorId = 'N/A';
           }
 
+          let isOrgDependent =
+            containerOptionsMap.get(record.Package2Id) === 'Managed'
+              ? 'N/A'
+              : record.Package2.IsOrgDependent === true
+              ? 'Yes'
+              : 'No';
+
           this.results.push({
             Package2Id: record.Package2Id,
             Branch: record.Branch,
@@ -119,6 +117,7 @@ class PackageVersionListCommand {
             BuildNumber: record.BuildNumber,
             Id: record.Id,
             SubscriberPackageVersionId: record.SubscriberPackageVersionId,
+            ConvertedFromVersionId: record.ConvertedFromVersionId,
             Name: record.Name,
             NamespacePrefix: record.Package2.NamespacePrefix,
             Package2Name: record.Package2.Name,
@@ -132,12 +131,13 @@ class PackageVersionListCommand {
             CreatedDate: moment(record.CreatedDate).format('YYYY-MM-DD HH:mm'),
             LastModifiedDate: moment(record.LastModifiedDate).format('YYYY-MM-DD HH:mm'),
             InstallUrl: pkgUtils.INSTALL_URL_BASE + record.SubscriberPackageVersionId,
-            CodeCoverage: record.CodeCoverage == null ? '' : `${record.CodeCoverage['apexCodeCoveragePercentage']}%`,
-            HasPassedCodeCoverageCheck: record.HasPassedCodeCoverageCheck,
+            CodeCoverage: 'Data unavailable',
+            HasPassedCodeCoverageCheck: 'Data unavailable',
             ValidationSkipped: record.ValidationSkipped,
             AncestorId: record.AncestorId,
             AncestorVersion: ancestorVersion,
-            Alias: AliasStr
+            Alias: AliasStr,
+            IsOrgDependent: isOrgDependent
           });
         });
       }
@@ -314,6 +314,14 @@ class PackageVersionListCommand {
       columns.push({
         key: 'HasPassedCodeCoverageCheck',
         label: messages.getMessage('hasPassedCodeCoverageCheck', [], 'package_version_list')
+      });
+      columns.push({
+        key: 'ConvertedFromVersionId',
+        label: messages.getMessage('convertedFromVersionId', [], 'package_version_list')
+      });
+      columns.push({
+        key: 'IsOrgDependent',
+        label: messages.getMessage('isOrgDependent', [], 'package_list')
       });
     }
 

@@ -6,17 +6,17 @@
  */
 
 import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
+import { Config, fs, Messages, SfdxError, SfdxErrorConfig } from '@salesforce/core';
 import { Duration } from '@salesforce/kit';
 import { AnyJson } from '@salesforce/ts-types';
-import { Config, fs, Messages, SfdxError, SfdxErrorConfig } from '@salesforce/core';
+import Alias = require('../../../lib/core/alias');
+import consts = require('../../../lib/core/constants');
+import SFDXCommonMessages = require('../../../lib/messages');
+import { SANDBOXDEF_SRC_SANDBOXNAME, SandboxEventNames } from '../../../lib/org/sandbox/sandboxConstants';
 import { SandboxOrg } from '../../../lib/org/sandbox/sandboxOrg';
 import { SandboxRequest } from '../../../lib/org/sandbox/sandboxOrgApi';
 import { SandboxProgressReporter } from '../../../lib/org/sandbox/sandboxProgressReporter';
-import SFDXCommonMessages = require('../../../lib/messages');
-import consts = require('../../../lib/core/constants');
 import { OrgTypes } from '../../../lib/orgTypes';
-import { SandboxEventNames, SANDBOXDEF_SRC_SANDBOXNAME } from '../../../lib/org/sandbox/sandboxConstants';
-import Alias = require('../../../lib/core/alias');
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('salesforce-alm', 'org_clone');
@@ -35,6 +35,7 @@ export class OrgCloneCommand extends SfdxCommand {
   public static readonly varargs = true;
   public static readonly orgType = consts.DEFAULT_DEV_HUB_USERNAME;
   public static readonly requiresUsername = true;
+
   public static readonly flagsConfig: FlagsConfig = {
     type: flags.enum({
       char: 't',

@@ -5,13 +5,6 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// 3pp
-import * as BBPromise from 'bluebird';
-
-// Node
-import * as util from 'util';
-
-// Local
 import MetadataRegistry = require('./metadataRegistry');
 import Messages = require('../messages');
 const messages = Messages();
@@ -21,18 +14,33 @@ import logger = require('../core/logApi');
 import { SourceDeployApiBase } from './sourceDeployApiBase';
 import * as SourceUtil from './sourceUtil';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
+import { AggregateSourceElements } from './aggregateSourceElements';
 import { DeployResult } from './sourceDeployApi';
 import { SrcStatusApi } from './srcStatusApi';
-import { RevisionCounterField } from './sourceUtil';
+import { MaxRevision } from './MaxRevision';
+
+interface DeployError extends Error {
+  outboundFiles: object[];
+  failures: object[];
+}
+
+interface PushOptions {
+  deploydir?: string;
+  wait?: number;
+  forceoverwrite?: boolean;
+}
 
 export class MdapiPushApi extends SourceDeployApiBase {
   public swa: SourceWorkspaceAdapter;
   public scratchOrg: any;
   private metadataRegistry: MetadataRegistry;
+  private maxRevision: MaxRevision;
+  static totalNumberOfPackages: number;
+  static packagesDeployed: number;
 
   protected async init(): Promise<void> {
     await super.init();
-    this.metadataRegistry = new MetadataRegistry(this.orgApi);
+    this.metadataRegistry = new MetadataRegistry();
     const options: SourceWorkspaceAdapter.Options = {
       org: this.orgApi,
       metadataRegistryImpl: MetadataRegistry,
@@ -40,87 +48,134 @@ export class MdapiPushApi extends SourceDeployApiBase {
     };
 
     this.swa = await SourceWorkspaceAdapter.create(options);
-    this.swa.backupSourcePathInfos();
+    await this.swa.backupSourcePathInfos();
     this.scratchOrg = options.org;
+    this.maxRevision = await MaxRevision.getInstance({ username: this.scratchOrg.name });
   }
 
-  async doDeploy(options): Promise<DeployResult> {
-    // Remove this when push has been modified to support the new mdapi wait functionality;
-    if (isNaN(options.wait)) {
-      options.wait = this.force.config.getConfigContent().defaultSrcWaitMinutes;
-    }
-
+  async deployPackage(options: PushOptions, packageName: string): Promise<any> {
     try {
-      const changedAggregateSourceElements = await this.checkForConflicts(options);
+      this.logger.debug(`deploying package: ${packageName}`);
 
+      const changedAggregateSourceElements = new AggregateSourceElements().set(
+        packageName,
+        this.swa.changedSourceElementsCache.get(packageName)
+      );
       // Create a temp directory
       options.deploydir = options.deploydir || (await SourceUtil.createOutputDir('mdpkg'));
-
-      if (changedAggregateSourceElements.size > 0) {
+      if (!changedAggregateSourceElements.isEmpty()) {
         const result = await this.convertAndDeploy(options, this.swa, changedAggregateSourceElements, true);
-        return await this.processResults(result, changedAggregateSourceElements).then(result =>
-          this._postProcess(result)
-        );
+
+        return await this.processResults(result, changedAggregateSourceElements, packageName);
       }
     } catch (err) {
-      if (util.isNullOrUndefined(err.outboundFiles)) {
-        this.swa.revertSourcePathInfos();
+      if (!err.outboundFiles) {
+        await this.swa.revertSourcePathInfos();
       }
       throw err;
     } finally {
       await SourceUtil.cleanupOutputDir(options.deploydir);
     }
-
-    return { outboundFiles: [] };
   }
 
-  private async checkForConflicts(options) {
+  async doDeploy(options: PushOptions): Promise<DeployResult> {
+    const results: DeployResult = { outboundFiles: [] };
+
+    // Remove this when push has been modified to support the new mdapi wait functionality;
+    if (isNaN(options.wait)) {
+      options.wait = this.force.config.getConfigContent().defaultSrcWaitMinutes;
+    }
+
+    await this.checkForConflicts(options);
+
+    MdapiPushApi.totalNumberOfPackages = this.swa.packageInfoCache.packageNames.length;
+    MdapiPushApi.packagesDeployed = this.swa.changedSourceElementsCache.size;
+
+    // Deploy metadata in each package directory
+    let componentSuccessCount = 0;
+    let flattenedDeploySuccesses = [];
+    for (const pkg of this.swa.packageInfoCache.packageNames) {
+      const sourceElements = this.swa.changedSourceElementsCache.get(pkg);
+      if (sourceElements && sourceElements.size) {
+        const opts = Object.assign({}, options);
+        const deployResult = await this.deployPackage(opts, pkg);
+        if (deployResult) {
+          if (deployResult.numberComponentsDeployed) {
+            componentSuccessCount += deployResult.numberComponentsDeployed;
+          }
+          if (deployResult.details && deployResult.details.componentSuccesses) {
+            flattenedDeploySuccesses = [...flattenedDeploySuccesses, ...deployResult.details.componentSuccesses];
+          }
+          if (deployResult.outboundFiles && deployResult.outboundFiles.length) {
+            results.outboundFiles = [...results.outboundFiles, ...deployResult.outboundFiles];
+          }
+        }
+      }
+    }
+
+    // If more than 500 metadata components were pushed, display a message
+    // that we're fetching the source tracking data, which happens asynchronously.
+    if (componentSuccessCount > 500) {
+      logger.log(`Updating source tracking for ${componentSuccessCount} pushed components...`);
+    }
+
+    // Calculate a polling timeout for SourceMembers based on the number
+    // of deployed component successes plus a buffer of 5 seconds.
+    const pollTimeoutSecs = Math.ceil(componentSuccessCount * 0.015) + 5;
+    // post process after all deploys have been done to update source tracking.
+    await this._postProcess(flattenedDeploySuccesses, pollTimeoutSecs);
+
+    return results;
+  }
+
+  private async checkForConflicts(options: PushOptions) {
     if (options.forceoverwrite) {
       // do not check for conflicts when doing push --forceoverwrite
-      return this.swa.changedSourceElementsCache;
+      return;
     } else {
       const statusApi = await SrcStatusApi.create({ org: this.orgApi, adapter: this.swa });
-      return statusApi
-        .doStatus({ local: true, remote: true })
-        .then(() => statusApi.getLocalConflicts())
-        .catch(err => {
-          if (err.errorCode === 'INVALID_TYPE') {
-            const error = new Error(messages.getMessage('NonScratchOrgPush'));
-            error['name'] = 'NonScratchOrgPush';
-            throw error;
-          } else {
-            throw err;
-          }
-        })
-        .then(conflicts => {
-          if (conflicts.length > 0) {
-            const error: any = new Error('Conflicts found during push');
-            error['name'] = 'SourceConflict';
-            error['sourceConflictElements'] = conflicts;
-            throw error;
-          } else {
-            return this.swa.changedSourceElementsCache; // if no conflicts return original elements to push
-          }
-        });
+      let conflicts: any[] = [];
+      try {
+        await statusApi.doStatus({ local: true, remote: true });
+        conflicts = statusApi.getLocalConflicts();
+      } catch (err) {
+        if (err.errorCode === 'INVALID_TYPE') {
+          const error = new Error(messages.getMessage('NonScratchOrgPush'));
+          error['name'] = 'NonScratchOrgPush';
+          throw error;
+        } else {
+          throw err;
+        }
+      }
+      if (conflicts.length > 0) {
+        const error: any = new Error('Conflicts found during push');
+        error['name'] = 'SourceConflict';
+        error['sourceConflictElements'] = conflicts;
+        throw error;
+      }
     }
   }
 
-  public commitChanges() {
-    if (!util.isNullOrUndefined(this.swa.pendingSourcePathInfos)) {
-      return this.swa.commitPendingChanges();
+  public commitChanges(packageName: string) {
+    if (!!this.swa.pendingSourcePathInfos.get(packageName)) {
+      return this.swa.commitPendingChanges(packageName);
     }
     return false;
   }
 
-  private async processResults(result, changedAggregateSourceElements) {
+  private async processResults(result, changedAggregateSourceElements: AggregateSourceElements, packageName: string) {
     try {
-      this._reinterpretResults(result);
-      if (result.success && !util.isNullOrUndefined(result.details.componentFailures)) {
-        this.removeFailedAggregates(result.details.componentFailures, changedAggregateSourceElements);
+      result = this._reinterpretResults(result);
+      if (result.success && !!result.details.componentFailures) {
+        this.removeFailedAggregates(
+          result.details.componentFailures,
+          changedAggregateSourceElements,
+          this.swa.packageInfoCache
+        );
       }
 
       // Update deleted items even if the deploy fails so the worksapce is consistent
-      this.swa.updateSource(changedAggregateSourceElements, undefined, undefined);
+      await this.swa.updateSource(changedAggregateSourceElements);
     } catch (e) {
       // Don't log to console
       this.logger.error(false, e);
@@ -128,12 +183,12 @@ export class MdapiPushApi extends SourceDeployApiBase {
 
     // We need to check both success and status because a status of 'SucceededPartial' returns success === true even though rollbackOnError is set.
     if (result.success && result.status === 'Succeeded') {
-      return BBPromise.resolve(this.commitChanges()).then(() => {
-        result.outboundFiles = this.getOutboundFiles(changedAggregateSourceElements);
-        return BBPromise.resolve(result);
-      });
+      await this.commitChanges(packageName);
+      result.outboundFiles = this.getOutboundFiles(changedAggregateSourceElements);
+      return result;
     } else {
-      const deployFailed: any = new Error();
+      let deployFailed = new Error() as DeployError;
+
       if (result.timedOut) {
         deployFailed.name = 'PollingTimeout';
       } else {
@@ -143,7 +198,8 @@ export class MdapiPushApi extends SourceDeployApiBase {
         try {
           // Try to get the source elements for better error messages, but still show
           // deploy failures if this errors out
-          aggregateSourceElements = this.swa.getAggregateSourceElements(false);
+          const packagePath = this.swa.packageInfoCache.getPackagePath(packageName);
+          aggregateSourceElements = await this.swa.getAggregateSourceElements(false, packagePath);
         } catch (e) {
           // Don't log to console
           this.logger.error(false, e);
@@ -153,31 +209,22 @@ export class MdapiPushApi extends SourceDeployApiBase {
           result,
           aggregateSourceElements,
           this.metadataRegistry,
-          logger
+          this.logger
         );
       }
       if (result.success && result.status === 'SucceededPartial') {
-        return BBPromise.resolve(this.commitChanges())
-          .then(() => {
-            deployFailed.outboundFiles = this.getOutboundFiles(changedAggregateSourceElements);
-            return BBPromise.resolve(result);
-          })
-          .then(() => BBPromise.reject(deployFailed));
-      } else {
-        return BBPromise.reject(deployFailed);
+        await this.commitChanges(packageName);
+        deployFailed.outboundFiles = this.getOutboundFiles(changedAggregateSourceElements);
       }
+      throw deployFailed;
     }
   }
 
-  async _postProcess(result) {
-    const field = SourceUtil.getRevisionFieldName();
-    if (field === RevisionCounterField.RevisionNum) {
-      return result;
-    } else {
-      const members = [...new Set(result.outboundFiles.map(f => f.fullName))];
-      await SourceUtil.updateMaxRevision(this.scratchOrg, this.metadataRegistry, members);
-      return result;
-    }
+  async _postProcess(pushSuccesses: any[], pollTimeoutSecs: number) {
+    const sourceMembers = await SourceUtil.getSourceMembersFromResult(pushSuccesses, this.maxRevision, pollTimeoutSecs);
+
+    await this.maxRevision.setMaxRevisionCounterFromQuery();
+    await this.maxRevision.updateSourceTracking(sourceMembers);
   }
 
   static _isDeleteFailureBecauseDoesNotExistOnServer(failure) {
@@ -229,6 +276,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
       result.numberComponentErrors = result.details.componentFailures.length;
       result.numberComponentsTotal = result.numberComponentsDeployed + result.numberComponentErrors;
     }
+    return result;
   }
 
   /*
@@ -238,15 +286,17 @@ export class MdapiPushApi extends SourceDeployApiBase {
    * whether we are a success, partial success, or failure.
    */
   _reinterpretResults(result) {
+    result.details.componentSuccesses = SourceUtil.toArray(result.details.componentSuccesses);
     if (result.status === 'Succeeded') {
-      return;
+      return result;
     }
 
     const componentFailures = SourceUtil.toArray(result.details.componentFailures);
     const reinterpretedComponentFailures = componentFailures.filter(failure => MdapiPushApi._isFailureToUs(failure));
     const reinterpretedComponentSuccesses = componentFailures.filter(failure => !MdapiPushApi._isFailureToUs(failure));
     if (reinterpretedComponentFailures.length !== componentFailures.length) {
-      this._recalculateResult(result, reinterpretedComponentSuccesses, reinterpretedComponentFailures);
+      return this._recalculateResult(result, reinterpretedComponentSuccesses, reinterpretedComponentFailures);
     }
+    return result;
   }
 }

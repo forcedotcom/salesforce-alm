@@ -35,7 +35,7 @@ import { Org as CoreOrg, StreamingClient, PollingClient, StatusResult, SfdxError
 import { JsonMap, ensureString, asJsonMap, getString } from '@salesforce/ts-types';
 import { Duration } from '@salesforce/kit';
 import { ScratchOrgFeatureDeprecation } from './scratchOrgFeatureDeprecation';
-import { getRevisionFieldName } from '../source/sourceUtil';
+import { MaxRevision } from '../source/MaxRevision';
 
 const _ENV_TYPES = envTypes;
 
@@ -84,7 +84,7 @@ const _getClientSecret = async function(stdinValues, org) {
 };
 
 // A validator function to ensure any options parameters entered by the user adhere
-// to a whitelist of valid option settings. Because org:create allows options to be
+// to a allowlist of valid option settings. Because org:create allows options to be
 // input either key=value pairs or within the definition file, this validator is
 // executed within the ctor and also after parsing/normalization of the definition file.
 const optionsValidator = (key, value, scratchOrgInfoPayload) => {
@@ -413,8 +413,15 @@ class OrgCreateCommand extends VarargsCommand {
       await Alias.set(cliContext.setalias, scratchOrgApi.getName());
     }
 
-    /** updating the revision num to zero during org:creation for all source members.*/
-    await this.updateRevisionNumToNull(scratchOrgApi, orgData);
+    /** updating the revision num to zero during org:creation if source members are created during org:create.This only happens for some specific scratch org definition file.*/
+    await this.updateRevisionCounterToZero(scratchOrgApi, orgData);
+    // initialize the maxRevision.json file.
+    try {
+      await MaxRevision.getInstance({ username: scratchOrgApi.getName() });
+    } catch (err) {
+      // Do nothing. If org:create is not executed within sfdx project, allow the org to be created without errors.
+      appLogger.debug(`Failed to create the MaxRevision.json file due to the error : ${err.message}`);
+    }
     return { orgId: orgData.orgId, username: scratchOrgApi.getName() };
   }
 
@@ -484,14 +491,10 @@ class OrgCreateCommand extends VarargsCommand {
     return messageToParse.match(/[A-Z]-[0-9]{4}/);
   }
 
-  private async updateRevisionNumToNull(scratchOrgApi: Org, orgData: any) {
-    const revisionFieldName = getRevisionFieldName();
-    const queryResult = await this.force.toolingFind(
-      scratchOrgApi,
-      'SourceMember',
-      { [revisionFieldName]: { $gt: 0 } },
-      ['Id']
-    );
+  private async updateRevisionCounterToZero(scratchOrgApi: Org, orgData: any) {
+    const queryResult = await this.force.toolingFind(scratchOrgApi, 'SourceMember', { RevisionCounter: { $gt: 0 } }, [
+      'Id'
+    ]);
     if (!_.isEmpty(queryResult)) {
       let requestBody: any = [];
       const TOOLING_UPDATE_URI = `services/data/v${this.org.force.config.getApiVersion()}/tooling/composite/batch`;
@@ -499,7 +502,7 @@ class OrgCreateCommand extends VarargsCommand {
       queryResult.forEach(sourceMember => {
         requestBody.push(`{"method" : "PATCH",
         "url" : "v${this.org.force.config.getApiVersion()}/tooling/sobjects/SourceMember/${sourceMember.Id}",
-        "richInput" : {"${revisionFieldName}" : "0"}}`);
+        "richInput" : {"RevisionCounter" : "0"}}`);
       });
       let bodyStr = `
       {

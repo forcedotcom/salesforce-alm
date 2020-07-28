@@ -7,6 +7,7 @@
 
 import * as path from 'path';
 import { DeployOptions, mdapiDeployRecentValidation, MetadataTransportInfo } from './mdApiUtil';
+import { getObject, getString, isBoolean } from '@salesforce/ts-types';
 
 import * as fs from 'fs';
 import * as archiver from 'archiver';
@@ -28,6 +29,7 @@ const DEPLOY_ERROR_EXIT_CODE = 1;
 
 // convert params (lowercase) to expected deploy options (camelcase)
 const convertParamsToDeployOptions = function({
+  rollbackonerror,
   testlevel,
   runtests,
   autoUpdatePackage,
@@ -36,6 +38,8 @@ const convertParamsToDeployOptions = function({
   singlepackage
 }) {
   const deployOptions: DeployOptions = {};
+
+  deployOptions.rollbackOnError = rollbackonerror;
 
   if (testlevel) {
     deployOptions.testLevel = testlevel;
@@ -165,6 +169,16 @@ class MdDeployApi {
     this.loggingEnabled = options.source || options.verbose || (!options.json && !options.disableLogging);
     options.wait = +(options.wait || consts.DEFAULT_MDAPI_WAIT_MINUTES);
 
+    // ignoreerrors is a boolean flag and is preferred over the deprecated rollbackonerror flag
+    // KEEP THIS code for legacy with commands calling mdapiDeployApi directly.
+    if (options.ignoreerrors !== undefined) {
+      options.rollbackonerror = !options.ignoreerrors;
+    } else if (options.rollbackonerror !== undefined) {
+      options.rollbackonerror = options.rollbackonerror;
+    } else {
+      options.rollbackonerror = true;
+    }
+
     if (options.validateddeployrequestid) {
       return this._doDeployRecentValidation(options);
     }
@@ -183,6 +197,12 @@ class MdDeployApi {
     const validWaitValue = !isNaN(+options.wait) && (+options.wait === -1 || +options.wait >= 0);
     if (options.wait && !validWaitValue) {
       return BBPromise.reject(almError('mdapiCliInvalidWaitError'));
+    }
+
+    if (options.rollbackonerror && !isBoolean(options.rollbackonerror)) {
+      // This should never get called since rollbackonerror is no longer an options
+      // but keep for legacy. We want to default to true, so anything that isn't false.
+      options.rollbackonerror = options.rollbackonerror.toLowerCase() !== 'false';
     }
 
     if (!(deploydir || zipfile || validateddeployrequestid)) {
@@ -282,13 +302,20 @@ class MdDeployApi {
       if (!options.jobid) {
         sendMetadataResponse = await this._sendMetadata(zipPath, options);
       }
-
       const stashedVars = await this._setStashVars(sendMetadataResponse, options);
       const deployStats = await this._doDeployStatus(stashedVars, options);
       return await this._throwErrorIfDeployFailed(deployStats);
     } catch (err) {
       if (err.name === 'sf:MALFORMED_ID') {
         throw almError('mdDeployCommandCliInvalidJobIdError', options.jobid);
+      } else if (
+        options.testlevel !== 'NoTestRun' &&
+        getObject(err, 'result.details.runTestResult') &&
+        getString(err, 'result.details.runTestResult.numFailures') !== '0'
+      ) {
+        // if the deployment was running tests, and there were test failures
+        err.name = 'testFailure';
+        throw err;
       } else {
         throw err;
       }

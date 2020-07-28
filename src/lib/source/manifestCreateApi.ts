@@ -162,7 +162,6 @@ manifestCreate.prototype.execute = function execute(context) {
   this.outputDirectory = optional.ofNullable(context.outputdir).orElse(projectDirectory);
   const outputFile = path.resolve(this.outputDirectory, 'package.xml');
   const apiVersion = this.apiVersion;
-  const orgApi = this.org;
 
   return this._validateDirectory(rootDirectory, almError('InvalidArgumentDirectoryPath', ['sourcedir', rootDirectory]))
     .then(() => this._createDirIfNotExists(this.outputDirectory))
@@ -172,9 +171,8 @@ manifestCreate.prototype.execute = function execute(context) {
         almError('InvalidArgumentDirectoryPath', ['outputdir', this.outputDirectory])
       )
     )
-    .then(() => MetadataRegistry.initializeMetadataTypeInfos(orgApi))
     .then(() => {
-      this.metadataRegistry = new MetadataRegistry(orgApi);
+      this.metadataRegistry = new MetadataRegistry();
       return processMetadataDirectory(rootDirectory, this.logger, this.metadataRegistry);
     })
     .then(resultAsKeyValuePairs => {

@@ -25,14 +25,10 @@ import { MetadataTypeFactory } from './metadataTypeFactory';
 import { ForceIgnore } from './forceIgnore';
 import * as almError from '../core/almError';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
-import { AggregateSourceElement } from './aggregateSourceElement';
+import { AggregateSourceElements } from './aggregateSourceElements';
 import * as SourceUtil from './sourceUtil';
 import { SfdxError } from '@salesforce/core';
 import { SourceElementsResolver } from './sourceElementsResolver';
-
-// Takes an array of strings, surrounds each string with single quotes, then joins the values.
-// Used for building a query condition. E.g., WHERE MemberName IN ('Foo','Bar')
-const singleQuoteJoin = arr => arr.map(val => `'${val}'`).join();
 
 class SourceConvertApi {
   static revert?: boolean;
@@ -46,6 +42,15 @@ class SourceConvertApi {
     this.scratchOrg = org;
     this.projectDir = this.scratchOrg.config.getProjectPath();
     this.forceIgnore = new ForceIgnore();
+  }
+
+  /**
+   *   Takes an array of strings, surrounds each string with single quotes, then joins the values.
+   *   Used for building a query condition. E.g., WHERE MemberName IN ('Foo','Bar')
+   *   The server uses '/' file path separators, but on windows we could be passed 'Reports\ReportA' we need to change this
+   */
+  static singleQuoteJoin(arr: Array<string>): string {
+    return arr.map(val => `'${val.replace('\\', '/')}'`).join();
   }
 
   private async initWorkspaceAdapter(): Promise<void> {
@@ -77,7 +82,7 @@ class SourceConvertApi {
     }
 
     const sourceElementsResolver = new SourceElementsResolver(this.scratchOrg, this.sourceWorkspaceAdapter);
-    let sourceElements = new Map<string, AggregateSourceElement>();
+    let sourceElements = new AggregateSourceElements();
 
     if (manifest) {
       sourceElements = await sourceElementsResolver.getSourceElementsFromManifest(manifest);
@@ -86,13 +91,13 @@ class SourceConvertApi {
     } else if (metadata) {
       sourceElements = await sourceElementsResolver.getSourceElementsFromMetadata(
         context,
-        new Map<string, AggregateSourceElement>()
+        new AggregateSourceElements()
       );
     } else {
       sourceElements = await this.sourceWorkspaceAdapter.getAggregateSourceElements(false, rootDir);
     }
 
-    if (sourceElements.size === 0) {
+    if (sourceElements.isEmpty()) {
       throw new Error(messages.getMessage('noSourceInRootDirectory', [], 'sourceConvertCommand'));
     }
 
@@ -102,7 +107,7 @@ class SourceConvertApi {
   public async convertSourceToMdapi(
     targetPath: string,
     packageName: string,
-    aggregateSourceElementsMap: Map<string, AggregateSourceElement>,
+    aggregateSourceElementsMap: AggregateSourceElements,
     createDestructiveChangesManifest: boolean,
     unsupportedMimeTypes,
     isSourceDelete?: boolean
@@ -110,7 +115,7 @@ class SourceConvertApi {
     let destructiveChangesTypeNamePairs = [];
     let sourceElementsForMdDir;
     return this.initWorkspaceAdapter()
-      .then(() => [...aggregateSourceElementsMap.values()])
+      .then(() => aggregateSourceElementsMap.getAllSourceElements())
       .then(aggregateSourceElements => {
         [destructiveChangesTypeNamePairs, sourceElementsForMdDir] = SourceConvertApi.sortSourceElementsForMdDeploy(
           aggregateSourceElements,
@@ -127,7 +132,7 @@ class SourceConvertApi {
         if (createDestructiveChangesManifest && destructiveChangesTypeNamePairs.length) {
           // Build a tooling query for all SourceMembers with MemberNames matching the locally deleted names.
           const deletedMemberNames = _.map(destructiveChangesTypeNamePairs, 'name');
-          const conditions = `MemberName IN (${singleQuoteJoin(deletedMemberNames)})`;
+          const conditions = `MemberName IN (${SourceConvertApi.singleQuoteJoin(deletedMemberNames)})`;
           const fields = ['MemberType', 'MemberName', 'IsNameObsolete'];
           if (isSourceDelete) {
             return SourceConvertApi.createPackageManifests(
@@ -156,6 +161,12 @@ class SourceConvertApi {
                 );
               }
             })
+            .then(() => {
+              destructiveChangesTypeNamePairs.forEach(destructive => {
+                // On windows, the name could be 'Report\\ReportA', so we need to change to match what the server wants
+                destructive.name.replace('\\\\', '/');
+              });
+            })
             .then(() =>
               SourceConvertApi.createPackageManifests(
                 targetPath,
@@ -182,14 +193,12 @@ class SourceConvertApi {
   /**
    * Sorts the source elements into those that should be added to the destructiveChangesPost.xml
    * and those that should be added to the package.xml
-   * @param {Array} aggregateSourceElements - the updated aggregateSourceElements
    * @returns {[[],[]]} - the array of destructive changes and the array of elements to be added to the package.xml
    * @private
    */
-  static sortSourceElementsForMdDeploy(aggregateSourceElements, metadataRegistry) {
+  static sortSourceElementsForMdDeploy(aggregateSourceElements, metadataRegistry: MetadataRegistry) {
     const destructiveChangeTypeNamePairs = [];
     const updatedSourceElements = [];
-
     aggregateSourceElements.forEach(aggregateSourceElement => {
       if (aggregateSourceElement.isDeleted()) {
         if (!aggregateSourceElement.getMetadataType().deleteSupported(aggregateSourceElement.getAggregateFullName())) {

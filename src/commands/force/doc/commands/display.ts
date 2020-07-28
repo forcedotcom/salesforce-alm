@@ -25,6 +25,13 @@ export class DocDisplayCommand extends ToolbeltCommand {
   public static readonly longDescription = messages.getMessage('docCommandsDisplayDescriptionLong');
   public static readonly help = messages.getMessage('docCommandsDisplayHelp');
   public static readonly requiresProject = false;
+  public static readonly hidden = true;
+
+  public static readonly deprecated = {
+    version: 48.0,
+    to: 'sfdx commands'
+  };
+
   public async run(): Promise<unknown> {
     let commands = this.config.commands;
     commands = commands.filter(c => c.id.indexOf('force') === 0);

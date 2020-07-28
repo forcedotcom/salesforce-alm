@@ -12,12 +12,17 @@ class DataExportCommand {
   [property: string]: any;
 
   validate(context) {
+    console.log(context.org.force);
+
     this.dataExport = new DataExportApi(context.org);
-    return this.dataExport.validate(context.flags);
+    return this.dataExport.validate(context);
   }
 
   execute(context) {
-    return this.dataExport.execute(context);
+    context.ux.startSpinner('Exporting Data');
+    const executed = this.dataExport.execute(context);
+    context.ux.stopSpinner();
+    return executed;
   }
 
   getHumanSuccessMessage() {

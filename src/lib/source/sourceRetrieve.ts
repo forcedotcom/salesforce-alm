@@ -20,6 +20,7 @@ import { MetadataType } from './metadataType';
 import { MetadataTypeFactory } from './metadataTypeFactory';
 import { SfdxProject } from '@salesforce/core';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
+import { AggregateSourceElements } from './aggregateSourceElements';
 import { MdapiPullApi } from './sourcePullApi';
 
 Messages.importMessagesDirectory(__dirname);
@@ -74,7 +75,6 @@ export class SourceRetrieve {
       });
     }
     this.logger = await Logger.child('SourceRetrieve');
-    await MetadataRegistry.initializeMetadataTypeInfos(this.org);
 
     // Only put SWA in stateless mode when sourcepath param is used.
     const mode = options.sourcepath && SourceWorkspaceAdapter.modes.STATELESS;
@@ -115,14 +115,10 @@ export class SourceRetrieve {
   // Retrieve specific source paths from an org and update the project.
   private async retrieveFromSourcePath(options: SourceRetrieveOptions): Promise<SourceRetrieveOutput> {
     // Parse the sourcepath parameter for metadata files and build a map of AggregateSourceElements
-    const aggregateSourceElements: Map<
-      string,
-      AggregateSourceElement
-    > = await SourceUtil.getSourceElementsFromSourcePath(options.sourcepath, this.swa);
+    const aggregateSourceElements = await SourceUtil.getSourceElementsFromSourcePath(options.sourcepath, this.swa);
 
     // Convert aggregateSourceElements to an array of this format: { type: 'ApexClass', name: 'MyClass' }
-    // for use by ManifestApi.createManifest().
-    const mdFullPairs = [...aggregateSourceElements.values()].map(el => ({
+    const mdFullPairs = aggregateSourceElements.getAllSourceElements().map(el => ({
       type: el.getMetadataName(),
       name: el.getAggregateFullName()
     }));
@@ -147,7 +143,7 @@ export class SourceRetrieve {
   // Retrieve metadata specified in a manifest file (package.xml) from an org and update the project.
   private async retrieveFromManifest(
     options: SourceRetrieveOptions,
-    aggregateSourceElements?: Map<string, AggregateSourceElement>,
+    aggregateSourceElements?: AggregateSourceElements,
     entries?: ManifestEntry[]
   ): Promise<SourceRetrieveOutput> {
     let results: SourceRetrieveOutput = { inboundFiles: [], packages: [] };
@@ -194,7 +190,7 @@ export class SourceRetrieve {
         let _entries = entries || (await SourceUtil.parseToManifestEntriesArray(retrieveOptions.unpackaged));
 
         // Build a simple object representation of what was changed in the local project.
-        results = this.processResults(res, sourceElements, aggregateSourceElements, _entries);
+        results = await this.processResults(res, sourceElements, aggregateSourceElements, _entries);
       }
     } else {
       // If fileProperties is an object, it means no results were retrieved so don't throw an error
@@ -218,12 +214,12 @@ export class SourceRetrieve {
     }
   }
 
-  private processResults(
+  private async processResults(
     result,
-    sourceElements,
-    aggregateSourceElements,
+    sourceElements: AggregateSourceElements,
+    aggregateSourceElements: AggregateSourceElements,
     entries?: ManifestEntry[]
-  ): SourceRetrieveOutput {
+  ): Promise<SourceRetrieveOutput> {
     const inboundFiles = [];
 
     /**
@@ -232,15 +228,16 @@ export class SourceRetrieve {
      * case of the metadata scope. However for all three scope options we have a manifest to create workspace element
      * filtering.
      */
-    const _aggregateSourceElements = aggregateSourceElements || this.swa.getAggregateSourceElements(false);
+    const _aggregateSourceElements = aggregateSourceElements || (await this.swa.getAggregateSourceElements(false));
     // For each source element extracted from the zip (i.e., from the org) match it to entries in
     // the full map of AggregateSourceElements and create display rows for command output.
-    sourceElements.forEach(sourceElement => {
+    sourceElements.getAllSourceElements().forEach(sourceElement => {
       const key = AggregateSourceElement.getKeyFromMetadataNameAndFullName(
         sourceElement.getMetadataName(),
         sourceElement.getAggregateFullName()
       );
-      const se = _aggregateSourceElements.get(key);
+
+      const se = _aggregateSourceElements.getSourceElement(sourceElement.getPackageName(), key);
 
       let filteredElements: WorkspaceElement[] = se.getWorkspaceElements();
       if (!aggregateSourceElements) {

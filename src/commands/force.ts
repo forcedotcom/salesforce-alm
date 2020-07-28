@@ -40,7 +40,7 @@ DX DX                                                                   DX DX
                       DX DX DX DX DX DX                     v${apiVersion}
                           DX DX DX
 
-* Salesforce CLI Release Notes: https://developer.salesforce.com/media/salesforce-cli/releasenotes.html
+* Salesforce CLI Release Notes: https://github.com/forcedotcom/cli/tree/master/releasenotes
 * Salesforce DX Setup Guide: https://sfdc.co/sfdx_setup_guide
 * Salesforce DX Developer Guide: https://sfdc.co/sfdx_dev_guide
 * Salesforce CLI Command Reference: https://sfdc.co/sfdx_cli_reference

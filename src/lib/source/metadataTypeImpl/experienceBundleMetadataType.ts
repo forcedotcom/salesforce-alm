@@ -93,7 +93,7 @@ export class ExperienceBundleMetadataType extends DefaultMetadataType {
   }
 
   getAggregateFullNameFromFileProperty(fileProperty, namespace: string): string {
-    return PathUtil.getGrandparentDirectoryName(fileProperty.fullName);
+    return PathUtil.getGrandparentDirectoryName(fileProperty.fileName);
   }
 
   /**
@@ -111,8 +111,9 @@ export class ExperienceBundleMetadataType extends DefaultMetadataType {
 
   getRetrievedMetadataPath(fileProperty, retrieveRoot: string, bundleFileProperties): string {
     const bundlePath = this.stripBundlePath(path.dirname(fileProperty.fileName));
-    const fileName = this.getMetaFileName(fileProperty.fullName);
-    const retrievedMetadataPath = path.join(retrieveRoot, bundlePath, fileName);
+    //Get the site name from the given JSON file path by returning the grandparent directory (site name)
+    const siteName = PathUtil.getGrandparentDirectoryName(fileProperty.fileName);
+    const retrievedMetadataPath = path.join(retrieveRoot, bundlePath, this.getMetaFileName(siteName));
     if (srcDevUtil.pathExistsSync(retrievedMetadataPath)) {
       return retrievedMetadataPath;
     } else {

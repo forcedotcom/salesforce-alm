@@ -17,7 +17,6 @@
 // Node
 import * as crypto from 'crypto';
 import * as fs from 'fs';
-import * as path from 'path';
 import * as URL from 'url';
 import * as util from 'util';
 
@@ -44,7 +43,6 @@ import consts = require('./constants');
 import { SfdxError } from '@salesforce/core';
 
 const defaultConnectedAppInfo = require('./defaultConnectedApp');
-const describeMetadataResponse = path.join(__dirname, '..', '..', '..', 'metadata', 'describe.json');
 
 const jsforceRequestMethod = jsforce.Connection.prototype.request;
 const callOptionsValue = {
@@ -785,26 +783,6 @@ Force.prototype.mdapiCheckRetrieveStatus = function(orgApi, jobId) {
 // metadata api retrieve; options contains what to retrieve
 Force.prototype.mdapiRetrieve = function(orgApi, options) {
   return this._getConnection(orgApi, this.config).then(connection => connection.metadata.retrieve(options));
-};
-
-Force.prototype.mdapiDescribe = function() {
-  // TODO remove the following return and call describeMetadata. see W-3683088 and W-3680564
-  return fsReadFile(describeMetadataResponse, 'utf8')
-    .then(JSON.parse)
-    .then(res => {
-      res.metadataObjects = _.isArray(res.metadataObjects) ? res.metadataObjects : [res.metadataObjects];
-      res.metadataObjects = _.map(res.metadataObjects, mo => {
-        if (mo.childXmlNames) {
-          mo.childXmlNames = _.isArray(mo.childXmlNames) ? mo.childXmlNames : [mo.childXmlNames];
-        }
-        mo.inFolder = mo.inFolder === 'true';
-        mo.metaFile = mo.metaFile === 'true';
-        return mo;
-      });
-      res.partialSaveAllowed = res.partialSaveAllowed === 'true';
-      res.testRequired = res.testRequired === 'true';
-      return res;
-    });
 };
 
 Force.prototype.jwtConn = function(org, orgAuthConfig, connectData) {

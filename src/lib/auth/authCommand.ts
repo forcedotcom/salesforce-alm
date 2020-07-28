@@ -29,6 +29,7 @@ import { Config as ConfigApi } from '../core/configApi';
 
 import { ConfigAggregator } from '@salesforce/core';
 import { startOauth, OauthListenerConfig } from './webAuthListener';
+import { resolve } from 'path';
 
 const defaultConnectedAppInfo = require('../core/defaultConnectedApp');
 const urls = require('../urls');
@@ -173,7 +174,7 @@ const _doJwtAuth = function(force, context, orgApi, loginUrl) {
     clientId: context.clientid,
     loginUrl,
     username: context.username,
-    privateKeyFile: context.jwtkeyfile
+    privateKeyFile: resolve(context.jwtkeyfile)
   };
 
   return force.authorizeAndSave(oauthConfig, orgApi, !!type, handleDemoModePrompt.bind(context));
@@ -318,7 +319,7 @@ class AuthCommand {
 
   validate(context) {
     const username = context.flags.username;
-    const file = context.flags.jwtkeyfile;
+    const file = context.flags.jwtkeyfile ? resolve(context.flags.jwtkeyfile) : undefined;
 
     if ((!_.isNil(username) && _.isNil(file)) || (_.isNil(username) && !_.isNil(file))) {
       const jwtError = new Error(this.messages.getMessage('authorizeCommandMissingJwtOption'));
