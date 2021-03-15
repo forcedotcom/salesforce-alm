@@ -31,5 +31,5 @@ export interface ContentDecompositionStrategy {
     createDuplicates: boolean,
     unsupportedMimeTypes: string[],
     forceoverwrite: boolean
-  ): [string[], string[], string[], string[]];
+  ): Promise<[string[], string[], string[], string[]]>;
 }

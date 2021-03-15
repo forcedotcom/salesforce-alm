@@ -8,7 +8,6 @@
 import * as util from 'util';
 
 import { DOMParser, XMLSerializer } from 'xmldom-sfdx-encoding';
-import srcDevUtil = require('../core/srcDevUtil');
 import { MetadataDocument, MetadataDocumentAnnotation } from './metadataDocument';
 import { SfdxError } from '@salesforce/core';
 import { checkForXmlParseError } from './sourceUtil';
@@ -132,8 +131,27 @@ export class XmlMetadataDocument implements MetadataDocument {
   }
 
   private static beautifyDocument(document) {
-    srcDevUtil.stripWhitespace(document);
+    this.stripWhitespace(document);
     XmlMetadataDocument.addWhitespace(document);
+  }
+
+  public static stripWhitespace(document) {
+    if (document !== null) {
+      const nodeTypeText = 3;
+      if (document.nodeType === nodeTypeText) {
+        // the nodes that this function is meant to filter start with '\n'
+        if (!/[^\s]/.test(document.nodeValue) && document.nodeValue.startsWith('\n')) {
+          document.parentNode.removeChild(document);
+        }
+      } else {
+        let child = document.firstChild;
+        while (child !== null) {
+          const current = child;
+          child = child.nextSibling;
+          this.stripWhitespace(current);
+        }
+      }
+    }
   }
 
   private static serializeData(document, pretty) {

@@ -35,7 +35,11 @@ class ShapeRepresentationApi {
         Description: description
       })
       .catch(err => {
-        return Promise.reject(err);
+        if (err.errorCode && err.errorCode === 'NOT_FOUND' && err['name'] === 'ACCESS_DENIED') {
+          return Promise.reject(SfdxError.wrap(messages.getMessage('create_shape_command_no_crud_access')));
+        } else {
+          return Promise.reject(err);
+        }
       });
   }
 
@@ -53,7 +57,7 @@ class ShapeRepresentationApi {
     } catch (err) {
       if (err.errorCode && err.errorCode === 'INVALID_TYPE') {
         // ShapeExportPref is not enabled, or user does not have CRUD access
-        return Promise.reject( new SfdxError(messages.getMessage('delete_shape_command_no_access',shapeIds)));
+        return Promise.reject(SfdxError.wrap(messages.getMessage('delete_shape_command_no_access', shapeIds)));
       }
       // non-access error
       return Promise.reject(err);
@@ -96,10 +100,9 @@ class ShapeRepresentationApi {
   async isFeatureEnabled() {
     const aggregator = await ConfigAggregator.create();
 
-    if( aggregator.getInfo('apiVersion').value < 48 ) {
+    if (aggregator.getInfo('apiVersion').value < 48) {
       return this.isFeatureEnabledBefore48();
-    }
-    else{
+    } else {
       return this.isFeatureEnabledAfter48();
     }
   }
@@ -131,26 +134,27 @@ class ShapeRepresentationApi {
       return Promise.resolve(enabled);
     });
   }
-  
-  isShapeId ( shapeId : string) : boolean {
 
-    if( shapeId == null ) return false; // '==' handles both null and undefined
+  isShapeId(shapeId: string): boolean {
+    if (shapeId == null) return false; // '==' handles both null and undefined
 
-    return shapeId.startsWith("3SR") 
-            && ( shapeId.length >= 15 &&  shapeId.length <= 18 ) 
-            && ( shapeId.match(/^[0-9a-zA-Z]+$/) != null ) ;
+    return (
+      shapeId.startsWith('3SR') &&
+      shapeId.length >= 15 &&
+      shapeId.length <= 18 &&
+      shapeId.match(/^[0-9a-zA-Z]+$/) != null
+    );
   }
 
-  async getShapeRepresentation(shapeId:string) {
-     if( this.isShapeId(shapeId)){
-      const query = "Select Id, Status, Edition, Features, Settings from ShapeRepresentation WHERE Id = '" + shapeId + "' ";
-      return this.force.query(this.shapeOrg, query)
-        .catch(err => { 
-          return Promise.reject(err);
+  async getShapeRepresentation(shapeId: string) {
+    if (this.isShapeId(shapeId)) {
+      const query =
+        "Select Id, Status, Edition, Features, Settings from ShapeRepresentation WHERE Id = '" + shapeId + "' ";
+      return this.force.query(this.shapeOrg, query).catch(err => {
+        return Promise.reject(err);
       });
-    }
-    else {
-      return Promise.reject( new SfdxError(messages.getMessage('shape_get_not_a_shape_id')));
+    } else {
+      return Promise.reject(SfdxError.wrap(messages.getMessage('shape_get_not_a_shape_id')));
     }
   }
 }

@@ -52,62 +52,12 @@ type Messages = {
 
 let messages: Messages = {
   en_US: {
-    ApexExecDescription: 'execute anonymous Apex code',
-    ApexExecLongDescription: 'Executes one or more lines of anonymous Apex code, or executes the code in a local file.',
-    ApexExecHelp:
-      'Executes one or more lines of Apex code, or executes the code in a local file.' +
-      '\nBefore you enter code, run this command with no parameters to get a prompt.' +
-      '\nFrom the prompt, all commands are executed in a single execute anonymous request.' +
-      '\nFor more information, see "Anonymous Blocks" in the Apex Developer Guide.' +
-      '\n\nExamples:\n   $ sfdx force:apex:execute -f ~/test.apex' +
-      '\n\n   $ sfdx force:apex:execute ' +
-      '\n   >> Start typing Apex code. Press the Enter key after each line, ' +
-      '\n   >> then press CTRL+D when finished.',
-    ApexExecFilePathDescription: 'path to a local file containing Apex code',
-    ApexExecFilePathLongDescription: 'Path to a local file that contains Apex code.',
-    ApexExecTypingPrompt:
-      '>> Start typing Apex code. Press the Enter key after each line, ' + '\n>> then press CTRL+D when finished.',
-    ApexExecCompileSuccess: 'Compiled successfully.',
-    ApexExecCompileFailed: 'Compilation failed.',
-    ApexExecCompileFailedErrorMessage: 'Line: %s, Column: %s\n%s', // {line num}, {column num}, {error message}
-    ApexExecExecutionSuccess: 'Executed successfully.\n',
-    ApexExecExecutionFailure: 'Execution failed.\n',
-
     // the apex:limits command is hidden
     ApexLimitsDescription: 'display current org’s Apex governor limits',
     ApexLimitsLongDescription:
       'Displays the maximum Apex governor limits for your org. ' +
       'When you execute this command in a project, it reports limits for the default scratch org.',
     ApexLimitsHelp: 'Display the maximum execution governor limits for your org.',
-
-    ApiLimitsDescription: 'display current org’s limits',
-    ApiLimitsLongDescription: 'Displays remaining and maximum calls and events for your org.',
-    ApiLimitsHelp:
-      'When you execute this command in a project, it provides limit information for your default scratch org.' +
-      '\n\nExamples:\n   $ sfdx force:limits:api:display' +
-      '\n   $ sfdx force:limits:api:display -u me@my.org',
-
-    ApexLogGetDescription: 'fetch the last debug log',
-    ApexLogGetLongDescription: 'Fetches the last debug log.',
-    ApexLogGetHelp:
-      'When you execute this command in a project, it fetches the specified log or given number of last logs from your default scratch org.' +
-      '\n\nTo get the IDs for your debug logs, run "sfdx force:apex:log:list".' +
-      '\n\nTo specify a count of logs to return, use the --number parameter to return the most recent logs.' +
-      '\n\nExecuting this command without parameters returns the most recent log.' +
-      '\n\nExamples:\n   $ sfdx force:apex:log:get -i <log id>' +
-      '\n   $ sfdx force:apex:log:get -i <log id> -u me@my.org' +
-      '\n   $ sfdx force:apex:log:get -n 2 -c',
-    ApexLogGetIdDescription: 'ID of the log to display',
-    ApexLogGetIdLongDescription: 'ID of the log to display.',
-    ApexLogGetLastNumberDescription: 'number of most recent logs to display',
-    ApexLogGetLastNumberLongDescription: 'Number of most recent logs to display.',
-
-    ApexLogListDescription: 'list debug logs',
-    ApexLogListLongDescription: 'Displays a list of debug log IDs, along with general information about the logs.',
-    ApexLogListHelp:
-      'When you execute this command in a project, it lists the log IDs for your default scratch org.' +
-      '\n\nExamples:\n   $ sfdx force:apex:log:list' +
-      '\n   $ sfdx force:apex:log:list -u me@my.org',
 
     ApexLogTailDescription: 'start debug logging and display logs',
     ApexLogTailLongDescription:
@@ -317,9 +267,6 @@ let messages: Messages = {
     DisplayHeaderRequest: 'Request',
     DisplayHeaderStartTime: 'Start Time',
     DisplayHeaderStatus: 'Status',
-    DisplayHeaderName: 'Name',
-    DisplayHeaderRemaining: 'Remaining',
-    DisplayHeaderMaximum: 'Maximum',
     DisplayQueryRecordsRetrieved: 'Total number of records retrieved: %s.', // {num of records}
     DisplayBulkBatch: 'Batch #%s', // {batch num}
     DisplayBulkError: 'Upsert errors',
@@ -329,9 +276,6 @@ let messages: Messages = {
 
     ErrorError: 'ERROR: ',
     ErrorAbort: 'ABORTED',
-
-    ResponseParserStatusError: 'Could not parse status information from server response: %s.', // {server response}
-    ResponseParserDebugError: 'Could not parse debug information from server response: %s.', // {server response}
 
     SchemaDeleteDescription: 'delete a custom field or custom object',
     SchemaDeleteLongDescription: 'Deletes a custom field on a standard or custom object, or deletes a custom object.',
@@ -348,29 +292,6 @@ let messages: Messages = {
     SchemaDeleteInvalidObjectName: 'Unable to parse API name: %s', // {object name}
     SchemaDeleteExistingData:
       'Deleting this field/object will delete all associated data.' + '\nDo you wish to continue? (y/n)',
-
-    SchemaSObjectDescribeDescription: 'describe an object',
-    SchemaSObjectDescribeLongDescription: 'Displays the metadata for a standard or custom object.',
-    SchemaSObjectDescribeHelp:
-      'Examples:\n   $ sfdx force:schema:sobject:describe -s Account' +
-      '\n   $ sfdx force:schema:sobject:describe -s MyObject__c' +
-      '\n   $ sfdx force:schema:sobject:describe -s ApexClass -t',
-    SchemaSObjectDescribeObjectNameDescription: 'the API name of the object to describe',
-    SchemaSObjectDescribeObjectNameLongDescription: 'The API name of the object to describe.',
-    SchemaSObjectDescribeToolingDescription: 'execute with Tooling API',
-    SchemaSObjectDescribeToolingLongDescription: 'Execute using Tooling API.',
-
-    SchemaSObjectListDescription: 'list all objects of a specified category',
-    SchemaSObjectListLongDescription: 'Lists all objects of a specified sObject category.',
-    SchemaSObjectListHelp:
-      'Lists all objects, custom objects, or standard objects in the org.' +
-      '\n\nExamples:\n   $ sfdx force:schema:sobject:list -c all' +
-      '\n   $ sfdx force:schema:sobject:list -c custom' +
-      '\n   $ sfdx force:schema:sobject:list -c standard',
-    SchemaSObjectListTypeDescription: 'the type of objects to list (all|custom|standard)',
-    SchemaSObjectListTypeLongDescription: 'The type of objects to list: all, custom, or standard.',
-    SchemaSObjectListTypeInvalidValue: '"Type" flag can be set only to <all|custom|standard>.',
-    SchemaSObjectListObjectOfTypeNotFound: 'No %s objects found.', // {object category}
 
     SourceOpenDescription: 'edit a Lightning Page with Lightning App Builder',
     SourceOpenLongDescription:

@@ -40,29 +40,10 @@ export class PackageVersionPromoteCommand extends ToolbeltCommand {
 
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const heroku = require('heroku-cli-util');
 
     const PackageVersionPromoteCommand = require('../../../../lib/package/packageVersionPromoteCommand');
     const packageVersionPromoteCommand = new PackageVersionPromoteCommand();
 
-    if (context.flags.noprompt) {
-      return this.execLegacyCommand(packageVersionPromoteCommand, context);
-    } else {
-      return heroku
-        .prompt(
-          messages.getMessage(
-            'packageVersionPromoteSetAsReleasedYesNo',
-            context.flags.package,
-            'package_version_promote'
-          ),
-          {}
-        )
-        .then(answer => {
-          if (answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y') {
-            return this.execLegacyCommand(packageVersionPromoteCommand, context);
-          }
-          return undefined;
-        });
-    }
+    return this.execLegacyCommand(packageVersionPromoteCommand, context);
   }
 }

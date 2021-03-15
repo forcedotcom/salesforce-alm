@@ -42,10 +42,15 @@ const _getOrgInstanceAuthority = function(scratchOrgInfoComplete, appConfig, use
     signupTargetLoginUrl = masterOrgLoginUrl;
   } else {
     const signupTargetLoginUrlConfig = appConfig.signupTargetLoginUrl;
-
-    signupTargetLoginUrl = optional
-      .ofNullable(signupTargetLoginUrlConfig)
-      .orElse(`https://${createdOrgInstance}.salesforce.com`);
+    let altUrl;
+    // For non-Falcon (ie - instance names not ending in -s) sandboxes, use the instance URL
+    if (createdOrgInstance && !createdOrgInstance.toLowerCase().endsWith('s')) {
+      altUrl = `https://${createdOrgInstance}.salesforce.com`;
+    } else {
+      // For Falcon sandboxes, try the LoginURL instead; createdOrgInstance will not yield a valid URL
+      altUrl = scratchOrgInfoComplete.LoginUrl;
+    }
+    signupTargetLoginUrl = optional.ofNullable(signupTargetLoginUrlConfig).orElse(altUrl);
   }
 
   return signupTargetLoginUrl;

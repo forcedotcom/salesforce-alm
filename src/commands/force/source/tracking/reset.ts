@@ -7,11 +7,10 @@
 
 import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
-import { isNumber } from '@salesforce/ts-types';
 import chalk from 'chalk';
-import { MaxRevision } from '../../../../lib/source/MaxRevision';
+import { RemoteSourceTrackingService } from '../../../../lib/source/remoteSourceTrackingService';
 import { SourcePathStatusManager } from '../../../../lib/source/sourcePathStatusManager';
-import { WorkspaceFileState } from '../../../../lib/source/workspace';
+import { WorkspaceFileState } from '../../../../lib/source/workspaceFileState';
 
 const Org = require('../../../../lib/core/scratchOrgApi');
 
@@ -26,7 +25,6 @@ export type SourceTrackingResetResult = {
 
 export class SourceTrackingResetCommand extends SfdxCommand {
   public static readonly description = messages.getMessage('resetDescription');
-  public static readonly longDescription = messages.getMessage('resetLongDescription');
 
   public static readonly requiresProject = true;
   public static readonly requiresUsername = true;
@@ -35,14 +33,12 @@ export class SourceTrackingResetCommand extends SfdxCommand {
     revision: flags.integer({
       char: 'r',
       description: messages.getMessage('revisionDescription'),
-      longDescription: messages.getMessage('revisionLongDescription'),
       required: false,
       min: 0
     }),
     noprompt: flags.boolean({
       char: 'p',
       description: messages.getMessage('nopromptDescription'),
-      longDescription: messages.getMessage('nopromptLongDescription'),
       required: false
     })
   };
@@ -64,21 +60,11 @@ export class SourceTrackingResetCommand extends SfdxCommand {
     legacyOrg.setName(username);
 
     // Retrieve and update server members locally
-    const revision = await MaxRevision.getInstance({ username });
-    const members = await revision.queryAllSourceMembers();
-    await revision.updateSourceTracking(members);
-
+    const revision = await RemoteSourceTrackingService.getInstance({ username });
     const desiredRevision = this.flags.revision;
-    if (isNumber(desiredRevision)) {
-      Object.values(revision.getContents().sourceMembers).forEach(member => {
-        if (member.lastRetrievedFromServer > desiredRevision) {
-          member.lastRetrievedFromServer = null; // Say we don't have it
-        }
-      });
-      await revision.write();
-    }
+    await revision.reset(desiredRevision);
 
-    // // Reset sourcePathInfos locally
+    // Reset sourcePathInfos locally
     const manager = await SourcePathStatusManager.create({ org: legacyOrg });
     const workspace = manager.workspace;
     await workspace.walkDirectories(workspace.trackedPackages);
@@ -90,7 +76,7 @@ export class SourceTrackingResetCommand extends SfdxCommand {
     this.ux.log(`Reset local tracking files${desiredRevision ? ` to revision ${desiredRevision}` : ''}.`);
 
     return {
-      sourceMembersSynced: members.length,
+      sourceMembersSynced: revision.getTrackedElements().length,
       localPathsSynced: workspaceElements.length
     };
   }

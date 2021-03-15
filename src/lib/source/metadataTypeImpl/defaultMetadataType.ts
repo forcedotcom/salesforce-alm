@@ -39,6 +39,10 @@ export class DefaultMetadataType implements MetadataType {
     return this.typeDefObj.metadataName;
   }
 
+  getBaseTypeName(): string {
+    return this.typeDefObj.metadataName;
+  }
+
   isAddressable(): boolean {
     return this.typeDefObj.isAddressable;
   }

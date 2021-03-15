@@ -5,14 +5,13 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ForceIgnore } from './forceIgnore';
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 
-import { ConfigFile, ConfigContents, Logger, fs as fscore } from '@salesforce/core';
+import { ConfigFile, ConfigContents, Logger, fs as fscore, SfdxProject } from '@salesforce/core';
 import { isEmpty } from '@salesforce/kit';
 import { SourcePathInfo, SourcePathStatusManager } from './sourcePathStatusManager';
-import { PackageInfoCache } from './packageInfoCache';
 import path = require('path');
-import { AnyJson, Dictionary } from '@salesforce/ts-types';
+import { Dictionary, Nullable } from '@salesforce/ts-types';
 import Org = require('../core/scratchOrgApi');
 import Messages = require('../messages');
 const messages = Messages();
@@ -21,31 +20,6 @@ const Package2ConfigFileNames = ['package2-descriptor.json', 'package2-manifest.
 
 type WorkspacePath = string;
 type PathInfos = Map<WorkspacePath, SourcePathInfo>;
-
-// TODO refactor sourceState to the following or remove sourceState in favor of this enum and type.
-
-export enum WorkspaceFileState {
-  UNCHANGED = 'u',
-  CHANGED = 'c',
-  DELETED = 'd',
-  NEW = 'n',
-  DUP = 'p'
-}
-
-export type WorkspaceFile = {
-  sourcePath: string;
-  deferContentHash: boolean;
-  isWorkspace: boolean;
-  isArtifactRoot: boolean;
-  state: WorkspaceFileState;
-  package: string;
-  isDirectory: boolean;
-  isMetadataFile: boolean;
-  size: number;
-  modifiedTime: number;
-  changeTime: number;
-  contentHash: string;
-};
 
 /**
  * The Workspace class is responsible for traversing the project directory
@@ -67,7 +41,6 @@ export class Workspace extends ConfigFile<Workspace.Options> {
   private logger!: Logger;
   public pathInfos: PathInfos = new Map();
   public workspacePath: string;
-  public packageInfoCache: PackageInfoCache;
   public trackedPackages: string[] = [];
 
   constructor(options: Workspace.Options) {
@@ -76,13 +49,12 @@ export class Workspace extends ConfigFile<Workspace.Options> {
     this.forceIgnore = options.forceIgnore;
     this.isStateless = options.isStateless;
     this.workspacePath = options.org.config.getProjectPath();
-    this.packageInfoCache = PackageInfoCache.getInstance();
   }
 
   protected async init(): Promise<void> {
     this.logger = await Logger.child(this.constructor.name);
-    this.options.filePath = path.join('.sfdx', 'orgs', this.org.name);
-    this.options.filename = this.getFileName();
+    this.options.filePath = path.join('orgs', this.org.name);
+    this.options.filename = Workspace.getFileName();
     await super.init();
 
     this.backupPath = `${this.getPath()}.bak`;
@@ -108,7 +80,10 @@ export class Workspace extends ConfigFile<Workspace.Options> {
       let oldWorkspacePath: string;
       for (const sourcePathInfoObj of oldSourcePathInfos) {
         if (!sourcePathInfoObj.package) {
-          sourcePathInfoObj.package = this.packageInfoCache.getPackageNameFromSourcePath(sourcePathInfoObj.sourcePath);
+          const packagePath = SfdxProject.getInstance().getPackageNameFromPath(sourcePathInfoObj.sourcePath);
+          if (packagePath) {
+            sourcePathInfoObj.package = packagePath;
+          }
         }
         if (sourcePathInfoObj.isWorkspace) {
           oldWorkspacePath = sourcePathInfoObj.sourcePath;
@@ -143,7 +118,9 @@ export class Workspace extends ConfigFile<Workspace.Options> {
 
   private async initializeStateFull() {
     this.logger.debug('Initializing statefull workspace');
-    const packages = this.packageInfoCache.packagePaths.map(p => stripTrailingSlash(p));
+    const packages = SfdxProject.getInstance()
+      .getUniquePackageDirectories()
+      .map(p => stripTrailingSlash(p.fullPath));
     this.trackedPackages = packages;
     await this.walkDirectories(packages);
     await this.write();
@@ -151,21 +128,22 @@ export class Workspace extends ConfigFile<Workspace.Options> {
 
   private async initializeStateless() {
     this.logger.debug('Initializing stateless workspace');
-    this.trackedPackages = this.packageInfoCache.packagePaths.map(p => stripTrailingSlash(p));
+    this.trackedPackages = SfdxProject.getInstance()
+      .getUniquePackageDirectories()
+      .map(p => stripTrailingSlash(p.fullPath));
     this.setContents({});
   }
 
-  public getContents(): Dictionary<WorkspaceFile> {
-    // override getContents and cast here to avoid casting every getContents() call
-    return this['contents'] as Dictionary<WorkspaceFile>;
+  public getContents(): Dictionary<SourcePathInfo.Json> {
+    return this['contents'] as Dictionary<SourcePathInfo.Json>;
   }
 
-  public entries(): [string, WorkspaceFile][] {
+  public entries(): [string, SourcePathInfo.Json][] {
     // override entries and cast here to avoid casting every entries() call
-    return super.entries() as [string, WorkspaceFile][];
+    return super.entries() as [string, SourcePathInfo.Json][];
   }
 
-  public getFileName(): string {
+  public static getFileName(): string {
     return 'sourcePathInfos.json';
   }
 
@@ -205,7 +183,12 @@ export class Workspace extends ConfigFile<Workspace.Options> {
   public async handleArtifact(sourcePath: string, parentDirectory?: string): Promise<SourcePathInfo> {
     const isWorkspace = false;
     const isArtifactRoot = parentDirectory ? sourcePath === parentDirectory : false;
-    const sourcePathInfo = await this.createSourcePathInfoFromPath(sourcePath, isWorkspace, isArtifactRoot);
+    const sourcePathInfo = await SourcePathInfo.create({
+      sourcePath,
+      deferContentHash: false,
+      isWorkspace,
+      isArtifactRoot
+    });
     if (this.isValidSourcePath(sourcePathInfo)) {
       this.set(sourcePath, sourcePathInfo);
     }
@@ -240,50 +223,53 @@ export class Workspace extends ConfigFile<Workspace.Options> {
     return isValid;
   }
 
-  /**
-   * Create a new SourcePathInfo from the given sourcePath
-   */
-  private async createSourcePathInfoFromPath(
-    sourcePath: string,
-    isWorkspace: boolean,
-    isArtifactRoot: boolean
-  ): Promise<SourcePathInfo> {
-    return SourcePathInfo.create({
-      sourcePath,
-      deferContentHash: false,
-      isWorkspace,
-      isArtifactRoot
-    });
-  }
-
   public async write() {
     if (!this.has(this.workspacePath)) {
-      const workspaceSourcePathInfo = await this.createSourcePathInfoFromPath(this.workspacePath, true, false);
+      const workspaceSourcePathInfo = await SourcePathInfo.create({
+        sourcePath: this.workspacePath,
+        deferContentHash: false,
+        isWorkspace: true,
+        isArtifactRoot: false
+      });
       this.set(this.workspacePath, workspaceSourcePathInfo);
     }
     return super.write();
   }
 
-  // @ts-ignore
-  public get(key: string): SourcePathInfo {
-    return (this.getContents()[key] as unknown) as SourcePathInfo;
+  public get(key: string): Nullable<SourcePathInfo.Json> {
+    return this.getContents()[key] as SourcePathInfo.Json;
+  }
+
+  public async getInitializedValue(key: string): Promise<SourcePathInfo> {
+    const value = this.get(key);
+    return SourcePathInfo.create(value);
   }
 
   public has(key: string): boolean {
     return !!this.get(key);
   }
 
-  // @ts-ignore
-  public values(): SourcePathInfo[] {
-    return (super.values() as unknown) as SourcePathInfo[];
+  public values(): SourcePathInfo.Json[] {
+    return super.values() as SourcePathInfo.Json[];
   }
 
-  // @ts-ignore
+  public async getInitializedValues(): Promise<SourcePathInfo[]> {
+    const values = this.values();
+    const initialized: SourcePathInfo[] = [];
+    for (const value of values) {
+      initialized.push(await SourcePathInfo.create(value));
+    }
+    return initialized;
+  }
+
+  // @ts-ignore because typescript expects value to be a SourcePathInfo.Json but we want to do the
+  // conversion from a SourcePathInfo instance to SourcePathInfo.Json here instead of relying on whoever
+  // calls this method to do it first.
   public set(key: string, value: SourcePathInfo) {
-    return super.set(key, (value as unknown) as AnyJson);
+    return super.set(key, value.toJson());
   }
 
-  protected setMethod(contents: AnyJson, key: string, value: AnyJson) {
+  protected setMethod(contents: Dictionary<SourcePathInfo.Json>, key: string, value: SourcePathInfo.Json) {
     contents[key] = value;
   }
 
@@ -312,7 +298,7 @@ export class Workspace extends ConfigFile<Workspace.Options> {
         const contents = await fscore.readFile(this.getPath(), 'utf-8');
         const map = new Map(JSON.parse(contents));
         const obj: ConfigContents = {};
-        map.forEach((value: AnyJson, key: string) => (obj[key] = value));
+        map.forEach((value: SourcePathInfo.Json, key: string) => (obj[key] = value));
         this.setContentsFromObject(obj);
         await this.write();
         return this.getContents();

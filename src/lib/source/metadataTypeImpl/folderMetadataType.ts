@@ -9,7 +9,7 @@ import * as path from 'path';
 
 import MetadataRegistry = require('../metadataRegistry');
 import srcDevUtil = require('../../core/srcDevUtil');
-import * as sourceState from '../sourceState';
+import { WorkspaceFileState } from '../workspaceFileState';
 import * as PathUtil from '../sourcePathUtil';
 
 import { DefaultMetadataType } from './defaultMetadataType';
@@ -88,7 +88,7 @@ export class FolderMetadataType extends DefaultMetadataType {
       workspaceElement => workspaceElement.getSourcePath() === metadataFilePath
     );
     if (metadataFileElement) {
-      return metadataFileElement.getState() === sourceState.NEW;
+      return metadataFileElement.getState() === WorkspaceFileState.NEW;
     }
     return false;
   }

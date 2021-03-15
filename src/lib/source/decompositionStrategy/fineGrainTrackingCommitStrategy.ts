@@ -7,7 +7,7 @@
 
 // Node
 import * as path from 'path';
-import * as fs from 'fs';
+import { fs as fscore } from '@salesforce/core';
 
 // Local
 import srcDevUtil = require('../../core/srcDevUtil');
@@ -28,28 +28,31 @@ export class FineGrainTrackingCommitStrategy implements DecompositionCommitStrat
     this.decompositionConfig = decompositionConfig;
   }
 
-  commit(
+  async commit(
     documents: Map<string, MetadataDocument>,
     existingPaths: string[],
     createDuplicates: boolean,
     forceoverwrite = false
-  ): [string[], string[], string[], string[]] {
+  ): Promise<[string[], string[], string[], string[]]> {
     let newPaths: string[];
     let updatedPaths: string[];
     [newPaths, updatedPaths] = this.categorizePaths(documents, existingPaths);
     let deletedPaths: string[] = []; // With fine grain tracking any deletes are handled independently of the decomposition.
     let dupPaths: string[] = [];
 
-    updatedPaths = updatedPaths.filter(updatedPath => {
-      if (forceoverwrite || FineGrainTrackingCommitStrategy.isUpdatedFile(updatedPath, documents.get(updatedPath))) {
+    const pathPromises = updatedPaths.map(async updatedPath => {
+      if (
+        forceoverwrite ||
+        (await FineGrainTrackingCommitStrategy.isUpdatedFile(updatedPath, documents.get(updatedPath)))
+      ) {
         if (createDuplicates) {
           const dupPath = updatedPath + '.dup';
-          fs.writeFileSync(dupPath, documents.get(updatedPath).getRepresentation());
+          await fscore.writeFile(dupPath, documents.get(updatedPath).getRepresentation());
           dupPaths.push(dupPath);
           return false;
         } else {
-          fs.writeFileSync(updatedPath, documents.get(updatedPath).getRepresentation());
-          return true;
+          await fscore.writeFile(updatedPath, documents.get(updatedPath).getRepresentation());
+          return updatedPath;
         }
       } else {
         // even if generateDupFiles was true, we don't want to create .dup files if the contents of the files are identical
@@ -57,11 +60,12 @@ export class FineGrainTrackingCommitStrategy implements DecompositionCommitStrat
       }
     });
 
-    newPaths.map(newPath => {
+    const pathResults = await Promise.all(pathPromises);
+    updatedPaths = pathResults.filter(val => !!val) as string[];
+    for (const newPath of newPaths) {
       srcDevUtil.ensureDirectoryExistsSync(path.dirname(newPath));
-      fs.writeFileSync(newPath, documents.get(newPath).getRepresentation());
-    });
-
+      await fscore.writeFile(newPath, documents.get(newPath).getRepresentation());
+    }
     return [newPaths, updatedPaths, deletedPaths, dupPaths];
   }
 
@@ -91,7 +95,7 @@ export class FineGrainTrackingCommitStrategy implements DecompositionCommitStrat
    * @param documentFactory a factory to acquire a new document of the appropriate type for serialization
    * @returns {boolean} <code>true</code> if updated
    */
-  private static isUpdatedFile(filePath: string, document: MetadataDocument): boolean {
-    return !document.isEquivalentTo(fs.readFileSync(filePath, 'utf8'));
+  private static async isUpdatedFile(filePath: string, document: MetadataDocument): Promise<boolean> {
+    return !document.isEquivalentTo(await fscore.readFile(filePath, 'utf8'));
   }
 }

@@ -79,6 +79,7 @@ export class SourceRetrieveCommand extends ToolbeltCommand {
       longDescription: mdapiMsgs.getMessage('verboseFlagLongDescription')
     })
   };
+  protected readonly lifecycleEventNames = ['preretrieve', 'postretrieve', 'postsourceupdate'];
 
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();

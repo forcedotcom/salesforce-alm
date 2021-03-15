@@ -20,5 +20,5 @@ export interface DecompositionCommitStrategy {
     existingPaths: string[],
     createDuplicates: boolean,
     forceoverwrite: boolean
-  ): [string[], string[], string[], string[]];
+  ): Promise<[string[], string[], string[], string[]]>;
 }

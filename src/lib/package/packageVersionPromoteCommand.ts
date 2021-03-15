@@ -10,6 +10,7 @@ import * as _ from 'lodash';
 import pkgUtils = require('../package/packageUtils');
 
 import Messages = require('../messages');
+import ux from 'cli-ux';
 const messages = Messages();
 
 class PackageVersionPromoteCommand {
@@ -47,6 +48,34 @@ class PackageVersionPromoteCommand {
     // lookup the 05i ID, if needed
     packageId = await pkgUtils.getPackageVersionId(packageId, this.force, this.org);
 
+    if (!context.flags.noprompt) {
+      // Warn when a Managed package has removed metadata
+      if ((await pkgUtils.getHasMetadataRemoved(packageId, this.force, this.org)) === true) {
+        ux.warn(messages.getMessage('hasMetadataRemovedWarning', [], 'package_version_create'));
+      }
+
+      // Prompt for confirmation
+      let confirmed = false;
+      const heroku = require('heroku-cli-util');
+      await heroku
+        .prompt(
+          messages.getMessage(
+            'packageVersionPromoteSetAsReleasedYesNo',
+            context.flags.package,
+            'package_version_promote'
+          ),
+          {}
+        )
+        .then(answer => {
+          if (answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y') {
+            confirmed = true;
+          }
+        });
+      if (!confirmed) {
+        return;
+      }
+    }
+
     const request: any = {};
     request.IsReleased = true;
     request.Id = packageId;
@@ -71,7 +100,8 @@ class PackageVersionPromoteCommand {
   }
 
   getHumanSuccessMessage(result) {
-    return messages.getMessage('humanSuccess', [result.id], 'package_version_promote');
+    // skip success message when prompt was not accepted
+    return result ? messages.getMessage('humanSuccess', [result.id], 'package_version_promote') : null;
   }
 }
 export = PackageVersionPromoteCommand;

@@ -8,7 +8,7 @@
 import * as path from 'path';
 import * as _ from 'lodash';
 
-import * as sourceState from '../sourceState';
+import { WorkspaceFileState } from '../workspaceFileState';
 import MetadataRegistry = require('../metadataRegistry');
 
 import { WorkspaceElement } from '../workspaceElement';
@@ -46,7 +46,7 @@ export class DocumentMetadataType extends InFolderMetadataType {
           this.getMetadataName(),
           fullName,
           existingDocumentFilePath,
-          sourceState.DELETED,
+          WorkspaceFileState.DELETED,
           true
         );
         workspaceElementsToDelete.push(deletedWorkspaceElement);

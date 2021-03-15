@@ -77,7 +77,7 @@ export class SourceRetrieveCommand {
       this.logger.log(messages.getMessage('NoResultsFound'));
     }
 
-    if (results.warnings) {
+    if (results.warnings && results.warnings.length) {
       this.logger.log('');
       this.logger.styledHeader(this.logger.color.yellow(messages.getMessage('metadataNotFoundWarning')));
       results.warnings.forEach(warning => this.logger.log(warning.problem));

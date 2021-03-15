@@ -5,16 +5,12 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import VarargsCommand from '../core/varargsCommand';
-
-// Node
-import * as fs from 'fs';
+import { fs } from '@salesforce/core';
 import { promisify } from 'util';
-
-// Thirdparty
 import * as _ from 'lodash';
 
 // Local
+import VarargsCommand from '../core/varargsCommand';
 import Org = require('../core/scratchOrgApi');
 import * as ScratchOrgInfoApi from './scratchOrgInfoApi';
 import Alias = require('../core/alias');
@@ -30,12 +26,13 @@ import * as scratchOrgInfoGenerator from './scratchOrgInfoGenerator';
 import logApi = require('../core/logApi');
 import * as Url from 'url';
 
-import { Org as CoreOrg, StreamingClient, PollingClient, StatusResult, SfdxError } from '@salesforce/core';
+import { Org as CoreOrg, StreamingClient, PollingClient, StatusResult, SfdxError, Lifecycle } from '@salesforce/core';
 
 import { JsonMap, ensureString, asJsonMap, getString } from '@salesforce/ts-types';
 import { Duration } from '@salesforce/kit';
 import { ScratchOrgFeatureDeprecation } from './scratchOrgFeatureDeprecation';
-import { MaxRevision } from '../source/MaxRevision';
+import { OrgCreateResult } from './orgHooks';
+import { RemoteSourceTrackingService } from '../source/remoteSourceTrackingService';
 
 const _ENV_TYPES = envTypes;
 
@@ -417,11 +414,27 @@ class OrgCreateCommand extends VarargsCommand {
     await this.updateRevisionCounterToZero(scratchOrgApi, orgData);
     // initialize the maxRevision.json file.
     try {
-      await MaxRevision.getInstance({ username: scratchOrgApi.getName() });
+      await RemoteSourceTrackingService.getInstance({ username: scratchOrgApi.getName() });
     } catch (err) {
       // Do nothing. If org:create is not executed within sfdx project, allow the org to be created without errors.
-      appLogger.debug(`Failed to create the MaxRevision.json file due to the error : ${err.message}`);
+      appLogger.debug(`Failed to create the maxRevision.json file due to the error : ${err.message}`);
     }
+
+    // emit postorgcreate event for hook
+    let postOrgCreateHookInfo: OrgCreateResult = [orgData].map(element => ({
+      accessToken: element.accessToken,
+      clientId: element.clientId,
+      created: element.created,
+      createdOrgInstance: element.createdOrgInstance,
+      devHubUsername: element.devHubUsername,
+      expirationDate: element.expirationDate,
+      instanceUrl: element.instanceUrl,
+      loginUrl: element.loginUrl,
+      orgId: element.orgId,
+      username: element.username
+    }))[0];
+    await Lifecycle.getInstance().emit('postorgcreate', postOrgCreateHookInfo);
+
     return { orgId: orgData.orgId, username: scratchOrgApi.getName() };
   }
 
@@ -488,7 +501,7 @@ class OrgCreateCommand extends VarargsCommand {
 
   parseSignupErrorCode(err) {
     const messageToParse = err.name + err.errorCode + err.message;
-    return messageToParse.match(/[A-Z]-[0-9]{4}/);
+    return messageToParse.match(/[A-Z]{1,2}-[0-9]{4}/);
   }
 
   private async updateRevisionCounterToZero(scratchOrgApi: Org, orgData: any) {

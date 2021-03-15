@@ -8,15 +8,15 @@
 // Local
 import MdapiPackage = require('./mdapiPackage');
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { ForceIgnore } from './forceIgnore';
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 import * as almError from '../core/almError';
 import logger = require('../core/logApi');
 import Messages = require('../../lib/messages');
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import MetadataRegistry = require('./metadataRegistry');
-import { MaxRevision } from './MaxRevision';
-import { PackageInfoCache } from './packageInfoCache';
+import { ChangeElement, RemoteSourceTrackingService } from './remoteSourceTrackingService';
 import { NonDecomposedElementsIndex } from './nonDecomposedElementsIndex';
+import { SfdxProject } from '@salesforce/core';
 const messages = Messages();
 
 interface MdapiPackages {
@@ -76,15 +76,13 @@ class SourceMetadataMemberRetrieveHelper {
   public readonly metadataRegistry: MetadataRegistry;
   private readonly forceIgnore: ForceIgnore;
   private logger: typeof logger;
-  private packageInfoCache: PackageInfoCache;
   private readonly username: string;
 
   constructor(sourceWorkspaceAdapter?: SourceWorkspaceAdapter) {
     this.swa = sourceWorkspaceAdapter;
     this.metadataRegistry = sourceWorkspaceAdapter.metadataRegistry;
-    this.forceIgnore = new ForceIgnore();
+    this.forceIgnore = ForceIgnore.findAndCreate(SfdxProject.resolveProjectPathSync());
     this.logger = logger.child('SourceMetadataMemberRetrieveHelper');
-    this.packageInfoCache = PackageInfoCache.getInstance();
     this.username = this.swa.options.org.name;
   }
 
@@ -113,8 +111,10 @@ class SourceMetadataMemberRetrieveHelper {
    *}
    */
   async getRevisionsAsPackage(obsoleteNames?: MdApiItem[]): Promise<MdapiPackages> {
-    const maxRevision: MaxRevision = await MaxRevision.getInstance({ username: this.username });
-    const changedElements = await maxRevision.retrieveChangedElements();
+    const remoteSourceTrackingService: RemoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
+      username: this.username
+    });
+    const changedElements: ChangeElement[] = await remoteSourceTrackingService.retrieveUpdates();
     const nonDecomposedElementsIndex = await NonDecomposedElementsIndex.getInstance({
       username: this.username,
       metadataRegistry: this.metadataRegistry
@@ -122,8 +122,8 @@ class SourceMetadataMemberRetrieveHelper {
     const relatedElements = nonDecomposedElementsIndex.getRelatedNonDecomposedElements(changedElements);
     const allElements = changedElements.concat(relatedElements);
     const parsePromises = allElements.map(sourceMember => {
-      const memberType = sourceMember.MemberType;
-      const memberName = sourceMember.MemberName;
+      const memberType = sourceMember.type;
+      const memberName = sourceMember.name;
 
       if (!memberType || !memberName) {
         throw almError('fullNameIsRequired');
@@ -132,9 +132,9 @@ class SourceMetadataMemberRetrieveHelper {
       const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(memberType, this.metadataRegistry);
       if (metadataType) {
         return metadataType.parseSourceMemberForMetadataRetrieve(
-          sourceMember.MemberName,
-          sourceMember.MemberType,
-          sourceMember.IsNameObsolete
+          sourceMember.name,
+          sourceMember.type,
+          sourceMember.deleted
         );
       } else {
         this.logger.log(messages.getMessage('metadataTypeNotSupported', [memberType, memberName]));
@@ -144,9 +144,11 @@ class SourceMetadataMemberRetrieveHelper {
 
     const promisedResults: MdApiItem[] = await Promise.all(parsePromises);
     const packages: MdapiPackages = {};
-    this.packageInfoCache.packageNames.forEach((pkg: string) => {
-      packages[pkg] = new MdapiPackage();
-    });
+    SfdxProject.getInstance()
+      .getUniquePackageNames()
+      .forEach((pkg: string) => {
+        packages[pkg] = new MdapiPackage();
+      });
 
     promisedResults.forEach(mdApiItem => {
       if (!this.shouldAddMember(mdApiItem, obsoleteNames)) return;
@@ -176,9 +178,9 @@ class SourceMetadataMemberRetrieveHelper {
       );
     }
 
-    const defaultPackage = this.packageInfoCache.defaultPackage.name;
+    const defaultPackage = SfdxProject.getInstance().getDefaultPackage().name;
     if (fileLocation) {
-      return this.packageInfoCache.getPackageNameFromSourcePath(fileLocation) || defaultPackage;
+      return SfdxProject.getInstance().getPackageNameFromPath(fileLocation) || defaultPackage;
     } else {
       return defaultPackage;
     }

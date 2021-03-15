@@ -96,8 +96,9 @@ export class BundleMetadataType extends DefaultMetadataType {
   }
 
   static getDefinitionProperties(fileProperties, metadataRegistry) {
+    const clonedProps = JSON.parse(JSON.stringify(fileProperties));
     const { MetadataTypeFactory } = require('../metadataTypeFactory');
-    return fileProperties
+    return clonedProps
       .filter(fileProperty => {
         const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(fileProperty.type, metadataRegistry);
         if (metadataType instanceof BundleMetadataType) {

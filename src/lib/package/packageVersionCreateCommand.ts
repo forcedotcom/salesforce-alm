@@ -14,7 +14,6 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import * as _ from 'lodash';
 
-// Third party
 const xml2js = BBPromise.promisifyAll(require('xml2js'));
 
 // Local
@@ -27,7 +26,6 @@ import MessagesLocal = require('../messages');
 const messages = MessagesLocal();
 
 import * as almError from '../core/almError';
-
 import logApi = require('../core/logApi');
 import srcDevUtil = require('../core/srcDevUtil');
 import PackageVersionCreateRequestApi = require('./packageVersionCreateRequestApi');
@@ -37,6 +35,7 @@ import ProfileApi = require('../package/profileApi');
 import SettingsGenerator = require('../org/scratchOrgSettingsGenerator');
 
 import consts = require('../core/constants');
+import ux from 'cli-ux';
 
 const DESCRIPTOR_FILE = 'package2-descriptor.json';
 
@@ -235,9 +234,11 @@ class PackageVersionCreateCommand {
       .digest('hex');
     const packageVersTmpRoot = path.join(os.tmpdir(), `${packageId}-${uniqueHash}`);
     const packageVersMetadataFolder = path.join(packageVersTmpRoot, 'md-files');
+    const unpackagedMetadataFolder = path.join(packageVersTmpRoot, 'unpackaged-md-files');
     const packageVersProfileFolder = path.join(packageVersMetadataFolder, 'profiles');
     const packageVersBlobDirectory = path.join(packageVersTmpRoot, 'package-version-info');
     const metadataZipFile = path.join(packageVersBlobDirectory, 'package.zip');
+    const unpackagedMetadataZipFile = path.join(packageVersBlobDirectory, 'unpackaged-metadata-package.zip');
     const settingsZipFile = path.join(packageVersBlobDirectory, 'settings.zip');
     const packageVersBlobZipFile = path.join(packageVersTmpRoot, 'package-version-info.zip');
     const sourceBaseDir = path.join(context.org.force.getConfig().getProjectPath(), artDir);
@@ -248,7 +249,7 @@ class PackageVersionCreateCommand {
     };
 
     const settingsGenerator = new SettingsGenerator();
-
+    let hasUnpackagedMetadata = false;
     // Copy all of the metadata from the workspace to a tmp folder
     return (
       this._generateMDFolderForArtifact(mdOptions)
@@ -273,7 +274,16 @@ class PackageVersionCreateCommand {
 
             const definitionFilePayload = await fs.readFileAsync(definitionFile, 'utf8');
             const definitionFileJson = JSON.parse(definitionFilePayload);
-            const pkgProperties = ['country', 'edition', 'language', 'features', 'orgPreferences', 'snapshot'];
+
+            const pkgProperties = [
+              'country',
+              'edition',
+              'language',
+              'features',
+              'orgPreferences',
+              'snapshot',
+              'release'
+            ];
 
             // Load any settings from the definition
             await settingsGenerator.extract(definitionFileJson);
@@ -290,6 +300,57 @@ class PackageVersionCreateCommand {
               }
             });
           }
+
+          return [packageDescriptorJson];
+        })
+        .spread(packageDescriptorJson => {
+          let unpackagedPromise = null;
+          // Add the Unpackaged Metadata, if any, to the output directory, only when code coverage is specified
+          if (
+            packageDescriptorJson.unpackagedMetadata &&
+            packageDescriptorJson.unpackagedMetadata.path &&
+            context.flags.codecoverage
+          ) {
+            hasUnpackagedMetadata = true;
+            const unpackagedPath = path.join(process.cwd(), packageDescriptorJson.unpackagedMetadata.path);
+            try {
+              fs.statSync(unpackagedPath);
+            } catch (err) {
+              throw new Error(
+                `Unpackaged metadata directory '${packageDescriptorJson.unpackagedMetadata.path}' was specified but does not exist`
+              );
+            }
+            srcDevUtil.ensureDirectoryExistsSync(unpackagedMetadataFolder);
+            unpackagedPromise = this._generateMDFolderForArtifact({
+              deploydir: unpackagedMetadataFolder,
+              sourcedir: unpackagedPath
+            });
+          }
+          return [packageDescriptorJson, unpackagedPromise];
+        })
+        .spread(packageDescriptorJson => {
+          // Process permissionSet and permissionSetLicenses that should be enabled when running Apex tests
+          // This only applies if code coverage is enabled
+          if (context.flags.codecoverage) {
+            // Assuming no permission sets are named 0, 0n, null, undefined, false, NaN, and the empty string
+            if (packageDescriptorJson.apexTestAccess && packageDescriptorJson.apexTestAccess.permissionSets) {
+              let permSets = packageDescriptorJson.apexTestAccess.permissionSets;
+              if (!Array.isArray(permSets)) {
+                permSets = permSets.split(',');
+              }
+              packageDescriptorJson.permissionSetNames = permSets.map(s => s.trim());
+            }
+
+            if (packageDescriptorJson.apexTestAccess && packageDescriptorJson.apexTestAccess.permissionSetLicenses) {
+              let permissionSetLicenses = packageDescriptorJson.apexTestAccess.permissionSetLicenses;
+              if (!Array.isArray(permissionSetLicenses)) {
+                permissionSetLicenses = permissionSetLicenses.split(',');
+              }
+              packageDescriptorJson.permissionSetLicenseDeveloperNames = permissionSetLicenses.map(s => s.trim());
+            }
+          }
+
+          delete packageDescriptorJson.apexTestAccess;
 
           return [packageDescriptorJson];
         })
@@ -363,12 +424,19 @@ class PackageVersionCreateCommand {
             xmldec: { version: '1.0', encoding: 'UTF-8' }
           });
           const xml = xmlBuilder.buildObject(packageJson);
+
           return fs.writeFileAsync(path.join(packageVersMetadataFolder, 'package.xml'), xml);
         })
         .then(() =>
           // Zip the packageVersMetadataFolder folder and put the zip in {packageVersBlobDirectory}/package.zip
           srcDevUtil.zipDir(packageVersMetadataFolder, metadataZipFile)
         )
+        .then(() => {
+          if (hasUnpackagedMetadata) {
+            // Zip the unpackagedMetadataFolder folder and put the zip in {packageVersBlobDirectory}/{unpackagedMetadataZipFile}
+            return srcDevUtil.zipDir(unpackagedMetadataFolder, unpackagedMetadataZipFile);
+          }
+        })
         .then(() => {
           // Zip up the expanded settings (if present)
           if (settingsGenerator.hasSettings()) {
@@ -535,7 +603,9 @@ class PackageVersionCreateCommand {
     this.org = context.org;
     this.force = this.org.force;
     this.packageVersionCreateRequestApi = new PackageVersionCreateRequestApi(this.force, this.org);
-
+    if (!context.flags.json && context.flags.skipvalidation === true) {
+      ux.warn(messages.getMessage('skipValidationWarning', [], 'package_version_create'));
+    }
     if (context.flags.wait) {
       if (context.flags.skipvalidation === true) {
         this.pollInterval = POLL_INTERVAL_WITHOUT_VALIDATION_SECONDS;
@@ -882,6 +952,10 @@ class PackageVersionCreateCommand {
     }
     if (typeof packageDescriptorJson.includeProfileUserLicenses !== 'undefined') {
       delete packageDescriptorJson.includeProfileUserLicenses; // for client-side use only, not needed
+    }
+
+    if (typeof packageDescriptorJson.unpackagedMetadata !== 'undefined') {
+      delete packageDescriptorJson.unpackagedMetadata; // for client-side use only, not needed
     }
   }
 

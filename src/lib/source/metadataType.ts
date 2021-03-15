@@ -16,6 +16,12 @@ export interface MetadataType {
 
   getAggregateMetadataName(): string;
 
+  /**
+   * Only relevant for the EmailTemplate type (InFolderType) so it can match EmailFolder AggregateSourceElements
+   * during a convert or deploy.  This will return "Email" rather than "EmailTemplate".
+   */
+  getBaseTypeName(): string;
+
   getExt(): string;
 
   isAddressable(): boolean;

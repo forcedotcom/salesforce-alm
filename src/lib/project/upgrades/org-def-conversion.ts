@@ -6,7 +6,7 @@
  */
 
 import * as path from 'path';
-
+import { fs as fscore } from '@salesforce/core';
 import * as _ from 'lodash';
 import * as BBPromise from 'bluebird';
 
@@ -46,7 +46,7 @@ export default async function(
   // Find file names that match the regex
   const matchedFiles = [];
 
-  utils.actOn(projectDir, file => {
+  await fscore.actOn(projectDir, async file => {
     if (file.match(fileRegex)) {
       matchedFiles.push(file);
     }
@@ -75,7 +75,7 @@ export default async function(
       new UpgradeAction(messages.getMessage('action_orgDefConversion', [files.length], 'projectUpgrade'), async () => {
         // Not doing this in parrellel right now, but we could
         for (let file of files) {
-          let json = await utils.readJSON(file);
+          let json = (await utils.readJSON(file)) as any;
 
           // Org preferences need to stay in upper, so  move to array form first
           const orgPreferences = json.orgPreferences || json.OrgPreferences;

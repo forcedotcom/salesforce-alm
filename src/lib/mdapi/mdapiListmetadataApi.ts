@@ -9,14 +9,13 @@ import * as path from 'path';
 
 // 3pp
 import * as mkdirp from 'mkdirp';
-import * as BBPromise from 'bluebird';
 
 // Local
 import logger = require('../core/logApi');
 import * as almError from '../core/almError';
 import * as mdApiUtil from './mdApiUtil';
 import { FileProperties } from 'jsforce';
-const fs = BBPromise.promisifyAll(require('fs'));
+import { fs } from '@salesforce/core';
 
 /**
  * API that wraps Metadata API to retrieve listmetadata result.
@@ -69,14 +68,14 @@ export class MdListmetadataApi {
 
   private async createOutputJSONResultFile(retrieveTargetPath, resultJson, mdApi) {
     try {
-      await fs.accessAsync(path.dirname(mdApi.retrieveTargetPath));
+      await fs.access(path.dirname(mdApi.retrieveTargetPath));
     } catch (err) {
       mkdirp.sync(path.dirname(mdApi.retrieveTargetPath));
     }
 
     const fileName = retrieveTargetPath;
     const json = JSON.stringify(resultJson);
-    await fs.writeFileAsync(fileName, json);
+    await fs.writeFile(fileName, json);
     this.print(`Wrote result file to ${fileName}.`);
     return { message: `Wrote result file to ${fileName}.` };
   }
@@ -109,7 +108,7 @@ export class MdListmetadataApi {
     if (options.resultfile) {
       const retrieveTargetPath = path.resolve(options.resultfile);
       try {
-        const data = await fs.statAsync(retrieveTargetPath);
+        const data = await fs.stat(retrieveTargetPath);
         if (!data.isFile()) {
           throw almError('InvalidArgumentFilePath', ['resultfile', retrieveTargetPath]);
         }

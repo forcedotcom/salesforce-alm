@@ -197,45 +197,6 @@ export class ApexLogApi {
     }
   }
 
-  /**
-   * fetch body of specific debug log
-   * exposed for unit testing (mocked)
-   * @param logId {string} logId - the debug log to retrieve
-   */
-  async logLog(logId: string): Promise<any> {
-    const log = await this.getLogById(logId);
-
-    if (log && !this.flags.json) {
-      Display.info(this.flags.color ? this._colorizeLog(log.log) : log.log);
-    }
-
-    return log;
-  }
-
-  /**
-   * Output log bodies of last N number of logs
-   * @param numOfLogs {number} number of logs to retrieve
-   */
-  async logLogs(numOfRecentLogs: number): Promise<any> {
-    const logs = [];
-    const logRecords = await this.getRecentLogRecords(numOfRecentLogs);
-
-    if (logRecords && logRecords.length > 0) {
-      const logPromises = [];
-
-      // retrieve log body and write to stdout (if not json)
-      const logBodyFn = async logid => {
-        const logBody = await this.logLog(logid);
-        logs.push(logBody);
-      };
-
-      logRecords.forEach(logRecord => logPromises.push(logBodyFn(logRecord.Id)));
-      await Promise.all(logPromises);
-    }
-
-    return logs;
-  }
-
   _colorizeLog(log: string) {
     // default color registry
     let colorMap = DEFAULT_COLOR_MAP;
@@ -363,38 +324,6 @@ export class ApexLogApi {
       }
       callback(response);
     });
-  }
-
-  /**
-   * fetch summary information for all debug logs
-   * exposed for unit testing (mocked)
-   */
-  async listLogs(): Promise<DebugLog[]> {
-    try {
-      let conn: Connection = await Config.getActiveConnection({
-        org: this.org
-      });
-      let geturl = this._createLogListUrl(conn);
-      let logs: DebugLog[] = [];
-      await this._getReq(conn, geturl, function(response): void {
-        logs = <DebugLog[]>response.records;
-        // shorten ISO format by removing milliseconds, but retain timezone information
-        logs.forEach(function(log: DebugLog) {
-          let msStart = log.StartTime.indexOf('.');
-          let msEnd = msStart + 4;
-          let timezone = '';
-          if (log.StartTime.length > msEnd) {
-            timezone = log.StartTime.substring(msEnd, log.StartTime.length);
-          }
-          log.StartTime = log.StartTime.substring(0, msStart) + timezone;
-        });
-        Display.debugLogs(logs);
-      });
-      return logs;
-    } catch (err) {
-      this.logger.error(err);
-      return Error.exitWithMessage(err.message);
-    }
   }
 
   _hasRecords(result: any) {

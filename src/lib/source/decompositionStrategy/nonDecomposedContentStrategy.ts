@@ -6,6 +6,7 @@
  */
 
 import * as fs from 'fs-extra';
+import { fs as fscore } from '@salesforce/core';
 import * as path from 'path';
 
 import MetadataRegistry = require('../metadataRegistry');
@@ -41,35 +42,36 @@ export class NonDecomposedContentStrategy implements ContentDecompositionStrateg
     });
   }
 
-  saveContent(
+  async saveContent(
     metadataFilePath: string,
     retrievedContentFilePaths: string[],
     retrievedMetadataFilePath: string,
     createDuplicates: boolean,
     unsupportedMimeTypes: string[],
     forceoverwrite = false
-  ): [string[], string[], string[], string[]] {
+  ): Promise<[string[], string[], string[], string[]]> {
     const newPaths = [];
     const updatedPaths = [];
     const deletedPaths = [];
     const dupPaths = [];
     const metadataType = MetadataTypeFactory.getMetadataTypeFromSourcePath(metadataFilePath, this.metadataRegistry);
-    retrievedContentFilePaths.forEach(retrievedContentFilePath => {
+
+    for (const retrievedContentFilePath of retrievedContentFilePaths) {
       const workspaceContentFilePath = metadataType.getWorkspaceContentFilePath(
         metadataFilePath,
         retrievedContentFilePath
       );
       if (srcDevUtil.pathExistsSync(workspaceContentFilePath)) {
-        if (
-          forceoverwrite ||
-          !NonDecomposedContentStrategy.filesAreEqual(retrievedContentFilePath, workspaceContentFilePath)
-        ) {
+        const equalFileCheck = await fscore.areFilesEqual(retrievedContentFilePath, workspaceContentFilePath);
+        if (forceoverwrite || !equalFileCheck) {
           if (createDuplicates) {
             const dupPath = workspaceContentFilePath + '.dup';
             fs.copySync(retrievedContentFilePath, dupPath);
+
             dupPaths.push(dupPath);
           } else {
             fs.copySync(retrievedContentFilePath, workspaceContentFilePath);
+
             updatedPaths.push(workspaceContentFilePath);
           }
         }
@@ -77,15 +79,7 @@ export class NonDecomposedContentStrategy implements ContentDecompositionStrateg
         fs.copySync(retrievedContentFilePath, workspaceContentFilePath);
         newPaths.push(workspaceContentFilePath);
       }
-    });
+    }
     return [newPaths, updatedPaths, deletedPaths, dupPaths];
-  }
-
-  private static filesAreEqual(filePathA, filePathB) {
-    const contentA = fs.readFileSync(filePathA);
-    const contentB = fs.readFileSync(filePathB);
-    const contentHashA = srcDevUtil.getContentHash(contentA);
-    const contentHashB = srcDevUtil.getContentHash(contentB);
-    return contentHashA === contentHashB;
   }
 }

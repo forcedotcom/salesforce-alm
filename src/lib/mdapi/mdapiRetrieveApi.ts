@@ -6,24 +6,18 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs';
-
-// 3pp
-import * as BBPromise from 'bluebird';
-import * as xml2js from 'xml2js';
 
 // Local
 import * as ManifestCreateApi from '../source/manifestCreateApi';
+import * as almError from '../core/almError';
+import { MetadataTransportInfo } from './mdApiUtil';
 import RetrieveReportApi = require('./mdapiRetrieveReportApi');
 import consts = require('../core/constants');
 import logger = require('../core/logApi');
-import * as almError from '../core/almError';
 import StashApi = require('../core/stash');
-import { SfdxError } from '@salesforce/core';
+import { Lifecycle, SfdxError, fs } from '@salesforce/core';
 
-const fsReadFile = BBPromise.promisify(fs.readFile);
-const xml2jsParseString = BBPromise.promisify(xml2js.parseString);
-import { MetadataTransportInfo } from './mdApiUtil';
+const Parser = require('fast-xml-parser');
 
 export interface MdRetrieveOptions {
   retrievetargetdir?: string;
@@ -59,7 +53,7 @@ export class MdRetrieveApi {
     this.org = org;
     this.force = org.force;
     this.logger = logger.child('md-retrieve');
-    this._fsStatAsync = BBPromise.promisify(fs.stat);
+    this._fsStatAsync = fs.stat;
   }
 
   // retrieve source from org
@@ -69,12 +63,15 @@ export class MdRetrieveApi {
       : options.wait);
     // set target org, org other than workspace defined org
     const orgApi = this.org;
-    let retrievePromise = BBPromise.resolve();
+    let retrievePromise = Promise.resolve();
 
     // set the json flag on this for use by this._log
     this.isJsonOutput = options.json;
 
     this.retrieveTargetPath = this._resolvePath(options.retrievetargetdir);
+
+    // emit pre retrieve event
+    await Lifecycle.getInstance().emit('preretrieve', { packageXmlPath: options.unpackaged });
 
     if (!options.packagenames && !options.jobid) {
       retrievePromise = MdRetrieveApi._getPackageJson(this, options);
@@ -133,7 +130,7 @@ export class MdRetrieveApi {
   // file or gen'd from workspace.   json is sent w/ retrieve request.
   static _getPackageJson(mdApi, options) {
     let packageXmlPath;
-    let promise = BBPromise.resolve();
+    let promise = Promise.resolve();
 
     if (options.unpackaged) {
       // fully qualify path to package.xml
@@ -150,14 +147,16 @@ export class MdRetrieveApi {
         });
     }
     return promise
-      .then(() => fsReadFile(packageXmlPath, 'utf8'))
-      .then(unpackagedXml =>
-        // convert to json
-        xml2jsParseString(unpackagedXml, { explicitArray: false }).catch(err => {
+      .then(() => fs.readFile(packageXmlPath, 'utf8'))
+      .then(unpackagedXml => {
+        try {
+          // convert to json
+          return Parser.parse(unpackagedXml, { explicitArray: false });
+        } catch (err) {
           // wrap in SfdxError
           throw SfdxError.create('salesforce-alm', 'source', 'IllFormattedManifest', [`; ${err.message}`]);
-        })
-      )
+        }
+      })
       .then(unpackagedJson => {
         const packageData = unpackagedJson.Package;
         delete packageData.$;
@@ -222,7 +221,7 @@ export class MdRetrieveApi {
     }
     // If we're outside of the workspace and a manifest will be created from the default artifact, we should throw an error.
     if (!insideProjectWorkspace && willCreateManifestFromArtifact) {
-      return BBPromise.reject(almError('mdRetrieveCommandCliInvalidProjectError'));
+      return Promise.reject(almError('mdRetrieveCommandCliInvalidProjectError'));
     }
 
     try {
@@ -234,7 +233,7 @@ export class MdRetrieveApi {
       MetadataTransportInfo.validateExclusiveFlag(options, 'jobid', 'unpackaged');
       MetadataTransportInfo.validateExclusiveFlag(options, 'jobid', 'singlepackage');
     } catch (err) {
-      return BBPromise.reject(err);
+      return Promise.reject(err);
     }
 
     const currentApiVersion = this.force.config.getApiVersion();
@@ -242,19 +241,19 @@ export class MdRetrieveApi {
       options.apiversion &&
       (isNaN(+options.apiversion) || +options.apiversion < 0 || +options.apiversion > currentApiVersion)
     ) {
-      return BBPromise.reject(almError('mdRetrieveCommandCliInvalidApiVersionError', currentApiVersion));
+      return Promise.reject(almError('mdRetrieveCommandCliInvalidApiVersionError', currentApiVersion));
     }
 
     // Wait must be a number that is greater than zero or equal to -1.
     const validWaitValue = !isNaN(+options.wait) && (+options.wait === -1 || +options.wait >= 0);
     if (options.wait && !validWaitValue) {
-      return BBPromise.reject(almError('mdapiCliInvalidWaitError'));
+      return Promise.reject(almError('mdapiCliInvalidWaitError'));
     }
 
     if (options.packagenames) {
       const packageNamesArray = this._parsePackageNames(options.packagenames);
       if (options.singlepackage && packageNamesArray.length > 1) {
-        return BBPromise.reject(almError('mdRetrieveCommandCliTooManyPackagesError', packageNamesArray.join(',')));
+        return Promise.reject(almError('mdRetrieveCommandCliTooManyPackagesError', packageNamesArray.join(',')));
       }
     }
 
@@ -263,7 +262,7 @@ export class MdRetrieveApi {
         this._validatePath(
           options.sourcedir,
           data => data.isDirectory(),
-          () => BBPromise.resolve(),
+          () => Promise.resolve(),
           almError('InvalidArgumentDirectoryPath', ['sourcedir', options.sourcedir])
         )
       );
@@ -272,7 +271,7 @@ export class MdRetrieveApi {
         this._validatePath(
           options.unpackaged,
           data => data.isFile(),
-          () => BBPromise.resolve(),
+          () => Promise.resolve(),
           almError('InvalidArgumentFilePath', ['unpackaged', options.unpackaged])
         )
       );
@@ -283,18 +282,18 @@ export class MdRetrieveApi {
       this._validatePath(
         retrieveTargetPath,
         data => data.isDirectory(),
-        () => BBPromise.resolve(),
+        () => Promise.resolve(),
         almError('InvalidArgumentDirectoryPath', ['retrievetargetdir', retrieveTargetPath])
       ).catch(err => {
         // ignore PathDoesNotExist, it will create a directory if it doesn't already exist.
         if (err.name !== 'PathDoesNotExist') {
-          return BBPromise.reject(err);
+          return Promise.reject(err);
         }
-        return BBPromise.resolve();
+        return Promise.resolve();
       })
     );
 
-    return BBPromise.all(validationPromises).then(() => options);
+    return Promise.all(validationPromises).then(() => options);
   }
 
   // Accepts:
@@ -312,12 +311,12 @@ export class MdRetrieveApi {
         if (validationFunc(data)) {
           return successFunc();
         } else {
-          return BBPromise.reject(error);
+          return Promise.reject(error);
         }
       })
       .catch(err => {
         err = err.code === 'ENOENT' ? almError('PathDoesNotExist', pathToValidate) : err;
-        return BBPromise.reject(err);
+        return Promise.reject(err);
       });
   }
 

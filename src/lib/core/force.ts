@@ -730,13 +730,20 @@ Force.prototype.mdapiRestDeploy = function(orgApi, zipStream, options) {
   return this._getConnection(orgApi, this.config)
     .then(connection => {
       headers = this.setRestHeaders(connection);
-      return `${connection.instanceUrl}/services/data/v${this.config.getApiVersion()}/metadata/deployRequest`;
+      return `${connection.instanceUrl.replace(
+        /\/$/,
+        ''
+      )}/services/data/v${this.config.getApiVersion()}/metadata/deployRequest`;
     })
     .then(
       url =>
         new BBPromise((resolve, reject) => {
           const r = requestModule.post(url, { headers }, (err, httpResponse, body) => {
-            body = JSON.parse(body);
+            try {
+              body = JSON.parse(body);
+            } catch (e) {
+              reject(SfdxError.wrap(body));
+            }
             if (err || httpResponse.statusCode > 300) {
               let error;
               if (body[0].errorCode === 'API_DISABLED_FOR_ORG') {

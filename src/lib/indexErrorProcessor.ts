@@ -119,16 +119,19 @@ export function checkServer500(_err): CheckStatus {
 
 export function checkInvalidLoginUrlWithAccessToken(context, err): CheckStatus {
   // provide action if instanceurl is incorrect
+  const message = err.message ? err.message : err;
   if (
-    context.org &&
-    context.org.usingAccessToken &&
-    (err.message.match(/Session expired or invalid/) || err.message.match(/Destination URL not reset/))
+    (context.org && context.org.usingAccessToken && message.toString().match(/Session expired or invalid/)) ||
+    message.toString().match(/Destination URL not reset/)
   ) {
-    err['message'] = messages.getMessage('accessTokenLoginUrlNotSet', err.message);
+    let _err = new Error();
+    _err['message'] = messages.getMessage('accessTokenLoginUrlNotSet', message);
     if (_.isNil(err.action)) {
-      err['action'] = messages.getMessage('invalidInstanceUrlForAccessTokenAction');
+      _err['action'] = messages.getMessage('invalidInstanceUrlForAccessTokenAction');
+    } else {
+      _err['action'] = err.action;
     }
-    throw err;
+    throw _err;
   }
   return CheckStatus.OK;
 }

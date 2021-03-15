@@ -46,10 +46,12 @@ export class BundlePathHelper {
   }
 
   static getMetadataFileNameFromBundleFileProperties(fullName, bundleFileTypeProperties): string {
-    const bundleName = fullName.split(path.sep)[0];
-    const matchingBundle = bundleFileTypeProperties.find(
-      fileProperty => fileProperty.fullName.split(path.sep)[0] === bundleName
-    );
+    const normalizedFullName = path.normalize(fullName);
+    const bundleName = normalizedFullName.split(path.sep)[0];
+    const matchingBundle = bundleFileTypeProperties.find(fileProperty => {
+      const normalizedBFTPFullName = path.normalize(fileProperty.fullName);
+      return normalizedBFTPFullName.split(path.sep)[0] === bundleName;
+    });
     return `${path.basename(matchingBundle.fileName)}${MetadataRegistry.getMetadataFileExt()}`;
   }
 

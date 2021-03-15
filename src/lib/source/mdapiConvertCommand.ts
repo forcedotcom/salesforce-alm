@@ -18,7 +18,7 @@ import messages = require('../messages');
 import srcDevUtil = require('../core/srcDevUtil');
 import * as syncCommandHelper from './syncCommandHelper';
 import logger = require('../core/logApi');
-import { PackageInfoCache } from './packageInfoCache';
+import { SfdxProject } from '@salesforce/core';
 const { Messages } = require('@salesforce/core');
 
 Messages.importMessagesDirectory(__dirname);
@@ -37,7 +37,7 @@ class MdapiConvertCommand {
     this.logger = logger.child('mdapi:convert');
     // Set a null active package so SourceWorkspaceAdapter does
     // not get confused during decomposition.
-    PackageInfoCache.getInstance().setActivePackage(null);
+    SfdxProject.getInstance().setActivePackage(null);
   }
 
   validate(context) {

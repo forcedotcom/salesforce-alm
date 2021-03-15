@@ -29,8 +29,8 @@ export class DataRecordUpdateCommand {
       ? await conn.tooling.update(context.flags.sobjecttype, updateObject)
       : await conn.sobject(context.flags.sobjecttype).update(updateObject);
 
+    context.ux.stopSpinner();
     if (result.success) {
-      context.ux.stopSpinner();
       Display.success(Messages.get('DataRecordUpdateSuccess', updateObject[ID_FIELD]));
     } else {
       let errors = '';
@@ -40,7 +40,6 @@ export class DataRecordUpdateCommand {
           errors += '  ' + err + '\n';
         });
       }
-      context.ux.stopSpinner();
       Display.failure(Messages.get('DataRecordUpdateFailure', errors));
     }
     return result as RecordResult;

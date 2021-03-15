@@ -41,6 +41,12 @@ export class PackageUpdateCommand extends ToolbeltCommand {
       description: messages.getMessage('description', [], 'package_update'),
       longDescription: messages.getMessage('descriptionLong', [], 'package_update'),
       required: false
+    }),
+    errornotificationusername: flags.string({
+      char: 'o',
+      description: messages.getMessage('errorNotificationUsername', [], 'package_create'),
+      longDescription: messages.getMessage('errorNotificationUsernameLong', [], 'package_create'),
+      required: false
     })
   };
 

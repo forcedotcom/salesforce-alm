@@ -90,6 +90,11 @@ export class MdapiDeployCommand extends ToolbeltCommand {
       description: messages.getMessage('mdDeployCommandSinglePackageDescription'),
       longDescription: messages.getMessage('mdDeployCommandSinglePackageDescriptionLong'),
       required: false
+    }),
+    soapdeploy: flags.boolean({
+      description: messages.getMessage('mdDeploySoapDeployDescription'),
+      longDescription: messages.getMessage('mdDeploySoapDeployDescriptionLong'),
+      required: false
     })
   };
 

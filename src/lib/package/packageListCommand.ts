@@ -12,8 +12,9 @@ import logger = require('../core/logApi');
 import pkgUtils = require('./packageUtils');
 
 const QUERY =
-  'SELECT Id, SubscriberPackageId, Name, Description, NamespacePrefix, ContainerOptions, IsOrgDependent, ConvertedFromPackageId ' +
+  'SELECT Id, SubscriberPackageId, Name, Description, NamespacePrefix, ContainerOptions, IsOrgDependent, ConvertedFromPackageId, PackageErrorUsername ' +
   'FROM Package2 ' +
+  'WHERE IsDeprecated != true ' +
   'ORDER BY NamespacePrefix, Name';
 
 class PackageListCommand {
@@ -51,7 +52,8 @@ class PackageListCommand {
             NamespacePrefix,
             ContainerOptions,
             ConvertedFromPackageId,
-            IsOrgDependent
+            IsOrgDependent,
+            PackageErrorUsername
           }) => {
             const aliases = pkgUtils.getPackageAliasesFromId(Id, this.force);
             const Alias = aliases.join();
@@ -65,7 +67,8 @@ class PackageListCommand {
               ContainerOptions,
               ConvertedFromPackageId,
               Alias,
-              IsOrgDependent
+              IsOrgDependent,
+              PackageErrorUsername
             };
           }
         );
@@ -106,6 +109,10 @@ class PackageListCommand {
       columns.push({
         key: 'IsOrgDependent',
         label: messages.getMessage('isOrgDependent', [], 'package_list')
+      });
+      columns.push({
+        key: 'PackageErrorUsername',
+        label: messages.getMessage('errorNotificationUsername', [], 'package_list')
       });
     }
 

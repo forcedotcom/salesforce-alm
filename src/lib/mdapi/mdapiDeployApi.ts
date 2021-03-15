@@ -9,7 +9,7 @@ import * as path from 'path';
 import { DeployOptions, mdapiDeployRecentValidation, MetadataTransportInfo } from './mdApiUtil';
 import { getObject, getString, isBoolean } from '@salesforce/ts-types';
 
-import * as fs from 'fs';
+import { fs } from '@salesforce/core';
 import * as archiver from 'archiver';
 import * as os from 'os';
 
@@ -46,8 +46,7 @@ const convertParamsToDeployOptions = function({
   }
 
   if (runtests) {
-    // FIXME: mdapi still only running first test
-    deployOptions.runTests = runtests.includes(',') ? runtests.split(',') : runtests;
+    deployOptions.runTests = runtests.split(',');
   }
 
   if (autoUpdatePackage) {
@@ -151,10 +150,14 @@ class MdDeployApi {
 
     const zipStream = this._createReadStream(zipPath);
 
-    if (await MetadataTransportInfo.isRestDeploy()) {
+    // REST is the default unless:
+    //   1. SOAP is specified with the soapdeploy flag on the command
+    //   2. The restDeploy SFDX config setting is explicitly false.
+    if (await MetadataTransportInfo.isRestDeploy(options)) {
       this._log('*** Deploying with REST ***');
       return this.force.mdapiRestDeploy(this.scratchOrg, zipStream, convertParamsToDeployOptions(options));
     } else {
+      this._log('*** Deploying with SOAP ***');
       return this.force.mdapiSoapDeploy(this.scratchOrg, zipStream, convertParamsToDeployOptions(options));
     }
   }
@@ -218,6 +221,7 @@ class MdDeployApi {
       MetadataTransportInfo.validateExclusiveFlag(options, 'zipfile', 'jobid');
       MetadataTransportInfo.validateExclusiveFlag(options, 'checkonly', 'jobid');
       MetadataTransportInfo.validateExclusiveFlag(options, 'rollbackonerror', 'ignoreerrors');
+      MetadataTransportInfo.validateExclusiveFlag(options, 'soapdeploy', 'jobid');
     } catch (e) {
       return BBPromise.reject(e);
     }
@@ -327,12 +331,12 @@ class MdDeployApi {
     try {
       if (!options.jobid) {
         let body = await mdapiDeployRecentValidation(this.scratchOrg, options);
-        if (!(await MetadataTransportInfo.isRestDeploy())) {
+        if (options.soapdeploy) {
+          result = body;
+        } else {
           result = {};
           result.id = body;
           result.state = 'Queued';
-        } else {
-          result = body;
         }
       }
 
@@ -350,8 +354,8 @@ class MdDeployApi {
   }
 
   _throwErrorIfDeployFailed(result) {
-    if (result.status === 'Failed') {
-      const err = almError('mdapiDeployFailed');
+    if (['Failed', 'Canceled'].includes(result.status)) {
+      const err = result.status === 'Canceled' ? almError('mdapiDeployCanceled') : almError('mdapiDeployFailed');
       this._setExitCode(DEPLOY_ERROR_EXIT_CODE);
       set(err, 'result', result);
       return BBPromise.reject(err);

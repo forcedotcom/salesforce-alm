@@ -9,7 +9,7 @@ import * as util from 'util';
 import * as path from 'path';
 import * as _ from 'lodash';
 
-import * as sourceState from './sourceState';
+import { WorkspaceFileState, toReadableState } from './workspaceFileState';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { MetadataTypeFactory } from './metadataTypeFactory';
@@ -48,10 +48,10 @@ const _createRowsForConflictStatus = function(
 };
 
 const _getState = function(state, deleteSupported) {
-  const calcState = !util.isNullOrUndefined(state) ? state : sourceState.DELETED;
-  return !deleteSupported && calcState === sourceState.DELETED
-    ? `${sourceState.toString(sourceState.DELETED)} (local file)`
-    : sourceState.toString(calcState);
+  const calcState = !!state ? state : WorkspaceFileState.DELETED;
+  return !deleteSupported && calcState === WorkspaceFileState.DELETED
+    ? `${toReadableState(WorkspaceFileState.DELETED)} (local file)`
+    : toReadableState(calcState);
 };
 
 const _getFullNameFromDeleteFailure = function(failure) {
@@ -359,7 +359,7 @@ const self = {
   // displays a row based on information pulled from a SourceMember row
   createStatusRemoteRows(rows, sourceMember, projectPath) {
     const _createDisplayRowData = (sm, filePath) => ({
-      state: `Remote ${sourceState.toString(sm.state)}`,
+      state: `Remote ${toReadableState(sm.state)}`,
       fullName: sm.fullName,
       type: sm.type,
       filePath

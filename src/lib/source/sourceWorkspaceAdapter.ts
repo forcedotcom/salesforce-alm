@@ -8,16 +8,15 @@
 import * as util from 'util';
 import * as path from 'path';
 
-import * as sourceState from './sourceState';
+import { WorkspaceFileState } from './workspaceFileState';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { WorkspaceElement } from './workspaceElement';
 import { MetadataTypeFactory, FileProperty } from './metadataTypeFactory';
 import { AsyncCreatable, env, isEmpty } from '@salesforce/kit';
 import { isString } from '@salesforce/ts-types';
-import { Logger, LoggerLevel, SfdxError } from '@salesforce/core';
+import { Logger, LoggerLevel, SfdxError, SfdxProject } from '@salesforce/core';
 import { SourcePathStatusManager, SourcePathInfo } from './sourcePathStatusManager';
 import chalk = require('chalk');
-import { PackageInfoCache } from './packageInfoCache';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { SourceLocations } from './sourceLocations';
 import MetadataRegistry = require('./metadataRegistry');
@@ -41,9 +40,9 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
   public wsPath: string;
   public defaultPackagePath: string;
   public isStateless: boolean;
-  public spsm: any;
+  public spsm: SourcePathStatusManager;
   public metadataRegistry: MetadataRegistry;
-  public sourceLocations: any;
+  public sourceLocations: SourceLocations;
   public namespace: string;
   public defaultSrcDir: string;
   public fromConvert: boolean;
@@ -53,7 +52,6 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
   public changedSourceElementsCache = new AggregateSourceElements();
   public allAggregateSourceElementsCache = new AggregateSourceElements();
   public options: SourceWorkspaceAdapter.Options;
-  public packageInfoCache: PackageInfoCache;
 
   /**
    * @ignore
@@ -79,17 +77,30 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 
   protected async init(): Promise<void> {
     this.logger = await Logger.child(this.constructor.name);
-    this.packageInfoCache = PackageInfoCache.getInstance();
     this.spsm = await SourcePathStatusManager.create({
       org: this.options.org,
       isStateless: this.isStateless
     });
 
+    // If we only care about certain source paths (i.e., this.options.sourcePaths
+    // is defined) then initialize SourcePathStatusManager with just those paths.
+    let sourcePathInfos: SourcePathInfo[];
+    if (this.options.sourcePaths) {
+      sourcePathInfos = [];
+      for (let sourcePath of this.options.sourcePaths) {
+        sourcePath = path.resolve(sourcePath.trim());
+        const sourcePaths = await this.spsm.getSourcePathInfos({ sourcePath });
+        sourcePathInfos = [...sourcePathInfos, ...sourcePaths];
+      }
+    } else {
+      sourcePathInfos = await this.spsm.getSourcePathInfos();
+    }
+
     this.metadataRegistry = new this.options.metadataRegistryImpl(this.options.org);
     this.fromConvert = this.options.fromConvert || false;
     this.sourceLocations = await SourceLocations.create({
       metadataRegistry: this.metadataRegistry,
-      sourcePathInfos: await this.spsm.getSourcePathInfos(),
+      sourcePathInfos,
       shouldBuildIndices: !this.fromConvert,
       username: this.options.org.name
     });
@@ -313,7 +324,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
         sourceElement.checkForDuplicates();
       }
 
-      const [newPathsForElements, updatedPathsForElements, deletedPathsForElements] = sourceElement.commit(
+      const [newPathsForElements, updatedPathsForElements, deletedPathsForElements] = await sourceElement.commit(
         manifest,
         unsupportedMimeTypes,
         forceoverwrite
@@ -345,6 +356,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
       fileProperty,
       this.metadataRegistry
     );
+    const metadataName = aggregateMetadataType.getMetadataName();
 
     const aggregateFullName = aggregateMetadataType.getAggregateFullNameFromFileProperty(fileProperty, this.namespace);
 
@@ -352,15 +364,14 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 
     let aggregateMetadataPath;
 
-    if (!this.metadataRegistry.isSupported(aggregateMetadataType.getMetadataName())) {
+    if (!this.metadataRegistry.isSupported(metadataName)) {
       return null;
     }
 
     // This searches the known metadata file paths on the local file system for one that matches our aggregateFullName
-    aggregateMetadataPath = this.sourceLocations.getMetadataPath(
-      aggregateMetadataType.getMetadataName(),
-      aggregateFullName
-    );
+    aggregateMetadataPath =
+      this.sourceLocations.getMetadataPath(metadataName, aggregateFullName) ||
+      this.sourceLocations.getFilePath(metadataName, aggregateFullName);
     this.logger.debug(`processMdapiFileProperty aggregateMetadataPath: ${aggregateMetadataPath}`);
     if (
       !!aggregateMetadataPath &&
@@ -392,6 +403,9 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
         aggregateMetadataPath
       );
     }
+
+    this.logger.debug(`processMdapiFileProperty aggregateMetadataPath: ${aggregateMetadataPath}`);
+
     if (this.forceIgnore.accepts(aggregateMetadataPath)) {
       this.logger.debug(`processMdapiFileProperty this.forceIgnore.accepts(aggregateMetadataPath): true`);
       const newAggregateSourceElement = new AggregateSourceElement(
@@ -400,10 +414,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
         aggregateMetadataPath,
         this.metadataRegistry
       );
-      const key = AggregateSourceElement.getKeyFromMetadataNameAndFullName(
-        aggregateMetadataType.getMetadataName(),
-        aggregateFullName
-      );
+      const key = AggregateSourceElement.getKeyFromMetadataNameAndFullName(metadataName, aggregateFullName);
 
       this.logger.debug(`processMdapiFilePropertykey: ${key}`);
       const aggregateSourceElement =
@@ -465,7 +476,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
         sourceMemberMetadataType.getAggregateMetadataName(),
         aggregateFullName
       );
-      const packageName = this.packageInfoCache.getPackageNameFromSourcePath(metadataPath);
+      const packageName = SfdxProject.getInstance().getPackageNameFromPath(metadataPath);
       this.logger.debug(`handleObsoleteSource key: ${key}, package: ${packageName}`);
 
       let aggregateSourceElement = changedSourceElements.getSourceElement(packageName, key);
@@ -499,7 +510,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
             sourceMemberMetadataType.getMetadataName(),
             fullName,
             sourcePathToDelete,
-            sourceState.DELETED,
+            WorkspaceFileState.DELETED,
             true
           );
           this.logger.debug(`add pending deleted workspace element: ${fullName}`);
@@ -553,6 +564,7 @@ export namespace SourceWorkspaceAdapter {
     metadataRegistryImpl: any;
     fromConvert?: boolean;
     sourceMode?: number;
+    sourcePaths?: string[];
   }
 
   export const modes = { STATE: 0, STATELESS: 1 };

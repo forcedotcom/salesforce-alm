@@ -1,12 +1,11 @@
-import { ConfigFile, Logger, fs, SfdxError, ConfigValue } from '@salesforce/core';
-import { get, Nullable, AnyJson, Dictionary } from '@salesforce/ts-types';
+import { ConfigFile, ConfigValue, fs, Logger, SfdxError, SfdxProject } from '@salesforce/core';
+import { AnyJson, Dictionary, get, Nullable } from '@salesforce/ts-types';
 import { join } from 'path';
 import { SourcePathInfo } from './sourcePathStatusManager';
-import * as xml2js from 'xml2js';
+import { ChangeElement, RemoteSourceTrackingService } from './remoteSourceTrackingService';
 import MetadataRegistry = require('./metadataRegistry');
-import { SourceMember } from './SourceMember';
-import { PackageInfoCache } from './packageInfoCache';
-import { MaxRevision } from './MaxRevision';
+
+const XmlParser = require('fast-xml-parser');
 
 export type NonDecomposedElement = ConfigValue & {
   fullName: string;
@@ -25,8 +24,8 @@ const NON_DECOMPOSED_CONFIGS = {
   CustomLabels: [
     {
       childType: 'CustomLabel',
-      xmlTag: 'CustomLabels.labels',
-      namePath: 'fullName[0]'
+      xmlTag: 'CustomLabels[0].labels',
+      namePath: 'fullName'
     }
   ]
 };
@@ -51,8 +50,7 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
   private includedFiles: Set<string> = new Set();
   private metadataRegistry: MetadataRegistry;
   private hasChanges = false;
-  private packageInfoCache: PackageInfoCache;
-  private maxRevision: MaxRevision;
+  private remoteSourceTrackingService: RemoteSourceTrackingService;
 
   public static async getInstance(options: NonDecomposedElementsIndex.Options): Promise<NonDecomposedElementsIndex> {
     if (!this._instances[options.username]) {
@@ -61,17 +59,18 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
     return this._instances[options.username];
   }
 
-  public getFileName(): string {
+  public static getFileName(): string {
     return 'nonDecomposedElementsIndex.json';
   }
 
   protected async init() {
-    this.options.filePath = join('.sfdx', 'orgs', this.options.username);
-    this.options.filename = this.getFileName();
+    this.options.filePath = join('orgs', this.options.username);
+    this.options.filename = NonDecomposedElementsIndex.getFileName();
     this.logger = await Logger.child(this.constructor.name);
     this.metadataRegistry = this.options.metadataRegistry;
-    this.packageInfoCache = PackageInfoCache.getInstance();
-    this.maxRevision = await MaxRevision.getInstance({ username: this.options.username });
+    this.remoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
+      username: this.options.username
+    });
     await super.init();
     this.populateIncludedFiles();
   }
@@ -98,7 +97,7 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
   }
 
   /**
-   * Returns true is the metadata type contains non-decomposed elements
+   * Returns true if the metadata type contains non-decomposed elements
    * that we want to put into the index.
    */
   public isNonDecomposedElement(metadataName: string): boolean {
@@ -172,26 +171,64 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
    * Returns JSON representation of an xml file
    */
   private async readXmlAsJson(sourcePath: string): Promise<AnyJson> {
-    const contents = await fs.readFile(sourcePath);
-    return new Promise(resolve => {
-      xml2js.parseString(contents.toString(), async (err, res) => {
-        if (err) {
-          throw SfdxError.create('salesforce-alm', 'source', 'XmlParsingError', [`; ${err.message}`]);
-        } else {
-          resolve(res);
-        }
-      });
-    });
+    const contents = await fs.readFile(sourcePath, 'utf-8');
+    try {
+      return XmlParser.parse(contents, { arrayMode: true });
+    } catch (err) {
+      throw SfdxError.create('salesforce-alm', 'source', 'XmlParsingError', [`; ${err.message}`]);
+    }
   }
 
   /**
-   * Given an array of sourceMmebers, find all sourceMembers that are live in the same file location.
+   * Synchronously read a source file and look for a specific metadata key contained within it,
+   * returning `true` if found.  If the metadata key is a type unknown to this index, or if there
+   * is a problem reading/parsing the source file, an error will be logged.
+   *
+   * @param sourcePath The path to the source file.
+   * @param mdKey The metadata key to search within the source file.  E.g., CustomLabels__MyLabelName
+   */
+  public static belongsTo(sourcePath: string, mdKey: string): boolean {
+    let belongs = false;
+
+    try {
+      const [mdType, mdName] = mdKey.split('__');
+
+      const configs = NON_DECOMPOSED_CONFIGS[mdType];
+      if (!configs) {
+        throw new Error(`Unsupported NonDecomposedIndex type: ${mdType}`);
+      }
+
+      const contents = fs.readFileSync(sourcePath, 'utf-8');
+      const jsonContents: AnyJson = XmlParser.parse(contents, { arrayMode: true });
+
+      for (const config of configs) {
+        const elements = get(jsonContents, config.xmlTag, []) as AnyJson[];
+        for (const element of elements) {
+          const fullName = get(element, config.namePath) as string;
+          if (fullName === mdName) {
+            belongs = true;
+            break;
+          }
+        }
+      }
+    } catch (err) {
+      const logger = Logger.childFromRoot(this.constructor.name);
+      logger.debug(
+        `Encountered an error reading/parsing source path: ${sourcePath} for ${mdKey} due to:\n${err.stack}`
+      );
+    }
+
+    return belongs;
+  }
+
+  /**
+   * Given an array of ChangeElements, find all changeElements that live in the same file location.
    * For example, given a custom label this will return all custom labels that live in the same CustomLabels
    * meta file.
    */
-  public getRelatedNonDecomposedElements(sourceMembers: SourceMember[]): SourceMember[] {
-    const elements = [];
-    const seen = new Set();
+  public getRelatedNonDecomposedElements(changeElements: ChangeElement[]): ChangeElement[] {
+    const elements: ChangeElement[] = [];
+    const seen = new Set<string>();
     const contents = this.values();
 
     const isRelatedElement = function(
@@ -205,10 +242,10 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
       );
     };
 
-    for (const sourceMember of sourceMembers) {
-      const metadataType = this.metadataRegistry.getTypeDefinitionByMetadataName(sourceMember.MemberType);
+    for (const changeElement of changeElements) {
+      const metadataType = this.metadataRegistry.getTypeDefinitionByMetadataName(changeElement.type);
       if (metadataType && NonDecomposedElementsIndex.isSupported(metadataType.metadataName)) {
-        const key = MetadataRegistry.getMetadataKey(metadataType.metadataName, sourceMember.MemberName);
+        const key = MetadataRegistry.getMetadataKey(metadataType.metadataName, changeElement.name);
         const element = this.get(key);
 
         contents.forEach(item => {
@@ -216,12 +253,12 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
 
           if (shouldAdd) {
             seen.add(item.fullName);
-            const sourceMemberFromMaxRevision = this.maxRevision.getSourceMember(key);
-            const isNameObsolete = sourceMemberFromMaxRevision ? sourceMemberFromMaxRevision.isNameObsolete : false;
+            const trackedElement = this.remoteSourceTrackingService.getTrackedElement(key);
+            const isNameObsolete = trackedElement ? trackedElement.deleted : false;
             elements.push({
-              MemberType: sourceMember.MemberType,
-              MemberName: item.fullName,
-              IsNameObsolete: isNameObsolete
+              type: changeElement.type,
+              name: item.fullName,
+              deleted: isNameObsolete
             });
           }
         });
@@ -238,10 +275,9 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
       return [];
     }
     const elements = [...this.values()];
-    const matches = elements.filter(element => {
+    return elements.filter(element => {
       return element.metadataFilePath === metadataFilePath;
     });
-    return matches;
   }
 
   /**
@@ -269,8 +305,12 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
   public async refreshIndex(sourcePaths?: string[]): Promise<void> {
     const paths = sourcePaths || this.includedFiles;
     for (const sourcePath of paths) {
-      this.clearElements(sourcePath);
-      await this.handleDecomposedElements({ sourcePath } as SourcePathInfo, true);
+      if (await fs.fileExists(sourcePath)) {
+        this.clearElements(sourcePath);
+        await this.handleDecomposedElements({ sourcePath } as SourcePathInfo, true);
+      } else {
+        this.deleteEntryBySourcePath(sourcePath);
+      }
     }
   }
 
@@ -278,9 +318,25 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
    * Returns true if the given nonDecomposedElements belongs to the default package
    */
   private elementBelongsToDefaultPackage(nonDecomposedElement: NonDecomposedElement): boolean {
-    const defaultPackage = this.packageInfoCache.getDefaultPackage().name;
-    const elementPackage = this.packageInfoCache.getPackageNameFromSourcePath(nonDecomposedElement.metadataFilePath);
+    const defaultPackage = SfdxProject.getInstance().getDefaultPackage().name;
+    const elementPackage = SfdxProject.getInstance().getPackageNameFromPath(nonDecomposedElement.metadataFilePath);
     return defaultPackage === elementPackage;
+  }
+
+  public deleteEntryBySourcePath(path: string): void {
+    try {
+      const elements = this.getElementsByMetadataFilePath(path);
+      elements.forEach(element => {
+        this.unset(`${element.type}__${element.fullName}`);
+      });
+    } catch (e) {
+      // if it's already been deleted, don't throw an error when trying to delete it again
+      // but if it's a different error, throw it!
+      if (e.message !== 'Cannot convert undefined or null to object') {
+        this.logger.debug(`An error occured when trying to delete ${path} from the nonDecomposedElementsIndex`);
+        throw SfdxError.wrap(e);
+      }
+    }
   }
 
   public async write() {

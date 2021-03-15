@@ -114,6 +114,8 @@ export class SourceDeployCommand extends ToolbeltCommand {
       exclusive: ['metadata', 'sourcepath']
     })
   };
+  protected readonly lifecycleEventNames = ['predeploy', 'postdeploy'];
+
   public async run(): Promise<unknown> {
     const { SourceApiCommand } = require('../../../lib/source/sourceApiCommand');
     const context = await this.resolveLegacyContext();

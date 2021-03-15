@@ -8,7 +8,7 @@
 import MetadataRegistry = require('./metadataRegistry');
 import OrgOpenCommand = require('../org/orgOpenCommand');
 import * as path from 'path';
-import * as fs from 'fs';
+import { fs } from '@salesforce/core';
 import * as request from 'request';
 import * as Display from '../force-cli/force-cli-display';
 import * as Config from '../force-cli/force-cli-config';

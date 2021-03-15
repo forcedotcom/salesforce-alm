@@ -1,4 +1,4 @@
-import { Logger } from '@salesforce/core';
+import { Logger, SfdxProject } from '@salesforce/core';
 import { AsyncCreatable, isEmpty } from '@salesforce/kit';
 import { Nullable } from '@salesforce/ts-types';
 import { MetadataType } from './metadataType';
@@ -7,7 +7,6 @@ import { SourcePathInfo } from './sourcePathStatusManager';
 import { isString } from 'util';
 import MetadataRegistry = require('./metadataRegistry');
 import { NonDecomposedElementsIndex } from './nonDecomposedElementsIndex';
-import { PackageInfoCache } from './packageInfoCache';
 
 interface SourceLocationsOptions {
   metadataRegistry: MetadataRegistry;
@@ -40,7 +39,7 @@ export type FilePathsIndex = Map<string, string[]>;
  * whereas the `metadataPathsIndex` ONLY contains the entries for the aggregate workspace elements.
  *
  * We allow multiple file paths per metadata key because the same metadata could live in multiple packages, e.g. CustomLabels.
- * When getting a file path based on a given key, we use PackageInfoCache.getActivePackage() to determine which path to return.
+ * When getting a file path based on a given key, we use SfdxProject.getActivePackage() to determine which path to return.
  *
  */
 export class SourceLocations extends AsyncCreatable<SourceLocationsOptions> {
@@ -54,7 +53,6 @@ export class SourceLocations extends AsyncCreatable<SourceLocationsOptions> {
   private sourcePathInfos: SourcePathInfo[];
   private shouldBuildIndices: boolean;
   private username: string;
-  private packageInfoCache: PackageInfoCache;
 
   constructor(options: SourceLocationsOptions) {
     super(options);
@@ -62,7 +60,6 @@ export class SourceLocations extends AsyncCreatable<SourceLocationsOptions> {
     this.sourcePathInfos = options.sourcePathInfos;
     this.shouldBuildIndices = options.shouldBuildIndices;
     this.username = options.username;
-    this.packageInfoCache = PackageInfoCache.getInstance();
   }
 
   protected async init(): Promise<void> {
@@ -98,9 +95,10 @@ export class SourceLocations extends AsyncCreatable<SourceLocationsOptions> {
     const key = MetadataRegistry.getMetadataKey(metadataType, fullName);
     // We search both indices since nondecomposed elements (e.g. CustomLabel) are not
     // included in the filePathsIndex
-    const paths = SourceLocations.filePathsIndex.get(key) || [
-      SourceLocations.nonDecomposedElementsIndex.getMetadataFilePath(key)
-    ];
+    let paths = SourceLocations.filePathsIndex.get(key);
+    if (!paths && SourceLocations.nonDecomposedElementsIndex) {
+      paths = [SourceLocations.nonDecomposedElementsIndex.getMetadataFilePath(key)];
+    }
     if (paths) {
       return this.getPathByActivePackage(paths);
     } else {
@@ -123,10 +121,11 @@ export class SourceLocations extends AsyncCreatable<SourceLocationsOptions> {
   private getPathByActivePackage(paths: string[]): string {
     if (paths.length === 1) return paths[0];
 
-    const activePackage = this.packageInfoCache.getActivePackage();
+    const activePackage = SfdxProject.getInstance().getActivePackage();
+
     const match = paths.find(p => {
-      const pkgName = this.packageInfoCache.getPackageNameFromSourcePath(p);
-      return pkgName === activePackage.name;
+      const pkgName = SfdxProject.getInstance().getPackageNameFromPath(p);
+      return pkgName === (activePackage && activePackage.name);
     });
     return match || paths[0];
   }
@@ -159,6 +158,8 @@ export class SourceLocations extends AsyncCreatable<SourceLocationsOptions> {
             sourcePathInfo.sourcePath
           );
           this.addMetadataPath(pathMetadataType.getMetadataName(), aggregateFullName, aggregateMetadataPath);
+          this.addFilePath(pathMetadataType, sourcePathInfo.sourcePath);
+        } else if (!sourcePathInfo.isDirectory) {
           this.addFilePath(pathMetadataType, sourcePathInfo.sourcePath);
         }
       }

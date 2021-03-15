@@ -87,9 +87,10 @@ export class MetadataTypeFactory {
     const typeDefObj = metadataRegistry.getTypeDefinitionByMetadataName(fileProperty.type);
     if (typeDefObj && typeDefObj.inFolder) {
       const metadataType = typeDefObj.metadataName.toLowerCase();
+      const normalizedFullName = path.normalize(fileProperty.fullName);
       if (!fullFileName.endsWith(metadataType) && (metadataType === 'report' || metadataType === 'dashboard')) {
         return typeDefObj.folderTypeDef;
-      } else if (fileProperty.fullName.split(path.sep).length === 1) {
+      } else if (normalizedFullName.split(path.sep).length === 1) {
         return typeDefObj.folderTypeDef;
       }
     }
@@ -293,7 +294,9 @@ export class MetadataTypeFactory {
             typeDef = inFolderType;
           }
         } else {
-          typeDef = metadataRegistry.getTypeDefinitionByFileName(file);
+          const extension = path.extname(packagePath).replace('.', '');
+          const matchingTypeDef = possibleTypeDefs.find(typeDef => typeDef.ext === extension);
+          typeDef = matchingTypeDef || metadataRegistry.getTypeDefinitionByFileName(file);
         }
       }
 

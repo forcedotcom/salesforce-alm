@@ -13,7 +13,7 @@ import fs = require('fs');
 
 export class DataBulkDeleteCommand {
   async execute(context): Promise<any> {
-    context.ux.startSpinner();
+    context.ux.startSpinner('Bulk Delete');
     let conn: Connection = await Config.getActiveConnection(context);
 
     let csvRecords;

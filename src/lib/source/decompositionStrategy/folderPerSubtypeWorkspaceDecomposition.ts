@@ -7,7 +7,7 @@
 
 // Node
 import * as path from 'path';
-import * as fs from 'fs';
+import { fs } from '@salesforce/core';
 
 // Local
 import srcDevUtil = require('../../core/srcDevUtil');
@@ -18,7 +18,7 @@ import { DecompositionConfig, DecomposedSubtypeConfig } from './decompositionCon
 import { MetadataDocumentAnnotation } from '../metadataDocument';
 import { Nullable } from '@salesforce/ts-types';
 import { SourceLocations } from '../sourceLocations';
-import { PackageInfoCache } from '../packageInfoCache';
+import { SfdxProject } from '@salesforce/core';
 
 /**
  * Workspace decomposition strategy where decomposed subtypes are given
@@ -65,9 +65,9 @@ export class FolderPerSubtypeWorkspaceDecomposition implements DecompositionWork
 
   findDecomposedPaths(metadataFilePath: string, ext: string): Map<DecomposedSubtypeConfig, string[]> {
     const decomposedPaths = new Map<DecomposedSubtypeConfig, string[]>();
-    const packageInfoCache = PackageInfoCache.getInstance();
-    const metaPkgName = packageInfoCache.getPackageNameFromSourcePath(metadataFilePath);
-    packageInfoCache.packageNames.forEach(pkg => {
+    const project = SfdxProject.getInstance();
+    const metaPkgName = project.getPackageNameFromPath(metadataFilePath);
+    project.getUniquePackageNames().forEach(pkg => {
       // We have to make the metadataFilePath relative to each package in order to get
       // any decompositions that might live in a different package from the meta file
       const pkgMetadataFilePath = metadataFilePath.replace(metaPkgName, pkg);
@@ -83,7 +83,10 @@ export class FolderPerSubtypeWorkspaceDecomposition implements DecompositionWork
             if (!decomposedPaths.has(decomposedSubtypeConfig)) {
               decomposedPaths.set(decomposedSubtypeConfig, []);
             }
-            decomposedPaths.get(decomposedSubtypeConfig).push(file);
+
+            if (!decomposedPaths.get(decomposedSubtypeConfig).includes(file)) {
+              decomposedPaths.get(decomposedSubtypeConfig).push(file);
+            }
           }
         }
       }
@@ -104,19 +107,28 @@ export class FolderPerSubtypeWorkspaceDecomposition implements DecompositionWork
     return sourceDir;
   }
 
+  // Look for existing matching source paths in this order:
+  //   1st: child key  e.g., CustomObject__MyCustomObject__c.MyCustomField__c
+  //   2nd: parent key  e.g., CustomObject__MyCustomObject__c IF aggregateFullName == annotation.name
+  //   3rd: parent name  e.g., MyCustomObject__c
+  // If nothing found return null;
   getDecomposedSubtypeDirFromAnnotation(
     annotation: MetadataDocumentAnnotation,
     metadataType: string,
     aggregateFullName: string,
     decomposedSubtypeConfig: DecomposedSubtypeConfig
   ): Nullable<string> {
-    const key =
-      aggregateFullName === annotation.name
-        ? MetadataRegistry.getMetadataKey(metadataType, aggregateFullName)
-        : MetadataRegistry.getMetadataKey(metadataType, `${aggregateFullName}.${annotation.name}`);
+    const childKey = MetadataRegistry.getMetadataKey(metadataType, `${aggregateFullName}.${annotation.name}`);
+    let parentKey;
+    if (aggregateFullName === annotation.name) {
+      parentKey = MetadataRegistry.getMetadataKey(metadataType, aggregateFullName);
+    }
+
     const filePathsIndex = SourceLocations.filePathsIndex;
-    if (filePathsIndex.has(key)) {
-      return path.dirname(filePathsIndex.get(key)[0]);
+    if (filePathsIndex.has(childKey)) {
+      return path.dirname(filePathsIndex.get(childKey)[0]);
+    } else if (parentKey && filePathsIndex.has(parentKey)) {
+      return path.dirname(filePathsIndex.get(parentKey)[0]);
     } else if (filePathsIndex.has(aggregateFullName)) {
       return path.join(
         path.dirname(filePathsIndex.get(aggregateFullName)[0]),

@@ -44,6 +44,12 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
 
   // This returns the full path to the meta file for the LWC.
   // E.g., unpackaged/lwc/helloworld/helloworld.js-meta.xml
+  //
+  // bundleFileProperties is an array that could contain an LWC definition file property built
+  // from this.getCorrespondingLWCDefinitionFileProperty(), OR it could contain a generic
+  // file property built from BundleMetadataType.getDefinitionProperties().  If it's the latter
+  // we need to modify the filePaths of all LWCs to ensure a .js extension so we properly
+  // resolve the meta.xml file.
   getRetrievedMetadataPath(fileProperty, retrieveRoot: string, bundleFileProperties): string {
     // There may be an existing, easier way to do this but I don't see
     // anything in BundlePathHelper.  This takes an LWC file path and
@@ -52,13 +58,19 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
       fileProperty.fileName,
       this.typeDefObj.defaultDirectory
     );
+
+    // ensure LWC bundleFileProperties have a fileName with .js extension
+    const bundFileProps = bundleFileProperties.map(fileProp => {
+      if (fileProp.type === 'LightningComponentBundle' && fileProp.fileName.endsWith('.css')) {
+        fileProp.fileName = fileProp.fileName.replace(/\.css$/, '.js');
+      }
+      return fileProp;
+    });
+
     const pathArray: string[] = path.dirname(fileProperty.fileName).split(path.sep);
     const bundleIndex = pathArray.lastIndexOf(bundleName);
     const bundlePath = pathArray.slice(0, bundleIndex + 1).join(path.sep);
-    const fileName = BundlePathHelper.getMetadataFileNameFromBundleFileProperties(
-      fileProperty.fullName,
-      bundleFileProperties
-    );
+    const fileName = BundlePathHelper.getMetadataFileNameFromBundleFileProperties(fileProperty.fullName, bundFileProps);
     const retrievedMetadataPath = path.join(retrieveRoot, bundlePath, fileName);
     if (srcDevUtil.pathExistsSync(retrievedMetadataPath)) {
       return retrievedMetadataPath;
@@ -72,24 +84,46 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
     lwcMetadataName: string,
     metadataRegistry
   ): any {
-    const bundleDirPath = path.join(retrieveRoot, path.dirname(filePropertyFileName));
+    let bundleDirPath = path.join(retrieveRoot, path.dirname(filePropertyFileName));
+    // We assume that all LWC bundles are nested directly under the lwc/ directory. But bundles can have
+    // subdirectories within themselves, so in the case that we have a subdirectory path where the parent directory
+    // is not lwc/ then, we work backward until we find it
+    // for example: force-app/main/default/lwc/appHeader/__mocks__/appHeader.js
+    if (path.dirname(bundleDirPath) !== 'lwc') {
+      const pathParts = path.join(retrieveRoot, path.dirname(filePropertyFileName)).split(path.sep);
+      const lwcIndex = pathParts.findIndex(p => p === 'lwc');
+      bundleDirPath = pathParts.slice(0, lwcIndex + 2).join(path.sep);
+    }
     const bundlePaths = glob.sync(path.join(bundleDirPath, '*'));
     const bundleDefinitionPath = bundlePaths.find(bundlePath => this.isDefinitionFile(bundlePath));
+
+    // LWCs can have the .css or .js file as the main LWC file, but the definition fileName
+    // MUST be the .js extension in order to properly resolve the meta.xml file in the same
+    // pattern as other bundle types.
+    let fileName = bundleDefinitionPath;
+    if (fileName.endsWith('.css')) {
+      fileName = fileName.replace(/\.css$/, '.js');
+    }
+
     const lwcDefinitionFileProperty = {
       type: lwcMetadataName,
-      fileName: path.relative(retrieveRoot, bundleDefinitionPath),
-      fullName: path.basename(bundleDefinitionPath, path.extname(bundleDefinitionPath))
+      fileName: path.relative(retrieveRoot, fileName),
+      fullName: path.basename(fileName, path.extname(fileName))
     };
     return lwcDefinitionFileProperty;
   }
 
-  // For LWC, the meta file is always in the bundle dir with `-meta.xml` appended to the
-  // main JS file.
+  // For LWC, the meta file is always in the bundle dir with `.js-meta.xml` appended to the
+  // LWC full name.
   // E.g., lwc/helloworld/helloworld.js-meta.xml
+  // NOTE: I'm not sure what the original purpose of this function was; it doesn't seem to
+  //       operate how I'd expect, but changing it to work differently than other bundle
+  //       types is a time-consuming, uphill battle that is not worth it.  This takes a LWC
+  //       file as input and returns true when it is either the main .js or .css file.
   isDefinitionFile(filePath: string): boolean {
     const fixedFilePath = PathUtil.replaceForwardSlashes(filePath);
     const fileExt = (path.extname(fixedFilePath) || '').toLowerCase();
-    if (fileExt === '.js') {
+    if (['.js', '.css'].includes(fileExt)) {
       const pathArray: string[] = path.dirname(fixedFilePath).split(path.sep);
       const aggFullName = BundlePathHelper.scanFilePathForAggregateFullName(
         fixedFilePath,

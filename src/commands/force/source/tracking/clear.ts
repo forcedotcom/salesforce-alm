@@ -8,7 +8,7 @@
 import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
 import { ConfigContents, Messages } from '@salesforce/core';
 import chalk from 'chalk';
-import { MaxRevision } from '../../../../lib/source/MaxRevision';
+import { RemoteSourceTrackingService } from '../../../../lib/source/remoteSourceTrackingService';
 import { Workspace } from '../../../../lib/source/workspace';
 
 const Org = require('../../../../lib/core/scratchOrgApi');
@@ -22,7 +22,7 @@ export type SourceTrackingClearResult = {
 };
 
 // ConfigFile reads the file on init. We don't want to read the file, just delete it.
-class OnlyDeletableMaxRevision extends MaxRevision {
+class OnlyDeletableMaxRevision extends RemoteSourceTrackingService {
   public async read(throwOnNotFound?: boolean, force?: boolean): Promise<ConfigContents> {
     return {};
   }
@@ -43,7 +43,6 @@ class OnlyDeletableWorkspace extends Workspace {
 
 export class SourceTrackingClearCommand extends SfdxCommand {
   public static readonly description = messages.getMessage('clearDescription');
-  public static readonly longDescription = messages.getMessage('clearLongDescription');
 
   public static readonly requiresProject = true;
   public static readonly requiresUsername = true;
@@ -52,7 +51,6 @@ export class SourceTrackingClearCommand extends SfdxCommand {
     noprompt: flags.boolean({
       char: 'p',
       description: messages.getMessage('nopromptDescription'),
-      longDescription: messages.getMessage('nopromptLongDescription'),
       required: false
     })
   };

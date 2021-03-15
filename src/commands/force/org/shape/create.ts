@@ -9,7 +9,6 @@
 // THIS SHOULD BE REMOVED WHEN CONVERTED TO EXTEND SfdxCommand
 /* istanbul ignore file */
 
-import { flags, FlagsConfig } from '@salesforce/command';
 import Messages = require('../../../../lib/messages');
 import { ToolbeltCommand } from '../../../../ToolbeltCommand';
 
@@ -27,17 +26,7 @@ export class OrgShapeCreateCommand extends ToolbeltCommand {
   public static readonly requiresProject = false;
   public static readonly requiresUsername = true;
 
-  public static readonly flagsConfig: FlagsConfig = {
-    definitionfile: flags.string({
-      char: 'f',
-      description: messages.getMessage('create_shape_command_definitionfile', null, 'org_shape'),
-      longDescription: messages.getMessage('create_shape_command_definitionfile_long', null, 'org_shape'),
-      required: false
-    })
-  };
-
   public async run(): Promise<unknown> {
-
     const context = await this.resolveLegacyContext();
     const ShapeRepCreateCommand = require('../../../../lib/org/shapeRepCreateCommand');
     const createCommand = new ShapeRepCreateCommand();
@@ -45,12 +34,14 @@ export class OrgShapeCreateCommand extends ToolbeltCommand {
     let timeoutID;
 
     const timeout = new Promise((_, reject) => {
-      timeoutID = setTimeout(() => { reject(messages.getMessage('shapeCreateFailedMessage')); }, commandTimeOutInMS);
-      });
+      timeoutID = setTimeout(() => {
+        reject(messages.getMessage('shapeCreateFailedMessage'));
+      }, commandTimeOutInMS);
+    });
 
-    return Promise.race([
-      this.execLegacyCommand(createCommand, context),
-      timeout
-    ]).then( result => { clearTimeout(timeoutID); return result; });
+    return Promise.race([this.execLegacyCommand(createCommand, context), timeout]).then(result => {
+      clearTimeout(timeoutID);
+      return result;
+    });
   }
 }

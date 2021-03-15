@@ -5,12 +5,11 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as _ from 'lodash';
 
 import srcDevUtil = require('../core/srcDevUtil');
-import * as sourceState from './sourceState';
+import { WorkspaceFileState } from './workspaceFileState';
 import Messages = require('../messages');
 const messages = Messages();
 import MetadataRegistry = require('./metadataRegistry');
@@ -30,9 +29,9 @@ import { FolderMetadataType } from './metadataTypeImpl/folderMetadataType';
 
 import * as PathUtils from './sourcePathUtil';
 import { checkForXmlParseError } from './sourceUtil';
-import { SfdxError } from '@salesforce/core';
-import { PackageInfoCache } from './packageInfoCache';
-import { FilePathsIndex } from './sourceLocations';
+import { fs, SfdxError, SfdxProject } from '@salesforce/core';
+import { FilePathsIndex, SourceLocations } from './sourceLocations';
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 
 /**
  * Class used to manage top-level metadata
@@ -71,7 +70,6 @@ export class AggregateSourceElement {
   pendingDeletedWorkspaceElements: WorkspaceElement[];
 
   filePathsIndex: FilePathsIndex;
-  packageInfoCache: PackageInfoCache;
 
   /**
    * @param aggregateMetadataType - this is the type for the top-level parent metadata - e.g. ApexClass, CustomObject, etc.
@@ -90,8 +88,7 @@ export class AggregateSourceElement {
     this.metadataRegistry = metadataRegistry; // my hope is to be able to get rid of this when typeDefs become first class
     this.aggregateFullName = aggregateFullName;
     this.metadataFilePath = aggregateMetadataFilePath;
-    this.packageInfoCache = PackageInfoCache.getInstance();
-    this.packageName = this.packageInfoCache.getPackageNameFromSourcePath(this.metadataFilePath);
+    this.packageName = SfdxProject.getInstance().getPackageNameFromPath(this.metadataFilePath);
 
     this.decompStrategy = DecompositionStrategyFactory.newDecompositionStrategy(
       this.metadataType.getDecompositionConfig()
@@ -235,7 +232,7 @@ export class AggregateSourceElement {
    * @param workspaceElement
    */
   validateIfDeletedWorkspaceElement(workspaceElement): void {
-    if (workspaceElement.getState() === sourceState.DELETED) {
+    if (workspaceElement.getState() === WorkspaceFileState.DELETED) {
       const contentPaths = this.metadataType.hasContent() ? this.getContentPaths(this.getMetadataFilePath()) : [];
 
       // If the metadata file was deleted and not the content file, throw an error
@@ -270,10 +267,11 @@ export class AggregateSourceElement {
     let isDeleted = false;
     this.getWorkspaceElements().forEach(workspaceElement => {
       this.validateIfDeletedWorkspaceElement(workspaceElement);
-      if (workspaceElement.getState() === sourceState.DELETED) {
+      if (workspaceElement.getState() === WorkspaceFileState.DELETED) {
         const deletedPath = workspaceElement.getSourcePath();
         // Does the deleted path item match the object meta file path?
-        if (deletedPath === this.getContainerPath()) {
+        // For most bundle types the container path is the path to the directory containing the bundle
+        if (deletedPath.includes(this.getContainerPath())) {
           isDeleted = true;
           // Delete any remaining empty paths for composable entities.
           if (this.decompStrategy.isComposable()) {
@@ -306,8 +304,9 @@ export class AggregateSourceElement {
    */
   markForDelete(): void {
     this.deleted = true;
-    const metadataPathsToDelete = this.getMetadataPaths(this.getMetadataFilePath());
-    const contentPathsToDelete = this.getContentPaths(this.getMetadataFilePath());
+    const path = this.getMetadataFilePath();
+    const metadataPathsToDelete = this.getMetadataPaths(path);
+    const contentPathsToDelete = this.getContentPaths(path);
     const allPaths = metadataPathsToDelete.concat(contentPathsToDelete);
     allPaths.forEach(deletedPath => {
       const deletedMetadataType = MetadataTypeFactory.getMetadataTypeFromSourcePath(deletedPath, this.metadataRegistry);
@@ -317,10 +316,20 @@ export class AggregateSourceElement {
         deletedMetadataType.getMetadataName(),
         fullNameForPath,
         deletedPath,
-        sourceState.DELETED,
+        WorkspaceFileState.DELETED,
         deleteSupported
       );
       this.addPendingDeletedWorkspaceElement(deletedWorkspaceElement);
+      const nonDecomposedElementsIndex = SourceLocations.nonDecomposedElementsIndex;
+
+      // SourceLocations aren't available for source:delete.  nonDecomposedElementsIndex is
+      // only for special handling of CustomLabels for push/pull.
+      if (nonDecomposedElementsIndex) {
+        const elements = nonDecomposedElementsIndex.getElementsByMetadataFilePath(path);
+        if (elements.length === 1) {
+          nonDecomposedElementsIndex.deleteEntryBySourcePath(path);
+        }
+      }
     });
   }
 
@@ -369,7 +378,11 @@ export class AggregateSourceElement {
    * @param forceoverwrite
    * @returns {Array[]}
    */
-  commit(manifest, unsupportedMimeTypes: string[], forceoverwrite = false): [string[], string[], string[]] {
+  async commit(
+    manifest,
+    unsupportedMimeTypes: string[],
+    forceoverwrite = false
+  ): Promise<[string[], string[], string[]]> {
     let newPaths = [];
     let updatedPaths = [];
     let deletedPaths = [];
@@ -378,18 +391,18 @@ export class AggregateSourceElement {
     this.commitDeletes(deletedPaths);
 
     if (!_.isNil(this.retrievedMetadataPath)) {
-      this.commitMetadata(newPaths, updatedPaths, deletedPaths, dupPaths, manifest, forceoverwrite);
+      await this.commitMetadata(newPaths, updatedPaths, deletedPaths, dupPaths, manifest, forceoverwrite);
     }
 
     if (this.metadataType.hasContent() && !_.isNil(this.retrievedContentPaths)) {
-      this.commitContent(newPaths, updatedPaths, deletedPaths, dupPaths, unsupportedMimeTypes, forceoverwrite);
+      await this.commitContent(newPaths, updatedPaths, deletedPaths, dupPaths, unsupportedMimeTypes, forceoverwrite);
     }
 
     // associate committed source to sourceElement
-    this.addCorrespondingWorkspaceElements(newPaths, sourceState.NEW);
-    this.addCorrespondingWorkspaceElements(updatedPaths, sourceState.CHANGED);
-    this.addCorrespondingWorkspaceElements(deletedPaths, sourceState.DELETED);
-    this.addCorrespondingWorkspaceElements(dupPaths, sourceState.DUP);
+    this.addCorrespondingWorkspaceElements(newPaths, WorkspaceFileState.NEW);
+    this.addCorrespondingWorkspaceElements(updatedPaths, WorkspaceFileState.CHANGED);
+    this.addCorrespondingWorkspaceElements(deletedPaths, WorkspaceFileState.DELETED);
+    this.addCorrespondingWorkspaceElements(dupPaths, WorkspaceFileState.DUP);
 
     // adding the empty folder must come after the creation of all corresponding workspace elements
     this.addEmptyFolder();
@@ -416,8 +429,8 @@ export class AggregateSourceElement {
       });
   }
 
-  private commitMetadata(newPaths, updatedPaths, deletedPaths, dupPaths, manifest, forceoverwrite) {
-    const [newMetaPaths, updatedMetaPaths, deletedMetaPaths, dupMetaPaths] = this.decomposeMetadata(
+  private async commitMetadata(newPaths, updatedPaths, deletedPaths, dupPaths, manifest, forceoverwrite) {
+    const [newMetaPaths, updatedMetaPaths, deletedMetaPaths, dupMetaPaths] = await this.decomposeMetadata(
       this.retrievedMetadataPath,
       this.getMetadataFilePath(),
       manifest,
@@ -429,13 +442,13 @@ export class AggregateSourceElement {
     dupPaths.push(...dupMetaPaths);
   }
 
-  private commitContent(newPaths, updatedPaths, deletedPaths, dupPaths, unsupportedMimeTypes, forceoverwrite) {
+  private async commitContent(newPaths, updatedPaths, deletedPaths, dupPaths, unsupportedMimeTypes, forceoverwrite) {
     const [
       newContentPaths,
       updatedContentPaths,
       deletedContentPaths,
       dupContentPaths
-    ] = this.contentStrategy.saveContent(
+    ] = await this.contentStrategy.saveContent(
       this.getMetadataFilePath(),
       this.retrievedContentPaths,
       this.retrievedMetadataPath,
@@ -458,7 +471,7 @@ export class AggregateSourceElement {
       );
       if (folderPath) {
         this.addWorkspaceElement(
-          new WorkspaceElement(this.getMetadataName(), this.aggregateFullName, folderPath, sourceState.NEW, true)
+          new WorkspaceElement(this.getMetadataName(), this.aggregateFullName, folderPath, WorkspaceFileState.NEW, true)
         );
       }
     }
@@ -502,25 +515,18 @@ export class AggregateSourceElement {
    * @param forceIgnore
    * @returns {Array}
    */
-  getFilePathTranslations(mdDir, tmpDir, unsupportedMimeTypes?: string[], forceIgnore?) {
+  async getFilePathTranslations(mdDir, tmpDir, unsupportedMimeTypes?: string[], forceIgnore?: ForceIgnore) {
     let filePathTranslations = [];
 
-    let promise;
     if (this.metadataType.hasContent()) {
-      promise = Promise.resolve()
-        .then(() => this.getContentPathTranslations(mdDir, unsupportedMimeTypes, forceIgnore))
-        .then(contentPathTranslations => (filePathTranslations = contentPathTranslations));
-    } else {
-      promise = Promise.resolve();
+      filePathTranslations = await this.getContentPathTranslations(mdDir, unsupportedMimeTypes, forceIgnore);
     }
 
-    return promise.then(() => {
-      if (this.metadataType.shouldGetMetadataTranslation()) {
-        const metadataPathTranslation = this.getMetadataPathTranslation(tmpDir, mdDir);
-        filePathTranslations.push(metadataPathTranslation);
-      }
-      return filePathTranslations;
-    });
+    if (this.metadataType.shouldGetMetadataTranslation()) {
+      const metadataPathTranslation = await this.getMetadataPathTranslation(tmpDir, mdDir);
+      filePathTranslations.push(metadataPathTranslation);
+    }
+    return filePathTranslations;
   }
 
   private getContentPathTranslations(mdDir: string, unsupportedMimeTypes: string[], forceIgnore) {
@@ -546,12 +552,12 @@ export class AggregateSourceElement {
       );
   }
 
-  private getMetadataPathTranslation(tmpDir: string, mdDir: string) {
+  private async getMetadataPathTranslation(tmpDir: string, mdDir: string) {
     const mdFilePath = this.getMetadataFilePath();
 
     // For non-decomposed metadata, use the file from the source dir. For decomposed metadata,
     // compose it to the tmpDir.
-    const composedPath = this.decompStrategy.isComposable() ? this.composeMetadata(mdFilePath, tmpDir) : null;
+    const composedPath = this.decompStrategy.isComposable() ? await this.composeMetadata(mdFilePath, tmpDir) : null;
     const workspacePathToMetadata = !_.isNil(composedPath) ? composedPath : mdFilePath;
     const mdapiMetadataPath = this.metadataType.getMdapiMetadataPath(mdFilePath, this.getAggregateFullName(), mdDir);
     return this.createTranslation(workspacePathToMetadata, mdapiMetadataPath);
@@ -579,7 +585,7 @@ export class AggregateSourceElement {
    * @param tmpDir temporary directory to hold the composed metadata file outside of the workspace.
    * @returns {string} the path of composed metadata file.
    */
-  composeMetadata(metadataFilePath: string, tmpDir: string): string {
+  async composeMetadata(metadataFilePath: string, tmpDir: string): Promise<string> {
     let container;
     const containerPath = this.workspaceStrategy.getContainerPath(metadataFilePath, this.metadataType.getExt());
 
@@ -638,7 +644,8 @@ export class AggregateSourceElement {
       const candidateElement = this.workspaceElements.find(
         workspaceElement =>
           workspaceElement.getSourcePath() === decompositionFilePath &&
-          (workspaceElement.getState() == sourceState.NEW || workspaceElement.getState() == sourceState.CHANGED)
+          (workspaceElement.getState() == WorkspaceFileState.NEW ||
+            workspaceElement.getState() == WorkspaceFileState.CHANGED)
       );
       return !_.isNil(candidateElement);
     } else {
@@ -655,12 +662,12 @@ export class AggregateSourceElement {
    * @param manifest
    * @returns {[string[], string[], string[]]} a triplet containing a list of new, updated, and deleted workspace paths for the decomposed files.
    */
-  private decomposeMetadata(
+  private async decomposeMetadata(
     sourceFilePath: string,
     metadataFilePath: string,
     manifest?,
     forceoverwrite = false
-  ): [string[], string[], string[], string[]] {
+  ): Promise<[string[], string[], string[], string[]]> {
     const composed = this.decompStrategy.newComposedDocument(this.metadataType.getDecompositionConfig().metadataName);
     try {
       composed.setRepresentation(fs.readFileSync(sourceFilePath, 'utf8'));
@@ -762,10 +769,10 @@ export class AggregateSourceElement {
    * for mdapi:convert and source:convert.
    */
   private shouldIgnorePath(sourceDir: string): boolean {
-    const activePackage = this.packageInfoCache.getActivePackage();
+    const activePackage = SfdxProject.getInstance().getActivePackage();
     const activePackageName = activePackage ? activePackage.name : activePackage;
     if (!activePackageName) return false;
-    const pkgName = this.packageInfoCache.getPackageNameFromSourcePath(sourceDir);
+    const pkgName = SfdxProject.getInstance().getPackageNameFromPath(sourceDir);
     return pkgName !== activePackageName;
   }
 }

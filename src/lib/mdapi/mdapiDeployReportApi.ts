@@ -46,6 +46,8 @@ class MdDeployReportApi {
     this.logger = logger.child('md-deploy-report');
     this._print = this._print.bind(this);
     this.pollIntervalStrategy = pollIntervalStrategy;
+    // if SFDX_USE_PROGRESS_BAR is true use progress bar, if not use old output
+    this.useProgressBar = env.getBoolean('SFDX_USE_PROGRESS_BAR', true);
     this.progressBar = cli.progress({
       format: `${stashkey.split('_')[0]} PROGRESS | {bar} | {value}/{total} Components`,
       barCompleteChar: '\u2588',
@@ -71,7 +73,9 @@ class MdDeployReportApi {
       if (!util.isArray(result.details.componentFailures)) {
         result.details.componentFailures = [result.details.componentFailures];
       }
-      this.useProgressBar ? this.progressBar.stop() : this._printOldOutput(result);
+
+      if (this.useProgressBar) this.progressBar.stop();
+
       // sort by filename then fullname
       const failures: Array<string> = _.chain(result.details.componentFailures)
         .sortBy([
@@ -280,7 +284,7 @@ class MdDeployReportApi {
   }
 
   _print(options, result) {
-    if ((this.loggingEnabled || options.source) && !options.json) {
+    if (this.loggingEnabled && !options.json) {
       if (this.useProgressBar) {
         const total = result.numberComponentsTotal + result.numberTestsTotal;
         const actionsDone = result.numberComponentsDeployed + result.numberTestsCompleted;
@@ -300,7 +304,7 @@ class MdDeployReportApi {
       }
 
       if (result.timedOut) {
-        this.useProgressBar ? this.progressBar.stop() : this._printOldOutput(result);
+        if (this.useProgressBar) this.progressBar.stop();
         this._log(messages.getMessage('mdDeployCommandCliWaitTimeExceededError', [options.wait]));
         return result;
       }
@@ -323,7 +327,7 @@ class MdDeployReportApi {
         }
       }
 
-      this.useProgressBar ? this.progressBar.stop() : this._printOldOutput(result);
+      if (this.useProgressBar) this.progressBar.stop();
     }
 
     return result;
@@ -333,10 +337,8 @@ class MdDeployReportApi {
     // Logging is enabled if the output is not json and logging is not disabled
     this.loggingEnabled = options.source || options.verbose || (!options.json && !options.disableLogging);
     options.wait = +(options.wait || consts.DEFAULT_MDAPI_WAIT_MINUTES);
-    this._log(`Job ID | ${options.jobid}`);
 
-    // if SFDX_USE_PROGRESS_BAR is true use progress bar, if not use old output
-    this.useProgressBar = env.getBoolean('SFDX_USE_PROGRESS_BAR', true);
+    if (this.useProgressBar) this._log(`Job ID | ${options.jobid}`);
 
     return BBPromise.resolve()
       .then(() => this._doDeployStatus(options))
@@ -392,7 +394,7 @@ class MdDeployReportApi {
     )
       .handleStatus()
       .then(res => {
-        this.useProgressBar ? this.progressBar.stop() : this._printOldOutput(res);
+        if (this.useProgressBar) this.progressBar.stop();
         return res;
       });
   }
@@ -413,6 +415,24 @@ class MdDeployReportApi {
   }
 
   _printOldOutput(result: any) {
+    const deployStart: number = new Date(result.createdDate).getTime();
+    const deployEnd: number = new Date(result.completedDate).getTime();
+    const totalDeployTime: number = deployEnd - deployStart;
+    const processingHeader: string = this.logger.color.yellow('Status');
+    const successHeader: string = this.logger.color.green('Result');
+    const failureHeader: string = this.logger.color.red('Result');
+    this._log('');
+    if (!result.done) {
+      this.logger.styledHeader(processingHeader);
+    } else {
+      if (result.completedDate) {
+        this._log(`Deployment finished in ${totalDeployTime}ms`);
+      }
+      this._log('');
+      const header: string = result.success ? successHeader : failureHeader;
+      this.logger.styledHeader(header);
+    }
+
     this._log('');
     this._log(`Status:  ${result.status}`);
     this._log(`jobid:  ${result.id}`);

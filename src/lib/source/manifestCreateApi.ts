@@ -7,33 +7,29 @@
 
 // Node
 import * as path from 'path';
-import * as fs from 'fs';
+import { fs } from '@salesforce/core';
 import * as util from 'util';
 
 // Thirdparty
 import * as optional from 'optional-js';
 import * as BBPromise from 'bluebird';
-import * as xml2js from 'xml2js';
 import * as _ from 'lodash';
-
+const Builder = require('fast-xml-parser').j2xParser;
 // Local
 import MetadataRegistry = require('./metadataRegistry');
 import { MetadataTypeFactory } from './metadataTypeFactory';
 import logApi = require('../core/logApi');
 import * as almError from '../core/almError';
 
-// Promisify
-const fsStat = BBPromise.promisify(fs.stat);
-const fsWriteFile = BBPromise.promisify(fs.writeFile);
-const fsReaddir = BBPromise.promisify(fs.readdir);
-const fsMkdir = BBPromise.promisify(fs.mkdir);
-
 function createOutputXmlManifestFile(fileName, packageManifestJson) {
-  const xmlBuilder = new xml2js.Builder({
-    xmldec: { version: '1.0', encoding: 'UTF-8' }
+  const builder = new Builder({
+    format: true,
+    attrNodeName: '$'
   });
-  const xml = xmlBuilder.buildObject(packageManifestJson);
-  return fsWriteFile(fileName, xml).then(() => ({
+  const xmlDeclaration: string = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  const xml = xmlDeclaration.concat(builder.parse(packageManifestJson)).trim();
+
+  return fs.writeFile(fileName, xml).then(() => ({
     file: fileName,
     manifest: packageManifestJson
   }));
@@ -74,10 +70,11 @@ function processMetadataFile(dir, file, childLogger, metadataRegistry) {
 }
 
 function readMetadataDirectoryContent(dir) {
-  return fsReaddir(dir)
+  return fs
+    .readdir(dir)
     .then(files =>
       BBPromise.map(files, file =>
-        fsStat(path.resolve(dir, file)).then(stats => ({
+        fs.stat(path.resolve(dir, file)).then(stats => ({
           name: file,
           isDirectory: stats.isDirectory()
         }))
@@ -146,8 +143,8 @@ const manifestCreate = function(org, beforeManifestGenerationHook?) {
   this.config = this.org.config;
   this.apiVersion = this.config.getApiVersion();
   this.logger = logApi.child('manifest-create');
-  this._fsStat = fsStat;
-  this._fsMkdir = fsMkdir;
+  this._fsStat = fs.stat;
+  this._fsMkdir = fs.mkdirp;
   this.beforeManifestGenerationHook = beforeManifestGenerationHook;
 };
 
