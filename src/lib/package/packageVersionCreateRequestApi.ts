@@ -15,7 +15,8 @@ const messages = Messages();
 
 const STATUS_ERROR = 'Error';
 const QUERY =
-  'SELECT Id, Status, Package2Id, Package2VersionId, Package2Version.SubscriberPackageVersionId, Tag, Branch, CreatedDate ' +
+  'SELECT Id, Status, Package2Id, Package2VersionId, Package2Version.SubscriberPackageVersionId, Tag, Branch, ' +
+  'CreatedDate, Package2Version.HasMetadataRemoved ' +
   'FROM Package2VersionCreateRequest ' +
   '%s' + // WHERE, if applicable
   'ORDER BY CreatedDate';
@@ -97,7 +98,8 @@ class PackageVersionCreateRequestApi {
         Tag: record.Tag,
         Branch: record.Branch,
         Error: [],
-        CreatedDate: moment(record.CreatedDate).format('YYYY-MM-DD HH:mm')
+        CreatedDate: moment(record.CreatedDate).format('YYYY-MM-DD HH:mm'),
+        HasMetadataRemoved: record.Package2Version != null ? record.Package2Version.HasMetadataRemoved : null
       }));
     }
 

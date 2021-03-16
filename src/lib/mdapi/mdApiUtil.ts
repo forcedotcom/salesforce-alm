@@ -9,24 +9,22 @@
     MDAPI utility. This is not complete. Adding this to move a REST deploy related method out of force.js
     We need to refactor code and probably move more MD common functionality here.
 */
-import { AuthInfo, Connection, SfdxError, Logger, Messages, ConfigAggregator } from '@salesforce/core';
+import { AuthInfo, ConfigAggregator, Connection, SfdxError, Logger, Messages } from '@salesforce/core';
 
 Messages.importMessagesDirectory(__dirname);
-
-import * as _ from 'lodash';
-import { Config } from '../core/configApi';
 
 export type MdapiDeployRecentValidationOptions = {
   validateddeployrequestid: string;
   wait?: number;
   rollbckonerror?: boolean;
   ignorewarnings?: boolean;
+  soapdeploy?: boolean;
 };
 
 export type DeployOptions = {
   rollbackOnError?: boolean;
   testLevel?: string;
-  runTests?: string;
+  runTests?: string[];
   autoUpdatePackage?: boolean;
   ignoreWarnings?: boolean;
   checkOnly?: boolean;
@@ -55,7 +53,10 @@ export class MetadataConnection extends Connection {
     connection: Connection
   ): Promise<any> {
     const validateddeployrequestid = options.validateddeployrequestid;
-    const url = `${connection.instanceUrl}/services/data/v${connection.getApiVersion()}/metadata/deployRequest`;
+    const url = `${connection.instanceUrl.replace(
+      /\/$/,
+      ''
+    )}/services/data/v${connection.getApiVersion()}/metadata/deployRequest`;
     const messageBody = JSON.stringify({
       validatedDeployRequestId: validateddeployrequestid
     });
@@ -87,7 +88,6 @@ export async function getMetadataConnection(orgApi: any): Promise<Connection> {
       username: orgApi.getName()
     })
   });
-  connection.setApiVersion(new Config().getApiVersion());
   return connection;
 }
 
@@ -97,25 +97,44 @@ export async function mdapiDeployRecentValidation(
   options: MdapiDeployRecentValidationOptions
 ): Promise<any> {
   let connection = await this.getMetadataConnection(orgApi);
-  const restDeploy = await MetadataTransportInfo.isRestDeploy();
-  if (restDeploy) {
-    this.logger = await Logger.child('*** Deploying with REST ***');
+  const logger = await Logger.child('MdapiUtil');
+  if (await MetadataTransportInfo.isRestDeploy(options)) {
+    logger.debug('*** Deploying with REST ***');
     return MetadataConnection.prototype._mdapiRestDeployRecentValidation(options, connection);
   } else {
+    logger.debug('*** Deploying with SOAP ***');
     return MetadataConnection.prototype._mdapiSoapDeployRecentValidation(options, connection);
   }
 }
 
 export class MetadataTransportInfo {
-  static async isRestDeploy() {
-    const aggregator = await ConfigAggregator.create();
-    const restDeploy = aggregator.getPropertyValue('restDeploy');
-    return restDeploy && restDeploy.toString() === 'true';
+  static async isRestDeployWithWaitZero(options) {
+    return (await MetadataTransportInfo.isRestDeploy(options)) && options.wait === 0;
   }
 
-  static async isRestDeployWithWaitZero(options) {
-    const restDeploy = await this.isRestDeploy();
-    return restDeploy && options.wait === 0;
+  // REST is the default unless:
+  //   1. SOAP is specified with the soapdeploy flag on the command
+  //   2. The restDeploy SFDX config setting is explicitly false.
+  static async isRestDeploy(options) {
+    const logger = await Logger.child('MetadataTransportInfo');
+    if (options.soapdeploy === true) {
+      logger.debug('soapdeploy option === true.  Using SOAP');
+      return false;
+    }
+
+    const aggregator = await ConfigAggregator.create();
+    const restDeployConfig = aggregator.getPropertyValue('restDeploy');
+    // aggregator property values are returned as strings
+    if (restDeployConfig === 'false') {
+      logger.debug('restDeploy SFDX config === false.  Using SOAP');
+      return false;
+    } else if (restDeployConfig === 'true') {
+      logger.debug('restDeploy SFDX config === true.  Using REST');
+    } else {
+      logger.debug('soapdeploy option unset. restDeploy SFDX config unset.  Defaulting to REST');
+    }
+
+    return true;
   }
 
   static validateExclusiveFlag(options, param1, param2) {

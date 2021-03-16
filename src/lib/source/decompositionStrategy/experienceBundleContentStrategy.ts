@@ -4,9 +4,11 @@
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the repo root  or https://opensource.org/licenses/BSD-3-Clause
  */
+import { SfdxProject } from '@salesforce/core';
+
 const srcDevUtil = require('../../core/srcDevUtil');
 
-import { ForceIgnore } from '../forceIgnore';
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 import { NonDecomposedContentStrategy } from './nonDecomposedContentStrategy';
 import { MetadataType } from '../metadataType';
 import { ExperienceBundleMetadataType } from '../metadataTypeImpl/experienceBundleMetadataType';
@@ -19,23 +21,23 @@ export class ExperienceBundleContentStrategy extends NonDecomposedContentStrateg
 
   constructor(metadataType: MetadataType, metadataRegistry, workspaceVersion) {
     super(metadataType, metadataRegistry, workspaceVersion);
-    this.forceIgnore = new ForceIgnore();
+    this.forceIgnore = ForceIgnore.findAndCreate(SfdxProject.resolveProjectPathSync());
   }
 
   /**
    * If there is a file in existing path and if it didn't get returned in the MD-retrieve, then we assume it is deleted
    * Since, we need a list of all files from retrieve to compare we cannot use MetadataType#getWorkspaceElementsToDelete()
    */
-  saveContent(
+  async saveContent(
     metadataFilePath: string,
     retrievedContentFilePaths: string[],
     retrievedMetadataFilePath: string,
     createDuplicates: boolean,
     unsupportedMimeTypes: string[],
     forceoverwrite = false
-  ): [string[], string[], string[], string[]] {
+  ): Promise<[string[], string[], string[], string[]]> {
     const existingFiles = ExperienceBundleMetadataType.getContentFilePaths(metadataFilePath, this.forceIgnore);
-    var [newPaths, updatedPaths, deletedPaths, dupPaths] = super.saveContent(
+    var [newPaths, updatedPaths, deletedPaths, dupPaths] = await super.saveContent(
       metadataFilePath,
       retrievedContentFilePaths,
       retrievedMetadataFilePath,

@@ -8,7 +8,6 @@
 import * as Messages from './force-cli-messages';
 import logApi = require('../core/logApi');
 import { DebugLog } from '../apex/apexLogApi';
-import { ApiLimit } from '../limits/apiLimitsCommand';
 import { BatchInfo } from 'jsforce';
 import { BatchResultInfo } from 'jsforce';
 import { JobInfo } from 'jsforce';
@@ -68,16 +67,6 @@ export let debugLogs = function(logs: DebugLog[]): void {
       ]
     });
   }
-};
-
-export let apiLimits = function(limits: ApiLimit[]): void {
-  logApi.table(limits, {
-    columns: [
-      { key: 'name', label: Messages.get('DisplayHeaderName') },
-      { key: 'remaining', label: Messages.get('DisplayHeaderRemaining') },
-      { key: 'max', label: Messages.get('DisplayHeaderMaximum') }
-    ]
-  });
 };
 
 export let soqlQuery = function(columns: string[], records: Object[], totalCount: number) {

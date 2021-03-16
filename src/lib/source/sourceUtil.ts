@@ -13,7 +13,7 @@ import * as os from 'os';
 import { isNil, get as _get } from 'lodash';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { SfdxError, SfdxErrorConfig, fs, Logger, Messages } from '@salesforce/core';
+import { SfdxError, SfdxErrorConfig, fs, Logger, Messages, SfdxProject } from '@salesforce/core';
 import { MdRetrieveApi } from '../mdapi/mdapiRetrieveApi';
 import { MetadataType } from './metadataType';
 import { InFolderMetadataType } from './metadataTypeImpl/inFolderMetadataType';
@@ -24,14 +24,12 @@ import consts = require('../core/constants');
 import MdapiPackage = require('../source/mdapiPackage');
 import { XmlLineError } from './xmlMetadataDocument';
 import * as PathUtil from '../source/sourcePathUtil';
-import { NondecomposedTypesWithChildrenMetadataType } from '../source/metadataTypeImpl/nondecomposedTypesWithChildrenMetadataType';
+import { NondecomposedTypesWithChildrenMetadataType } from './metadataTypeImpl/nondecomposedTypesWithChildrenMetadataType';
 import { CustomLabelsMetadataType } from './metadataTypeImpl/customLabelsMetadataType';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import MetadataRegistry = require('./metadataRegistry');
-import { MaxRevision } from './MaxRevision';
-import { SourceMember } from './SourceMember';
-import { SourceLocations } from './sourceLocations';
+import { RemoteSourceTrackingService } from './remoteSourceTrackingService';
 
 Messages.importMessagesDirectory(__dirname);
 
@@ -144,7 +142,7 @@ export const getSourceElementForFile = async function(
       undefined,
       _sourcePath
     );
-    const packageName = sourceWorkspaceAdapter.packageInfoCache.getPackageNameFromSourcePath(sourcePath);
+    const packageName = SfdxProject.getInstance().getPackageNameFromPath(sourcePath);
     aggregateSourceElement = loadSourceElement(sourceElements, key, mdRegistry, packageName);
   } else {
     throw SfdxError.create('salesforce-alm', 'source', 'SourcePathInvalid', [sourcePath]);
@@ -250,7 +248,9 @@ export const loadSourceElement = function(
         parentMetadataType.getAggregateMetadataName(),
         parentFullName
       );
-      return loadSourceElement(sourceElements, newKey, metadataRegistry, packageName);
+      // Get the parent AggregateSourceElement with all WorkspaceElements removed
+      // except for the child specified by the `key`.
+      return sourceElements.findParentElement(newKey, mdType, mdName);
     } else if (metadataType instanceof InFolderMetadataType) {
       mdType = MdapiPackage.convertFolderTypeKey(mdType);
       return loadSourceElement(sourceElements, `${mdType}__${mdName}`, metadataRegistry, packageName);
@@ -441,39 +441,51 @@ export const containsMdBundle = function(options: any): boolean {
   }
 };
 /**
- * sObjects and standard fields aren't returned when polling for SourceMembers, so
- * this will remove sObjects/sFields from the pushResult so that only
- * source tracked metadata types are inserted into the maxRevision.json.
- * @param successes the success of the push or pull result
- * @param {MaxRevision} maxRevision is the class used to query SourceMembers
- * @param pollTimeLimit the number of seconds to poll for SourceMembers before timing out
- * @param fromRevision the RevisionCounter number from which to poll for SourceMembers
- * @returns {Promise<SourceMember[]>}
+ * Filters the component success responses from a deploy or retrieve to exclude
+ * components that do not have SourceMembers created for them in the org, such
+ * as standard objects (e.g., Account) and standard fields before syncing with
+ * remote source tracking.  Also modifies the fullName (e.g., MyApexClass) of
+ * certain metadata types to match their corresponding SourceMember names.
+ *
+ * Filtering rules applied:
+ *   1. Component successes without an `id` entry do not have `SourceMember`
+ *      records created for them.
+ *      E.g., standard objects, package.xml, CustomLabels, etc.
+ *   2. In-Folder types (E.g., Documents) will have the file extension removed
+ *      since the SourceMember's MemberName does not include it.
+ *      E.g., "MyDocFolder/MyDoc.png" --> "MyDocFolder/MyDoc"
+ *   3. Component success fullNames will be URI decoded.
+ *      E.g., "Account %28Sales%29" --> "Account (Sales)"
+ *
+ * NOTE: Currently this is only called after a source:push.
+ *
+ * @param successes the component successes of a deploy/retrieve response
+ * @param remoteSourceTrackingService
+ * @param metadataRegistry
  */
-export const getSourceMembersFromResult = async function(
+export const updateSourceTracking = async function(
   successes: any[],
-  maxRevision: MaxRevision,
-  pollTimeLimit?: number
-): Promise<SourceMember[]> {
-  // reduce to just "MemberName" aka fullName
-  const successNames: string[] = successes
-    .filter(c => !c.fullName.includes('xml'))
-    .map(c => {
-      return [c].concat(SourceLocations.nonDecomposedElementsIndex.getElementsByMetadataFilePath(c.filePath));
-    })
-    .reduce((x, y) => x.concat(y), [])
-    .map(c => decodeURIComponent(c.fullName));
+  remoteSourceTrackingService: RemoteSourceTrackingService,
+  metadataRegistry: MetadataRegistry
+): Promise<void> {
+  const metadataTrackableElements: string[] = [];
 
-  if (pollTimeLimit && pollTimeLimit >= 0) {
-    await maxRevision.pollForSourceMembers(successNames, pollTimeLimit);
-  }
-  const allMembers = await maxRevision.retrieveAllSourceMembers();
+  successes.forEach(component => {
+    // Assume only components with id's are trackable (SourceMembers are created)
+    if (component.id) {
+      const componentMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
+        component.componentType,
+        metadataRegistry
+      );
+      let fullName = component.fullName;
+      if (componentMetadataType instanceof InFolderMetadataType && component.fileName) {
+        // This removes any file extension from component.fullName
+        fullName = componentMetadataType.getFullNameFromFilePath(component.fileName);
+      }
+      metadataTrackableElements.push(decodeURIComponent(fullName));
+    }
+  });
 
-  // reduce from SourceMember to just MemberName
-  const allMemberNames: string[] = allMembers.map(m => m.MemberName);
-
-  // remove the different items, from what the query returned vs local source tracking
-  const diffedMembers = allMemberNames.filter(al => successNames.includes(al.split('/')[0]));
-  // filter the SourceMember list to just include those in the diffedMembers
-  return allMembers.filter(member => diffedMembers.includes(member.MemberName));
+  // Sync source tracking for the trackable pushed components
+  await remoteSourceTrackingService.sync(metadataTrackableElements);
 };

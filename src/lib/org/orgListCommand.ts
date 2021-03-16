@@ -40,7 +40,7 @@ class OrgListCommand {
   constructor(stdinPromise) {
     this.stdinPromise = stdinPromise;
     this.logger = logger.child('OrgListCommand');
-    this.orgDecorator = new OrgDecorator(this.logger);
+    this.orgDecorator = new OrgDecorator(this.logger.humanConsumable);
   }
 
   execute(context) {

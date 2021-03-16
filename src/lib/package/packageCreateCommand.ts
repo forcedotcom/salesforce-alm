@@ -37,7 +37,8 @@ class PackageCreateCommand {
       Description: context.flags.description,
       NamespacePrefix: namespace,
       ContainerOptions: context.flags.packagetype,
-      IsOrgDependent: context.flags.orgdependent
+      IsOrgDependent: context.flags.orgdependent,
+      PackageErrorUsername: context.flags.errornotificationusername
     };
   }
 

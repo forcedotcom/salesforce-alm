@@ -152,31 +152,40 @@ export class ExperienceBundleMetadataType extends DefaultMetadataType {
     return `${path.basename(bundleName)}${ExperienceBundleMetadataType.getMetadataFileExtWithSuffix()}`;
   }
 
-  protected sourceMemberFullNameConflictsWithWorkspaceFullName(sourceMemberFullName: string, workspaceFullName: string): boolean {
-    return PathUtil.getGrandparentDirectoryName(sourceMemberFullName) === PathUtil.getGrandparentDirectoryName(workspaceFullName);
+  protected sourceMemberFullNameConflictsWithWorkspaceFullName(
+    sourceMemberFullName: string,
+    workspaceFullName: string
+  ): boolean {
+    return (
+      PathUtil.getGrandparentDirectoryName(sourceMemberFullName) ===
+      PathUtil.getGrandparentDirectoryName(workspaceFullName)
+    );
   }
 
   getAggregateFullNameFromSourceMemberName(sourceMemberName: string): string {
-      return sourceMemberName.split(path.sep)[0];
+    return sourceMemberName.split(path.sep)[0];
   }
 
   trackRemoteChangeForSourceMemberName(sourceMemberName: string): boolean {
-      return sourceMemberName.split(path.sep).length > 1;
+    return sourceMemberName.split(path.sep).length > 1;
   }
 
-  sourceMemberFullNameCorrespondsWithWorkspaceFullName(sourceMemberFullName: string, workspaceFullName: string): boolean {
-      return sourceMemberFullName === workspaceFullName;
+  sourceMemberFullNameCorrespondsWithWorkspaceFullName(
+    sourceMemberFullName: string,
+    workspaceFullName: string
+  ): boolean {
+    return sourceMemberFullName === workspaceFullName;
   }
-  
+
   getFullNameFromFilePath(filePath: string): string {
-      const grandParentBundleName = PathUtil.getGrandparentDirectoryName(filePath);
-      const bundleName = PathUtil.getParentDirectoryName(filePath);
-      const fileName = PathUtil.removeMetadataFileExtFrom(path.basename(filePath));
-      return path.join(grandParentBundleName, bundleName, fileName);
+    const grandParentBundleName = PathUtil.getGrandparentDirectoryName(filePath);
+    const bundleName = PathUtil.getParentDirectoryName(filePath);
+    const fileName = PathUtil.removeMetadataFileExtFrom(path.basename(filePath));
+    return path.join(grandParentBundleName, bundleName, fileName);
   }
 
   static getMetadataFileExtWithSuffix(): string {
-      return `${ExperienceBundleMetadataType.META_FILE_SUFFIX}${MetadataRegistry.getMetadataFileExt()}`;
+    return `${ExperienceBundleMetadataType.META_FILE_SUFFIX}${MetadataRegistry.getMetadataFileExt()}`;
   }
 
   mainContentFileExists(metadataFilePath: string): boolean {

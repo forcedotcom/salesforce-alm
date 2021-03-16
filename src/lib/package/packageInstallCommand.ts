@@ -13,6 +13,7 @@
 
 import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
+import * as util from 'util';
 
 // New messages (move to this)
 import { Messages } from '@salesforce/core';
@@ -120,6 +121,59 @@ class PackageInstallCommand {
     });
   }
 
+  async _waitForApvReplication(remainingRetries) {
+    const QUERY_NO_KEY =
+      'SELECT Id, SubscriberPackageId, InstallValidationStatus FROM SubscriberPackageVersion' +
+      ` WHERE Id ='${this.allPackageVersionId}'`;
+
+    const escapedInstallationKey =
+      this.installationKey != null ? this.installationKey.replace(/\\/g, '\\\\').replace(/\'/g, "\\'") : null;
+    const QUERY_W_KEY =
+      'SELECT Id, SubscriberPackageId, InstallValidationStatus FROM SubscriberPackageVersion' +
+      ` WHERE Id ='${this.allPackageVersionId}' AND InstallationKey ='${escapedInstallationKey}'`;
+
+    let queryResult = null;
+    try {
+      queryResult = await this.force.toolingQuery(this.org, util.format(QUERY_W_KEY));
+    } catch (e) {
+      // Check first for Implementation Restriction error that is enforced in 214, before it was possible to query
+      // against InstallationKey, otherwise surface the error.
+      if (pkgUtils.isErrorFromSPVQueryRestriction(e)) {
+        queryResult = await this.force.toolingQuery(this.org, util.format(QUERY_NO_KEY));
+      } else {
+        if (!pkgUtils.isErrorPackageNotAvailable(e)) {
+          throw e;
+        }
+      }
+    }
+
+    // Continue retrying if there is no record
+    // or for an InstallValidationStatus of PACKAGE_UNAVAILABLE (replication to the subscriber's instance has not completed)
+    // or for an InstallValidationStatus of UNINSTALL_IN_PROGRESS
+    let installValidationStatus = null;
+    if (queryResult && queryResult.records && queryResult.records.length > 0) {
+      installValidationStatus = queryResult.records[0].InstallValidationStatus;
+      if (installValidationStatus != 'PACKAGE_UNAVAILABLE' && installValidationStatus != 'UNINSTALL_IN_PROGRESS') {
+        return queryResult.records[0];
+      }
+    }
+
+    if (remainingRetries <= 0) {
+      // There are no more reties.  Throw an error indicating the package is unavailable.
+      // For UNINSTALL_IN_PROGRESS, though, allow install to proceed which will result in an appropriate UninstallInProgressProblem
+      // error message being displayed.
+      if (installValidationStatus == 'UNINSTALL_IN_PROGRESS') {
+        return null;
+      } else {
+        throw new Error(messages.getMessage('errorApvIdNotPublished', [], 'package_install'));
+      }
+    }
+    return BBPromise.delay(this.replicationPollIntervalMillis).then(() => {
+      this.logger.log(messages.getMessage('publishWaitProgress', [], 'package_install'));
+      return this._waitForApvReplication(remainingRetries - 1);
+    });
+  }
+
   /**
    * This installs a package version into a target org.
    * @param context: heroku context
@@ -182,19 +236,13 @@ class PackageInstallCommand {
       (parseInt(this.publishwait) * 60 * 1000) / parseInt(this.replicationPollIntervalMillis)
     );
 
-    let spv = await pkgUtils.getSubscriberPackageVersionQuery(
-      this.org,
-      this.force,
-      this.logger,
-      this.allPackageVersionId,
-      this.installationKey,
-      publishWaitRetries,
-      this.replicationPollIntervalMillis
-    );
+    await this._waitForApvReplication(publishWaitRetries);
+
+    const pkgType = await pkgUtils.getPackage2TypeBy04t(apvId, this.force, this.org, this.installationKey);
 
     // If the user has specified --upgradetype Delete, then prompt for confirmation
     // unless the noprompt option has been included
-    if (context.flags.upgradetype == UPGRADE_TYPE_KEY_DELETE && spv.package2ContainerOptions === 'Unlocked') {
+    if (context.flags.upgradetype == UPGRADE_TYPE_KEY_DELETE && pkgType === 'Unlocked') {
       // don't prompt if we're going to ignore anyway
       const accepted = await this._prompt(
         context.flags.noprompt,
@@ -207,12 +255,13 @@ class PackageInstallCommand {
 
     // If the user is installing an unlocked package with external sites (RSS/CSP) then
     // inform and prompt the user of these sites for acknowledgement.
+    const externalSiteData = await this._getExternalSites(this.allPackageVersionId);
     let enableExternalSites = false;
 
-    if (spv.trustedSites && spv.trustedSites.length > 0) {
+    if (externalSiteData.trustedSites && externalSiteData.trustedSites.length > 0) {
       const accepted = await this._prompt(
         context.flags.noprompt,
-        messages.getMessage('promptRss', spv.trustedSites.join('\n'), 'package_install')
+        messages.getMessage('promptRss', externalSiteData.trustedSites.join('\n'), 'package_install')
       );
       if (accepted) {
         enableExternalSites = true;
@@ -223,7 +272,7 @@ class PackageInstallCommand {
     this.packageInstallRequest.subscriberPackageVersionKey = this.allPackageVersionId;
     this.packageInstallRequest.password = this.installationKey; // W-3980736 in the future we hope to change "Password" to "InstallationKey" on the server
     if (context.flags.upgradetype !== UPGRADE_TYPE_KEY_MIXED) {
-      if (spv.package2ContainerOptions === 'Unlocked') {
+      if (pkgType === 'Unlocked') {
         // include upgradetype if it's not the default value 'mixed'
         this.packageInstallRequest.upgradeType = UPGRADE_TYPE_MAP.get(context.flags.upgradetype);
       } else {
@@ -231,7 +280,7 @@ class PackageInstallCommand {
       }
     }
     if (context.flags.apexcompile !== APEX_COMPILE_KEY_ALL) {
-      if (spv.package2ContainerOptions === 'Unlocked') {
+      if (pkgType === 'Unlocked') {
         // include apexcompile if it's not the default value 'all'
         this.packageInstallRequest.apexCompileType = APEX_COMPILE_MAP.get(context.flags.apexcompile);
       } else {
@@ -259,6 +308,54 @@ class PackageInstallCommand {
     // print a line of white space after the prompt is entered for separation
     this.logger.log('');
     return answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y';
+  }
+
+  /**
+   * Returns all RSS/CSP external third party websites
+   * @param allPackageVersionId
+   * @returns {object}
+   *
+   * {
+   *   unlocked: boolean,
+   *   trustedSites: [string]
+   * }
+   */
+  async _getExternalSites(allPackageVersionId) {
+    const subscriberPackageValues: any = {};
+    const query_no_key =
+      'SELECT RemoteSiteSettings, CspTrustedSites ' +
+      'FROM SubscriberPackageVersion ' +
+      `WHERE Id ='${allPackageVersionId}'`;
+
+    const escapedInstallationKey =
+      this.installationKey != null ? this.installationKey.replace(/\\/g, '\\\\').replace(/\'/g, "\\'") : null;
+    const query_w_key =
+      'SELECT RemoteSiteSettings, CspTrustedSites ' +
+      'FROM SubscriberPackageVersion ' +
+      `WHERE Id ='${allPackageVersionId}' AND InstallationKey ='${escapedInstallationKey}'`;
+
+    let queryResult = null;
+    try {
+      queryResult = await this.force.toolingQuery(this.org, query_w_key);
+    } catch (e) {
+      // Check first for Implementation Restriction error that is enforced in 214, before it was possible to query
+      // against InstallationKey, otherwise surface the error.
+      if (pkgUtils.isErrorFromSPVQueryRestriction(e)) {
+        queryResult = await this.force.toolingQuery(this.org, query_no_key);
+      } else {
+        throw e;
+      }
+    }
+
+    if (queryResult.records && queryResult.records.length > 0) {
+      const record = queryResult.records[0];
+      const rssUrls = record.RemoteSiteSettings.settings.map(rss => rss.url);
+      const cspUrls = record.CspTrustedSites.settings.map(csp => csp.endpointUrl);
+
+      subscriberPackageValues.trustedSites = rssUrls.concat(cspUrls);
+    }
+
+    return subscriberPackageValues;
   }
 
   /**

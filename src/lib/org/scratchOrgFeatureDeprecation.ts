@@ -26,7 +26,17 @@ const FEATURE_TYPES = {
     SERVICEWAVE: ['DEVELOPMENTWAVE']
   },
   quantifiedFeatureMapping: {},
-  deprecatedFeatures: ['EXPANDEDSOURCETRACKING']
+  deprecatedFeatures: [
+    'EXPANDEDSOURCETRACKING',
+    'LISTCUSTOMSETTINGCREATION',
+    'AppNavCapabilities',
+    'EditInSubtab',
+    'OldNewRecordFlowConsole',
+    'OldNewRecordFlowStd',
+    'DesktopLayoutStandardOff',
+    'SplitViewOnStandardOff',
+    'PopOutUtilities'
+  ]
 };
 
 interface FeatureTypes {
@@ -107,7 +117,7 @@ export class ScratchOrgFeatureDeprecation {
       if (this.featureTypes.deprecatedFeatures.includes(_feature)) {
         return;
       } else if (this.featureTypes.simpleFeatureMapping[_feature]) {
-      /* If a simply mapped feature is specified, then perform the mapping.  */
+        /* If a simply mapped feature is specified, then perform the mapping.  */
         this.featureTypes.simpleFeatureMapping[_feature].forEach(f => {
           _features.push(f);
         });

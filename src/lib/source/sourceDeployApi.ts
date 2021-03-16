@@ -15,9 +15,9 @@ import * as fsExtra from 'fs-extra';
 import MetadataRegistry = require('./metadataRegistry');
 import MdapiDeployApi = require('../mdapi/mdapiDeployApi');
 import * as syncCommandHelper from './syncCommandHelper';
-import * as sourceState from './sourceState';
+import { WorkspaceFileState } from './workspaceFileState';
 
-import { Logger, SfdxError, Messages, fs } from '@salesforce/core';
+import { Logger, SfdxError, Messages, fs, SfdxProject } from '@salesforce/core';
 import { MetadataTypeFactory } from './metadataTypeFactory';
 import { SourceDeployApiBase } from './sourceDeployApiBase';
 import { WorkspaceElementObj } from './workspaceElement';
@@ -41,15 +41,15 @@ export interface SourceDeployOptions extends SourceOptions {
 
 export interface DeployResult {
   outboundFiles: WorkspaceElementObj[];
+  deploys?: any[];
   userCanceled?: boolean;
 }
 
 export class SourceDeployApi extends SourceDeployApiBase {
-  private swa;
+  private swa: SourceWorkspaceAdapter;
   private isDelete: boolean;
   private tmpBackupDeletions;
   private DELETE_NOT_SUPPORTED_IN_CONTENT = ['StaticResource'];
-  static totalNumberOfPackages: number;
   static packagesDeployed: number;
 
   // @todo we shouldn't cross the command api separation by re-using cli options as dependencies for the api.
@@ -64,27 +64,31 @@ export class SourceDeployApi extends SourceDeployApiBase {
     const mode = options.sourcepath && SourceWorkspaceAdapter.modes.STATELESS;
     this.logger.debug(`mode: ${mode}`);
 
-    const defaultPackagePath = this.orgApi.config.getAppConfig().defaultPackagePath;
+    const sfdxProject = SfdxProject.getInstance();
 
     const swaOptions: SourceWorkspaceAdapter.Options = {
       org: this.orgApi,
       metadataRegistryImpl: MetadataRegistry,
-      defaultPackagePath: defaultPackagePath,
+      defaultPackagePath: sfdxProject.getDefaultPackage().name,
       fromConvert: true,
       sourceMode: mode
     };
     this.swa = await SourceWorkspaceAdapter.create(swaOptions);
-    SourceDeployApi.totalNumberOfPackages = this.swa.packageInfoCache.packageNames.length;
+    const packageNames = sfdxProject.getUniquePackageNames();
 
-    let tmpOutputDir: string = await SourceUtil.createOutputDir('sourceDeploy');
+    let tmpOutputDir = await SourceUtil.createOutputDir('sourceDeploy');
 
     try {
       const sourceElementsResolver = new SourceElementsResolver(this.orgApi, this.swa);
       if (options.sourcepath) {
-        this.logger.info(`Deploying metadata in sourcepath '${options.sourcepath}' from org: '${this.orgApi.name}'`);
+        this.logger.info(`Deploying metadata in sourcepath '${options.sourcepath}' to org: '${this.orgApi.name}'`);
         aggregateSourceElements = await SourceUtil.getSourceElementsFromSourcePath(options.sourcepath, this.swa);
+
+        // sourcepaths can be outside of a packageDirectory, in which case the packageName will be undefined.
+        // Add `undefined` as a valid package to deploy for this case.
+        packageNames.push(undefined);
       } else if (options.manifest) {
-        this.logger.info(`Deploying metadata in manifest '${options.manifest}' from org: '${this.orgApi.name}'`);
+        this.logger.info(`Deploying metadata in manifest '${options.manifest}' to org: '${this.orgApi.name}'`);
         aggregateSourceElements = await sourceElementsResolver.getSourceElementsFromManifest(options.manifest);
       } else if (options.metadata) {
         aggregateSourceElements = await sourceElementsResolver.getSourceElementsFromMetadata(
@@ -123,33 +127,61 @@ export class SourceDeployApi extends SourceDeployApiBase {
         options.wait = this.force.config.getConfigContent().defaultSrcWaitMinutes;
       }
 
-      if (!aggregateSourceElements.isEmpty()) {
-        try {
-          // Create a temp directory
-          options.deploydir = tmpOutputDir;
+      const results: DeployResult = { outboundFiles: [], deploys: [] };
 
-          options.ignorewarnings = options.ignorewarnings || this.isDelete;
-          if (!options.checkonly) {
-            await this._doLocalDelete(aggregateSourceElements);
+      if (aggregateSourceElements.size > 0) {
+        // Deploy AggregateSourceElements in the order specified within the project config.
+        for (const pkgName of packageNames) {
+          const aseMap = aggregateSourceElements.get(pkgName);
+          if (aseMap && aseMap.size) {
+            this.logger.info('deploying package:', pkgName);
+            let tmpPkgOutputDir: string;
+
+            // Clone the options object passed to this.doDeploy so options don't
+            // leak from 1 package deploy to the next.
+            const deployOptions = Object.assign({}, options);
+
+            try {
+              // Create a temp directory
+              tmpPkgOutputDir = await SourceUtil.createOutputDir('sourceDeploy_pkg');
+              deployOptions.deploydir = tmpPkgOutputDir;
+              // change the manifest path to point to the package.xml from the
+              // package tmp deploy dir
+              deployOptions.manifest = path.join(tmpPkgOutputDir, 'package.xml');
+              deployOptions.ignorewarnings = deployOptions.ignorewarnings || this.isDelete;
+
+              const _ases = new AggregateSourceElements().set(pkgName, aseMap);
+
+              if (!deployOptions.checkonly) {
+                await this._doLocalDelete(_ases);
+              }
+
+              let result = await this.convertAndDeploy(deployOptions, this.swa, _ases, this.isDelete);
+
+              // If we are only checking the metadata deploy, return what `mdapi:deploy` returns.
+              // Otherwise process results and return similar to `source:push`
+              if (!deployOptions.checkonly && !this.isAsync) {
+                result = await this._processResults(result, _ases, deployOptions.deploydir);
+              }
+              // NOTE: This object assign is unfortunate and wrong, but we have to do it to maintain
+              // JSON output backwards compatibility between pre-mpd and mpd deploys.
+              let outboundFiles = results.outboundFiles;
+              Object.assign(results, result);
+              if (result.outboundFiles && result.outboundFiles.length) {
+                results.outboundFiles = [...outboundFiles, ...result.outboundFiles];
+              }
+
+              results.deploys.push(result);
+            } finally {
+              // Remove the sourcePathInfos.json file and delete any temp dirs
+              this.orgApi.getSourcePathInfos().delete();
+              await SourceUtil.cleanupOutputDir(tmpPkgOutputDir);
+              await SourceUtil.cleanupOutputDir(this.tmpBackupDeletions);
+            }
           }
-
-          const result = await this.convertAndDeploy(options, this.swa, aggregateSourceElements, this.isDelete);
-
-          // If we are only checking the metadata deploy, return what `mdapi:deploy` returns.
-          // Otherwise process results and return similar to `source:push`
-          if (options.checkonly || this.isAsync) {
-            return result;
-          } else {
-            return await this._processResults(result, aggregateSourceElements, options.deploydir);
-          }
-        } finally {
-          // Remove the sourcePathInfos.json file and delete any temp dirs
-          this.orgApi.getSourcePathInfos().delete();
-          await SourceUtil.cleanupOutputDir(this.tmpBackupDeletions);
         }
-      } else {
-        return { outboundFiles: [] };
       }
+      return results;
     } finally {
       await SourceUtil.cleanupOutputDir(tmpOutputDir);
     }
@@ -205,7 +237,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
           // the type is decomposed and we only want to delete components of an aggregate element
           const sourcepaths = sourcepath.split(',');
           if (sourcepaths.some(sp => we.getSourcePath().includes(sp.trim()))) {
-            we.setState(sourceState.DELETED);
+            we.setState(WorkspaceFileState.DELETED);
             ase.addPendingDeletedWorkspaceElement(we);
           }
         }
@@ -232,7 +264,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
 
   private async _processResults(result, aggregateSourceElements: AggregateSourceElements, deployDir: string) {
     if (result.success && result.details.componentFailures) {
-      this.removeFailedAggregates(result.details.componentFailures, aggregateSourceElements, this.swa.packageInfoCache);
+      this.removeFailedAggregates(result.details.componentFailures, aggregateSourceElements);
     }
 
     // We need to check both success and status because a status of 'SucceededPartial' returns success === true even though rollbackOnError is set.

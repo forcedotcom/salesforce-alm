@@ -28,7 +28,7 @@ export class ProjectUpgradeCommand extends ToolbeltCommand {
       required: false
     })
   };
-
+  public static deprecated = { version: 50 };
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
     const heroku = require('heroku-cli-util');

@@ -25,8 +25,9 @@ import { URL } from 'url';
 
 // Thirdparty
 import * as BBPromise from 'bluebird';
-const { Org } = require('@salesforce/core');
-import { Env } from '@salesforce/kit';
+import { Org } from '@salesforce/core';
+import { parseJson } from '@salesforce/kit';
+import { AnyJson } from '@salesforce/ts-types';
 
 import * as _ from 'lodash';
 const fs = BBPromise.promisifyAll(require('fs-extra'));
@@ -62,28 +63,6 @@ const _getGlobalHiddenFolder = function() {
 
 const _toLowerCase = (val, key) => key.toLowerCase();
 
-const _isWhitespaceOrEmpty = function(text) {
-  return !/[^\s]/.test(text);
-};
-
-const _stripWhitespaceNodes = function(node) {
-  if (node !== null) {
-    const nodeTypeText = 3;
-    if (node.nodeType === nodeTypeText) {
-      if (_isWhitespaceOrEmpty(node.nodeValue)) {
-        node.parentNode.removeChild(node);
-      }
-    } else {
-      let child = node.firstChild;
-      while (child !== null) {
-        const current = child;
-        child = child.nextSibling;
-        _stripWhitespaceNodes(current);
-      }
-    }
-  }
-};
-
 const _checkEmptyContent = function(data, jsonPath, throwOnEmpty = true) {
   // REVIEWME: why throw?  shouldn't the caller handle?
   if (!data.length) {
@@ -96,64 +75,18 @@ const _checkEmptyContent = function(data, jsonPath, throwOnEmpty = true) {
   return data;
 };
 
-const processSyntaxError = function(data, jsonPath, err) {
-  if (err.name === 'SyntaxError') {
-    const BUFFER = 20;
-
-    // Get the position of the error from the error message.  This is the error index
-    // within the file contents as 1 long string.
-    const errPosition = parseInt(err.message.match(/position (\d+)/)[1]);
-
-    // Get a buffered error portion to display, highlighting the error in red
-    const start = Math.max(0, errPosition - BUFFER);
-    const end = Math.min(data.length, errPosition + BUFFER);
-
-    const errorPortion =
-      data.substring(start, errPosition) +
-      logger.color.bgRed(data.substring(errPosition, errPosition + 1)) +
-      data.substring(errPosition + 2, end);
-
-    // only need to count new lines before the error position
-    const lineNumber = data.substring(0, errPosition).split('\n').length;
-
-    throw new Error(messages.getMessage('JsonParseError', [jsonPath, lineNumber, errorPortion]));
-  } else {
-    throw err;
-  }
-};
-
-function parseJSON(data, jsonPath, throwOnEmpty = true) {
-  return BBPromise.resolve()
-    .then(() => _checkEmptyContent(data, jsonPath, throwOnEmpty))
-    .then(JSON.parse)
-    .catch(err => {
-      processSyntaxError(data, jsonPath, err);
-    });
-}
-
 /**
- * Sync version fo parseJSON
- * @param {string} data - stirng content to parse
- * @param {string} jsonPath - path to the json file; user for error reporting
- * @param {boolean} throwOnEmpty - throw and error when the content is empty
- * @deprecated use parseSync. prefer async code.
+ *
+ * @param data JSON data as a string to parse
+ * @param jsonPath path to the json file used for error reporting
+ * @param throwOnEmpty throw a JsonParseError when the content is empty
  */
-function parseJSONSync(data, jsonPath, throwOnEmpty) {
-  let _data;
-  try {
-    _data = _checkEmptyContent(data, jsonPath, throwOnEmpty);
-  } catch (e) {
-    processSyntaxError(_data, jsonPath, e);
-  }
-  return JSON.parse(_data);
+function parseJSON(data, jsonPath, throwOnEmpty = true): AnyJson {
+  const _data = _checkEmptyContent(data, jsonPath, throwOnEmpty);
+  return parseJson(_data, jsonPath, throwOnEmpty);
 }
 
 const self = {
-  isSFDXContainerMode(env?: Env): boolean {
-    const envUtil = env || new Env();
-    return envUtil.getString('SFDX_CONTAINER_MODE') ? true : false;
-  },
-
   queryOrgInfoFromDevHub(hubOrg, orgId) {
     return hubOrg.force.query(hubOrg, util.format(DEV_HUB_SOQL, this.trimTo15(orgId)));
   },
@@ -176,43 +109,20 @@ const self = {
     return isSourceTracked;
   },
 
-  /**
-   * Recursively act on all files or directories in a directory
-   */
-  actOn(dir, perform, onType?) {
-    // Act on files by default
-    onType = onType || 'file';
-
-    fs.readdirSync(dir).forEach(file => {
-      const filePath = path.join(dir, file);
-      const stat = fs.statSync(filePath);
-
-      if (stat) {
-        if (stat.isDirectory()) {
-          this.actOn(filePath, perform, onType);
-          if (onType === 'dir') {
-            perform(filePath);
-          }
-        } else if (stat.isFile() && onType === 'file') {
-          perform(filePath, file, dir);
-        }
-      }
-    });
-  },
-
-  readJSONSync(jsonPath, throwOnEmpty = true) {
+  readJSONSync(jsonPath, throwOnEmpty = true): AnyJson {
     const content = fs.readFileSync(jsonPath, 'utf8');
-    return parseJSONSync(content, jsonPath, throwOnEmpty);
+    return parseJSON(content, jsonPath, throwOnEmpty);
   },
 
   /**
    * Read a file and convert it to JSON
    *
    * @param {string} jsonPath The path of the file
-   * @return {BBPromise} promise The contents of the file as a JSON object
+   * @return promise The contents of the file as a JSON object
    */
-  readJSON(jsonPath, throwOnEmpty = true) {
-    return fs.readFileAsync(jsonPath, 'utf8').then(data => parseJSON(data, jsonPath, throwOnEmpty));
+  async readJSON(jsonPath, throwOnEmpty = true) {
+    let data = await fs.readFile(jsonPath, 'utf8');
+    return parseJSON(data, jsonPath, throwOnEmpty);
   },
 
   parseJSON,
@@ -636,10 +546,6 @@ const self = {
     return !_.isNil(useGenericUnixKeychain) && useGenericUnixKeychain.toLowerCase() === 'true';
   },
 
-  stripWhitespace(document) {
-    _stripWhitespaceNodes(document);
-  },
-
   /**
    * Zips directory to given zipfile.
    *
@@ -810,18 +716,6 @@ const self = {
       }
     }
     return BBPromise.resolve();
-  },
-
-  areFilesEqual(file1Path, file2Path) {
-    const file1Hash = crypto
-      .createHash('sha1')
-      .update(fs.readFileSync(file1Path))
-      .digest('hex');
-    const file2Hash = crypto
-      .createHash('sha1')
-      .update(fs.readFileSync(file2Path))
-      .digest('hex');
-    return file1Hash === file2Hash;
   }
 };
 

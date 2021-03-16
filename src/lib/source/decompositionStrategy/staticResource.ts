@@ -7,6 +7,7 @@
 
 import * as process from 'process';
 import * as fs from 'fs-extra';
+import { fs as fscore } from '@salesforce/core';
 import * as os from 'os';
 import * as path from 'path';
 import * as util from 'util';
@@ -89,30 +90,35 @@ export class StaticResource {
     }
   }
 
-  saveResource(sourcePath: string, createDuplicates?: boolean, forceoverwrite = false): [string[], string[]] {
+  async saveResource(
+    sourcePath: string,
+    createDuplicates?: boolean,
+    forceoverwrite = false
+  ): Promise<[string[], string[], string[]]> {
     const updatedPaths = [];
     const duplicatePaths = [];
+    const deletedPaths = [];
     if (this.multiVersionHackUntilWorkspaceVersionsAreSupported) {
       if (this.isExplodedArchive()) {
         return this.expandArchive(sourcePath, createDuplicates, forceoverwrite);
       } else if (srcDevUtil.pathExistsSync(this.getLegacyFilePath())) {
-        return this.handleLegacyPath(sourcePath, createDuplicates);
+        return await this.handleLegacyPath(sourcePath, createDuplicates);
       } else {
-        return this.handleResource(sourcePath, createDuplicates, forceoverwrite);
+        return await this.handleResource(sourcePath, createDuplicates, forceoverwrite);
       }
     } else {
       if (this.usingGAWorkspace) {
         if (this.isExplodedArchive()) {
           return this.expandArchive(sourcePath, createDuplicates, forceoverwrite);
         } else {
-          fs.copySync(sourcePath, this.getSingleFilePathPreferExisting());
+          await fs.copyFile(sourcePath, this.getSingleFilePathPreferExisting());
           updatedPaths.push(this.getSingleFilePathPreferExisting());
         }
       } else {
-        return this.handleResource(sourcePath, createDuplicates, forceoverwrite);
+        return await this.handleResource(sourcePath, createDuplicates, forceoverwrite);
       }
     }
-    return [updatedPaths, duplicatePaths];
+    return [updatedPaths, duplicatePaths, deletedPaths];
   }
 
   isExplodedArchive(): boolean {
@@ -259,7 +265,11 @@ export class StaticResource {
     return this.mimeType === mime.lookup('zip') || this.mimeType === mime.lookup('jar') || isZip;
   }
 
-  private expandArchive(sourcePath: string, createDuplicates: boolean, forceoverwrite = false): [string[], string[]] {
+  private async expandArchive(
+    sourcePath: string,
+    createDuplicates: boolean,
+    forceoverwrite = false
+  ): Promise<[string[], string[], string[]]> {
     let updatedPaths = [];
     const duplicatePaths = [];
 
@@ -276,45 +286,65 @@ export class StaticResource {
     // compare exploded directories if needed
     let isUpdatingExistingStaticResource = srcDevUtil.pathExistsSync(this.getExplodedFolderPath());
     if (isUpdatingExistingStaticResource && createDuplicates) {
-      this.compareExplodedDirs(tempDir, duplicatePaths, updatedPaths, forceoverwrite);
+      await this.compareExplodedDirs(tempDir, duplicatePaths, updatedPaths, forceoverwrite);
+    }
+
+    const existingPaths = new Set<string>();
+    if (isUpdatingExistingStaticResource) {
+      await fscore.actOn(this.getExplodedFolderPath(), async file => {
+        existingPaths.add(file);
+      });
     }
 
     // now copy all the files in the temp dir into the workspace
     srcDevUtil.deleteDirIfExistsSync(this.getExplodedFolderPath());
     fs.copySync(tempDir, this.getExplodedFolderPath()); // override new file with existing
 
-    // if this is a new static resource or we're force overwriting then simply report all files as changed
+    // if this is a new static resource then simply report all files as changed
     if (!isUpdatingExistingStaticResource || forceoverwrite) {
-      srcDevUtil.actOn(tempDir, file => {
+      await fscore.actOn(tempDir, async file => {
         updatedPaths.push(file.replace(tempDir, this.getExplodedFolderPath()));
       });
+    } else {
+      // if this is an existing static resource then we want to figure which files are new
+      // and add those to updatedPaths
+      await fscore.actOn(tempDir, async file => {
+        const filePath = file.replace(tempDir, this.getExplodedFolderPath());
+        if (!existingPaths.has(filePath)) {
+          updatedPaths.push(filePath);
+        }
+        existingPaths.delete(filePath);
+      });
     }
-
-    return [updatedPaths, duplicatePaths];
+    // We determine the deleted paths by removing files from existingPaths as they're found in the tempDir
+    // whatever remains we assume needs to be deleted
+    const deletedPaths = existingPaths.size ? [...existingPaths] : [];
+    return [updatedPaths, duplicatePaths, deletedPaths];
   }
 
   // if an exploded directory structure exists in the workspace then loop through each new file and see if a file
   // with same name exists in the workspace. If that file exists then compare the hashes. If hashes are different
   // then create a duplicate file.
-  private compareExplodedDirs(
+  private async compareExplodedDirs(
     tempDir: string,
     duplicatePaths: string[],
     updatedPaths: string[],
     forceoverwrite = false
   ) {
-    srcDevUtil.actOn(tempDir, file => {
+    await fscore.actOn(tempDir, async file => {
       if (!fs.statSync(file).isDirectory()) {
         const relativePath = file.substring(file.indexOf(tempDir) + tempDir.length);
         const workspaceFile = path.join(this.getExplodedFolderPath(), relativePath);
         if (srcDevUtil.pathExistsSync(workspaceFile)) {
-          if (!srcDevUtil.areFilesEqual(workspaceFile, file)) {
+          const equalCheck = await fscore.areFilesEqual(workspaceFile, file);
+          if (!equalCheck) {
             // file with same name exists and contents are different
-            fs.copySync(file, file + '.dup'); // copy newFile to .dup
+            await fs.copyFile(file, file + '.dup'); // copy newFile to .dup
             duplicatePaths.push(workspaceFile + '.dup'); // keep track of dups
-            fs.copySync(workspaceFile, file); // override new file with existing
+            await fs.copyFile(workspaceFile, file);
           } else if (forceoverwrite) {
             // if file exists and contents are the same then don't report it as updated unless we're force overwriting
-            updatedPaths.push(workspaceFile);
+            updatedPaths.push(workspaceFile); // override new file with existing
           }
         } else {
           updatedPaths.push(workspaceFile); // this is a net new file
@@ -323,42 +353,53 @@ export class StaticResource {
     });
   }
 
-  private handleResource(sourcePath: string, createDuplicates: boolean, forceoverwrite = false): [string[], string[]] {
+  private async handleResource(
+    sourcePath: string,
+    createDuplicates: boolean,
+    forceoverwrite = false
+  ): Promise<[string[], string[], string[]]> {
     const updatedPaths = [];
     const duplicatePaths = [];
+    const deletedPaths = [];
 
     const destFile = this.getSingleFilePathPreferExisting();
-    if (forceoverwrite || !srcDevUtil.pathExistsSync(destFile)) {
-      fs.copySync(sourcePath, this.getSingleFilePathPreferExisting());
+    if (forceoverwrite || !(await fscore.fileExists(destFile))) {
+      await fs.copyFile(sourcePath, destFile);
       updatedPaths.push(this.getSingleFilePathPreferExisting());
-    } else if (!srcDevUtil.areFilesEqual(sourcePath, destFile) && createDuplicates) {
-      fs.copySync(sourcePath, `${this.getSingleFilePathPreferExisting()}.dup`);
-      duplicatePaths.push(`${this.getSingleFilePathPreferExisting()}.dup`);
-    } else if (!srcDevUtil.areFilesEqual(sourcePath, destFile) && !createDuplicates) {
-      // replace existing file with remote
-      fs.copyFile(sourcePath, this.getSingleFilePathPreferExisting());
-      duplicatePaths.push(this.getSingleFilePathPreferExisting());
+    } else {
+      const compareFiles = await fscore.areFilesEqual(sourcePath, destFile);
+      if (!compareFiles && createDuplicates) {
+        await fs.copyFile(sourcePath, `${this.getSingleFilePathPreferExisting()}.dup`);
+        duplicatePaths.push(`${destFile}.dup`);
+      } else if (!compareFiles && !createDuplicates) {
+        // replace existing file with remote
+        await fs.copyFile(sourcePath, destFile);
+        duplicatePaths.push(this.getSingleFilePathPreferExisting());
+      }
     }
-
-    return [updatedPaths, duplicatePaths];
+    return [updatedPaths, duplicatePaths, deletedPaths];
   }
 
-  private handleLegacyPath(sourcePath: string, createDuplicates: boolean): [string[], string[]] {
+  private async handleLegacyPath(
+    sourcePath: string,
+    createDuplicates: boolean
+  ): Promise<[string[], string[], string[]]> {
     const updatedPaths = [];
     const duplicatePaths = [];
+    const deletedPaths = [];
     const legacyFilePath = this.getLegacyFilePath();
 
     if (createDuplicates) {
-      if (!srcDevUtil.areFilesEqual(sourcePath, legacyFilePath)) {
-        fs.copySync(sourcePath, legacyFilePath + '.dup');
+      if (!(await fscore.areFilesEqual(sourcePath, legacyFilePath))) {
+        await fs.copyFile(sourcePath, legacyFilePath + '.dup');
         duplicatePaths.push(legacyFilePath + '.dup');
       }
       // if contents are equal and we are doing a mdapi:convert (createDuplicates=true) then ignore this file
     } else {
-      fs.copySync(sourcePath, legacyFilePath);
+      await fs.copyFile(sourcePath, legacyFilePath);
       updatedPaths.push(legacyFilePath);
     }
 
-    return [updatedPaths, duplicatePaths];
+    return [updatedPaths, duplicatePaths, deletedPaths];
   }
 }

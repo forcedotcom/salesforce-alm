@@ -35,12 +35,12 @@ export const createRecord = async function(context: any): Promise<RecordResult> 
     ? await conn.tooling.create(sobject, insertObject)
     : await conn.sobject(sobject).create(insertObject);
 
+  context.ux.stopSpinner();
   if (result.success) {
     let id = 'unknown id';
     if (result.id) {
       id = result.id;
     }
-    context.ux.stopSpinner();
     Display.success(Messages.get('DataRecordCreateSuccess', id));
   } else {
     let errors = '';
@@ -50,7 +50,6 @@ export const createRecord = async function(context: any): Promise<RecordResult> 
         errors += '  ' + err + '\n';
       });
     }
-    context.ux.stopSpinner();
     Display.failure(Messages.get('DataRecordCreateFailure', errors));
   }
   return result;

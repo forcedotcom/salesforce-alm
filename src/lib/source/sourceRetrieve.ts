@@ -6,22 +6,20 @@
  */
 
 import { get as _get, isPlainObject as _isPlainObject } from 'lodash';
-import { sep as pathSep, join as pathJoin } from 'path';
+import { join as pathJoin } from 'path';
 import MetadataRegistry = require('./metadataRegistry');
 import * as SourceUtil from './sourceUtil';
 import { MdRetrieveApi, MdRetrieveOptions } from '../mdapi/mdapiRetrieveApi';
 import MdapiConvertApi = require('./mdapiConvertApi');
 import { Logger, SfdxError, Messages } from '@salesforce/core';
-import { AggregateSourceElement } from './aggregateSourceElement';
 import * as syncCommandHelper from './syncCommandHelper';
 import { ManifestEntry, SourceOptions } from './types';
-import { WorkspaceElement } from './workspaceElement';
-import { MetadataType } from './metadataType';
-import { MetadataTypeFactory } from './metadataTypeFactory';
 import { SfdxProject } from '@salesforce/core';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { MdapiPullApi } from './sourcePullApi';
+import { SourceElementsResolver } from './sourceElementsResolver';
+import SourceConvertApi = require('./sourceConvertApi');
 
 Messages.importMessagesDirectory(__dirname);
 
@@ -54,7 +52,7 @@ export class SourceRetrieve {
   private logger: Logger;
   private projectPath: string;
   private tmpOutputDir: string;
-  private swa;
+  private swa: SourceWorkspaceAdapter;
 
   constructor(private org) {
     this.projectPath = org.force.config.getProjectPath();
@@ -63,17 +61,6 @@ export class SourceRetrieve {
 
   // Retrieves metadata from an org based on the retrieve options specified.
   public async retrieve(options: SourceRetrieveOptions): Promise<SourceRetrieveOutput> {
-    if (options.sourcepath) {
-      //if -p passed
-      const optionPath: string = options.sourcepath;
-      this.org.config.getAppConfig().packageDirectories.forEach(directory => {
-        //find packages in sfdx-project.json
-        if (optionPath.indexOf(directory.path) !== -1) {
-          //if listed package is in param path
-          this.defaultPackagePath = directory.path;
-        }
-      });
-    }
     this.logger = await Logger.child('SourceRetrieve');
 
     // Only put SWA in stateless mode when sourcepath param is used.
@@ -83,8 +70,9 @@ export class SourceRetrieve {
       org: this.org,
       metadataRegistryImpl: MetadataRegistry,
       defaultPackagePath: this.defaultPackagePath,
-      fromConvert: true,
-      sourceMode: mode
+      fromConvert: false,
+      sourceMode: mode,
+      sourcePaths: options.sourcepath && options.sourcepath.split(',')
     };
     this.swa = await SourceWorkspaceAdapter.create(swaOptions);
 
@@ -95,8 +83,11 @@ export class SourceRetrieve {
       if (options.sourcepath) {
         this.logger.info(`Retrieving metadata in sourcepath '${options.sourcepath}' from org: '${this.org.name}'`);
         results = await this.retrieveFromSourcePath(options);
-      } else if (options.manifest || options.packagenames) {
+      } else if (options.manifest) {
         this.logger.info(`Retrieving metadata in manifest '${options.manifest}' from org: '${this.org.name}'`);
+        results = await this.retrieveFromManifest(options);
+      } else if (options.packagenames) {
+        this.logger.info(`Retrieving metadata in package(s) '${options.packagenames}' from org: '${this.org.name}'`);
         results = await this.retrieveFromManifest(options);
       } else if (options.metadata) {
         this.logger.info(`Retrieving metadata '${options.metadata}' from org: '${this.org.name}'`);
@@ -117,27 +108,19 @@ export class SourceRetrieve {
     // Parse the sourcepath parameter for metadata files and build a map of AggregateSourceElements
     const aggregateSourceElements = await SourceUtil.getSourceElementsFromSourcePath(options.sourcepath, this.swa);
 
-    // Convert aggregateSourceElements to an array of this format: { type: 'ApexClass', name: 'MyClass' }
-    const mdFullPairs = aggregateSourceElements.getAllSourceElements().map(el => ({
-      type: el.getMetadataName(),
-      name: el.getAggregateFullName()
-    }));
-
     // Create a manifest and update the options with the manifest file.
-    options.manifest = (await SourceUtil.createManifest(this.org, options, mdFullPairs, this.tmpOutputDir)).file;
+    options.manifest = await this.createManifest(aggregateSourceElements, options, this.tmpOutputDir);
 
     // Now that we have a package.xml, the rest is just a retrieve using the manifest.
     return this.retrieveFromManifest(options, aggregateSourceElements);
   }
 
   private async retrieveFromMetadata(options: SourceRetrieveOptions): Promise<SourceRetrieveOutput> {
-    const entries: ManifestEntry[] = await SourceUtil.parseManifestEntries(options.metadata);
-
     // toManifest will also tack the manifest onto the options
     await SourceUtil.toManifest(this.org, options, this.tmpOutputDir);
 
     // Now that we have a package.xml, the rest is just a retrieve using the manifest.
-    return this.retrieveFromManifest(options, null, entries);
+    return this.retrieveFromManifest(options);
   }
 
   // Retrieve metadata specified in a manifest file (package.xml) from an org and update the project.
@@ -146,170 +129,162 @@ export class SourceRetrieve {
     aggregateSourceElements?: AggregateSourceElements,
     entries?: ManifestEntry[]
   ): Promise<SourceRetrieveOutput> {
-    let results: SourceRetrieveOutput = { inboundFiles: [], packages: [] };
+    let results: SourceRetrieveOutput = { inboundFiles: [], packages: [], warnings: [] };
+    const project = SfdxProject.getInstance();
+    const defaultPackage = project.getDefaultPackage();
 
-    // Set Retrieve options for MdRetrieveApi
-    const retrieveOptions: MdRetrieveOptions = Object.assign(MdRetrieveApi.getDefaultOptions(), {
-      apiversion: options.apiversion,
-      retrievetargetdir: this.tmpOutputDir,
-      packagenames: options.packagenames,
-      unpackaged: options.manifest,
-      wait: options.wait
-    });
+    // Get AggregateSourceElements (ASEs) from the manifest so we can split into
+    // multiple requests per package.
+    if (!aggregateSourceElements) {
+      if (options.manifest) {
+        const sourceElementsResolver = new SourceElementsResolver(this.org, this.swa);
+        aggregateSourceElements = await sourceElementsResolver.getSourceElementsFromManifest(options.manifest);
+      } else {
+        // This happens when only packages are retrieved
+        aggregateSourceElements = new AggregateSourceElements();
+      }
 
-    // Retrieve the files from the org
-    const res = await new MdRetrieveApi(this.org).retrieve(retrieveOptions);
-
-    if (options.packagenames) {
-      // Convert the packages to source format and copy them to the project
-      const packageNames: string[] = retrieveOptions.packagenames.split(',');
-      const projectPath = await SfdxProject.resolveProjectPath();
-      const mdapiConvertApi = new MdapiConvertApi();
-      for (const pkgName of packageNames) {
-        const destPath = pathJoin(projectPath, pkgName);
-        const pkgPath = pathJoin(retrieveOptions.retrievetargetdir, pkgName);
-        this.logger.info(`Converting metadata in package: ${pkgPath} to: ${destPath}`);
-        results.packages.push({ name: pkgName, path: destPath });
-        mdapiConvertApi.root = pkgPath;
-        mdapiConvertApi.outputDirectory = destPath;
-        await mdapiConvertApi.convertSource(this.org);
+      // Always add the default package, else new things in the org may not be processed correctly.
+      if (!aggregateSourceElements.has(defaultPackage.name)) {
+        aggregateSourceElements.set(defaultPackage.name, null);
       }
     }
 
-    // Convert to source format and update the local project.
-    if (SourceRetrieve.isRetrieveSuccessful(res)) {
-      // Only do this if unpackaged source was retrieved (i.e., a manifest was created).
-      // retrieveOptions.unpackaged will be undefined when only packages were retrieved.
-      if (retrieveOptions.unpackaged) {
-        const mdapiPull = await MdapiPullApi.create({ org: this.org, adapter: this.swa });
+    let shouldRetrievePackages = !!options.packagenames;
 
-        // Extracts the source from package.xml in the temp dir, creates a Map of AggregateSourceElements
-        // and updates the local project with the files from the temp dir.
-        const sourceElements = await mdapiPull._syncDownSource(res, retrieveOptions, this.swa);
+    for (const [pkgName, aseMap] of aggregateSourceElements) {
+      this.logger.info('retrieving package:', pkgName);
+      project.setActivePackage(pkgName);
+      let tmpPkgOutputDir: string;
 
-        let _entries = entries || (await SourceUtil.parseToManifestEntriesArray(retrieveOptions.unpackaged));
+      try {
+        // Create a temp directory
+        tmpPkgOutputDir = await SourceUtil.createOutputDir('sourceRetrieve_pkg');
 
-        // Build a simple object representation of what was changed in the local project.
-        results = await this.processResults(res, sourceElements, aggregateSourceElements, _entries);
-      }
-    } else {
-      // If fileProperties is an object, it means no results were retrieved so don't throw an error
-      if (!_isPlainObject(res.fileProperties)) {
-        let errMsgExtra = '';
-        if (res.messages) {
-          errMsgExtra = `\nDue to: ${res.messages.problem}`;
+        let ases: AggregateSourceElements;
+
+        // Create a new manifest for this package in the tmp dir.
+        if (aseMap && options.sourcepath) {
+          ases = new AggregateSourceElements().set(pkgName, aseMap);
+          options.manifest = await this.createManifest(ases, options, tmpPkgOutputDir);
         }
-        throw SfdxError.create('salesforce-alm', 'source_retrieve', 'SourceRetrieveError', [errMsgExtra]);
+
+        // Set Retrieve options for MdRetrieveApi
+        const retrieveOptions: MdRetrieveOptions = Object.assign(MdRetrieveApi.getDefaultOptions(), {
+          apiversion: options.apiversion,
+          forceoverwrite: true, // retrieve always overwrites
+          retrievetargetdir: tmpPkgOutputDir,
+          unpackaged: options.manifest,
+          wait: options.wait
+        });
+
+        // Only retrieve packages once if the param was set.
+        if (shouldRetrievePackages) {
+          retrieveOptions.packagenames = Array.isArray(options.packagenames)
+            ? options.packagenames.join()
+            : options.packagenames;
+          shouldRetrievePackages = false;
+        }
+
+        // Retrieve the files from the org
+        const res = await new MdRetrieveApi(this.org).retrieve(retrieveOptions);
+
+        if (options.packagenames) {
+          // Convert the packages to source format and copy them to the project in their
+          // own directory.  E.g. For a package named "fooPkg" and project named "myProject":
+          // source would be copied to: myProject/fooPkg/
+          const packageNames: string[] = retrieveOptions.packagenames.split(',');
+          const projectPath = await SfdxProject.resolveProjectPath();
+          const mdapiConvertApi = new MdapiConvertApi();
+
+          // Turn off the active package directory when converting retrieved
+          // packages or it will prevent proper decomposition.
+          // See behavior of AggregateSourceElement.shouldIgnorePath()
+          try {
+            project.setActivePackage(null);
+            for (const _pkgName of packageNames) {
+              const destPath = pathJoin(projectPath, _pkgName);
+              const pkgPath = pathJoin(retrieveOptions.retrievetargetdir, _pkgName);
+              this.logger.info(`Converting metadata in package: ${pkgPath} to: ${destPath}`);
+              results.packages.push({ name: _pkgName, path: destPath });
+              mdapiConvertApi.root = pkgPath;
+              mdapiConvertApi.outputDirectory = destPath;
+              await mdapiConvertApi.convertSource(this.org);
+            }
+          } finally {
+            project.setActivePackage(pkgName);
+          }
+        }
+
+        // Convert to source format and update the local project.
+        if (SourceRetrieve.isRetrieveSuccessful(res)) {
+          // Only do this if unpackaged source was retrieved (i.e., a manifest was created).
+          // retrieveOptions.unpackaged will be undefined when only packages were retrieved.
+          if (retrieveOptions.unpackaged) {
+            const mdapiPull = await MdapiPullApi.create({ org: this.org, adapter: this.swa });
+
+            // Extracts the source from package.xml in the temp dir, creates a Map of AggregateSourceElements
+            // and updates the local project with the files from the temp dir.
+            const sourceElements = await mdapiPull._syncDownSource(res, retrieveOptions, this.swa);
+
+            // Build a simple object representation of what was changed in the local project.
+            const { inboundFiles, warnings } = await this.processResults(res, sourceElements);
+            if (results.inboundFiles.length > 0) {
+              // Could be duplicates with multiple package directories so don't add inbound files twice
+              const filePaths = results.inboundFiles.map(file => file.filePath);
+              for (let inboundFile of inboundFiles) {
+                if (!filePaths.includes(inboundFile.filePath)) {
+                  results.inboundFiles.push(inboundFile);
+                }
+              }
+            } else {
+              results.inboundFiles = results.inboundFiles.concat(inboundFiles);
+            }
+
+            if (warnings) {
+              results.warnings = results.warnings.concat(warnings);
+            }
+          }
+        } else {
+          // If fileProperties is an object, it means no results were retrieved so don't throw an error
+          if (!_isPlainObject(res.fileProperties)) {
+            let errMsgExtra = '';
+            if (res.messages) {
+              errMsgExtra = `\nDue to: ${res.messages.problem}`;
+            }
+            throw SfdxError.create('salesforce-alm', 'source_retrieve', 'SourceRetrieveError', [errMsgExtra]);
+          }
+        }
+      } finally {
+        await SourceUtil.cleanupOutputDir(tmpPkgOutputDir);
       }
     }
 
     return results;
   }
 
-  private validateAggregateFullName(source: ManifestEntry, target: ManifestEntry, delimiter: string): boolean {
-    if (target.type === source.type) {
-      const fullNameComponents = source.name.split(delimiter);
+  private async createManifest(
+    aggregateSourceElements: AggregateSourceElements,
+    options: SourceOptions,
+    outputDirPath: string
+  ): Promise<string> {
+    // Convert aggregateSourceElements to an array of this format: { type: 'ApexClass', name: 'MyClass' }
+    // for use by ManifestApi.createManifest().
+    const mdFullPairs = SourceConvertApi.getUpdatedSourceTypeNamePairs(
+      aggregateSourceElements.getAllSourceElements(),
+      this.swa.metadataRegistry
+    );
 
-      return fullNameComponents && fullNameComponents.length > 0 && fullNameComponents[0] === target.name;
-    }
+    // Create a manifest and update the options with the manifest file.
+    const manifest = await SourceUtil.createManifest(this.org, options, mdFullPairs, outputDirPath);
+    return manifest.file;
   }
 
-  private async processResults(
-    result,
-    sourceElements: AggregateSourceElements,
-    aggregateSourceElements: AggregateSourceElements,
-    entries?: ManifestEntry[]
-  ): Promise<SourceRetrieveOutput> {
+  private async processResults(result, sourceElements: AggregateSourceElements) {
     const inboundFiles = [];
 
-    /**
-     * @todo We probably don't need both aggregateSourceElements and entries for filtering. We probably can rely on
-     * what can be distilled from the manifest for filtering. In this case aggregateSourceElements is empty in the
-     * case of the metadata scope. However for all three scope options we have a manifest to create workspace element
-     * filtering.
-     */
-    const _aggregateSourceElements = aggregateSourceElements || (await this.swa.getAggregateSourceElements(false));
-    // For each source element extracted from the zip (i.e., from the org) match it to entries in
-    // the full map of AggregateSourceElements and create display rows for command output.
-    sourceElements.getAllSourceElements().forEach(sourceElement => {
-      const key = AggregateSourceElement.getKeyFromMetadataNameAndFullName(
-        sourceElement.getMetadataName(),
-        sourceElement.getAggregateFullName()
-      );
-
-      const se = _aggregateSourceElements.getSourceElement(sourceElement.getPackageName(), key);
-
-      let filteredElements: WorkspaceElement[] = se.getWorkspaceElements();
-      if (!aggregateSourceElements) {
-        /**
-         * This tell us that if true the sourceElement matched a wildcard in the entries. Therefore all child
-         * elements are not only included in the package zip but also should be included in the display.
-         */
-        const matchesWildCardSourceElement = !!entries.find((element: ManifestEntry) => {
-          return sourceElement.getMetadataName() === element.type && element.name === '*';
-        });
-
-        // Remove all the workspace elements that don't match the scope. why?
-        // If you don't and you do something like ListView:Foo__c.Foo You'll get all the members
-        // of the custom object currently on disk. But what you really want is just a ListView.
-        filteredElements = filteredElements.filter((workspaceElement: WorkspaceElement) => {
-          const type: MetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
-            workspaceElement.getMetadataName(),
-            this.swa.metadataRegistry
-          );
-          const parent = _get(type, 'typeDefObj.parent');
-
-          // Find a manifest entry that matches the source element itself or the elements parent.
-          // If we wanted an entire CustomObject object we want to ensure all the child components are not
-          // filtered out.
-          //
-          // Anything not found in the entries array is filtered out.
-          return !!entries.find((manifestEntry: ManifestEntry): boolean => {
-            if (parent && parent.metadataName === manifestEntry.type) {
-              return this.validateAggregateFullName(
-                {
-                  name: workspaceElement.getFullName(),
-                  type: parent.metadataName
-                },
-                manifestEntry,
-                '.'
-              );
-            }
-
-            if (manifestEntry.type === workspaceElement.getMetadataName()) {
-              if (
-                this.validateAggregateFullName(
-                  {
-                    name: workspaceElement.getFullName(),
-                    type: workspaceElement.getMetadataName()
-                  },
-                  manifestEntry,
-                  pathSep
-                )
-              ) {
-                /**
-                 * Case in point (-m AuraDefinitionBundle:xray )
-                 * The manifest entries will contain {name='xray', type='AuraDefinitionBundle'}
-                 * All the elements of the AuraDefinitionBundle will begin with the fullname 'xray'.
-                 * i.e. xray/xray.css. If that's the case return true otherwise continue evaluating.
-                 */
-                return true;
-              }
-            }
-
-            return (
-              matchesWildCardSourceElement ||
-              (manifestEntry.type === workspaceElement.getMetadataName() &&
-                manifestEntry.name === workspaceElement.getFullName())
-            );
-          });
-        });
-      }
-      // Get all WorkspaceElements for the retrieved source elements and create simple object
-      // data for display within a table.
-      filteredElements.forEach(workspaceElement => {
-        syncCommandHelper.createDisplayRows(inboundFiles, workspaceElement.toObject(), this.projectPath);
-      });
+    sourceElements.getAllWorkspaceElements().forEach(workspaceElement => {
+      syncCommandHelper.createDisplayRows(inboundFiles, workspaceElement.toObject(), this.projectPath);
     });
 
     const output: SourceRetrieveOutput = { inboundFiles };

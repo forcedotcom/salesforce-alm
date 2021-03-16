@@ -17,7 +17,9 @@ import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { DeployResult } from './sourceDeployApi';
 import { SrcStatusApi } from './srcStatusApi';
-import { MaxRevision } from './MaxRevision';
+import { RemoteSourceTrackingService } from './remoteSourceTrackingService';
+import { env } from '@salesforce/kit';
+import { SfdxProject } from '@salesforce/core';
 
 interface DeployError extends Error {
   outboundFiles: object[];
@@ -34,8 +36,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
   public swa: SourceWorkspaceAdapter;
   public scratchOrg: any;
   private metadataRegistry: MetadataRegistry;
-  private maxRevision: MaxRevision;
-  static totalNumberOfPackages: number;
+  private remoteSourceTrackingService: RemoteSourceTrackingService;
   static packagesDeployed: number;
 
   protected async init(): Promise<void> {
@@ -50,7 +51,9 @@ export class MdapiPushApi extends SourceDeployApiBase {
     this.swa = await SourceWorkspaceAdapter.create(options);
     await this.swa.backupSourcePathInfos();
     this.scratchOrg = options.org;
-    this.maxRevision = await MaxRevision.getInstance({ username: this.scratchOrg.name });
+    this.remoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
+      username: this.scratchOrg.name
+    });
   }
 
   async deployPackage(options: PushOptions, packageName: string): Promise<any> {
@@ -88,13 +91,12 @@ export class MdapiPushApi extends SourceDeployApiBase {
 
     await this.checkForConflicts(options);
 
-    MdapiPushApi.totalNumberOfPackages = this.swa.packageInfoCache.packageNames.length;
     MdapiPushApi.packagesDeployed = this.swa.changedSourceElementsCache.size;
 
     // Deploy metadata in each package directory
     let componentSuccessCount = 0;
     let flattenedDeploySuccesses = [];
-    for (const pkg of this.swa.packageInfoCache.packageNames) {
+    for (const pkg of SfdxProject.getInstance().getUniquePackageNames()) {
       const sourceElements = this.swa.changedSourceElementsCache.get(pkg);
       if (sourceElements && sourceElements.size) {
         const opts = Object.assign({}, options);
@@ -113,17 +115,19 @@ export class MdapiPushApi extends SourceDeployApiBase {
       }
     }
 
+    if (env.getBoolean('SFDX_DISABLE_SOURCE_MEMBER_POLLING', false)) {
+      logger.warn('Not polling for SourceMembers since SFDX_DISABLE_SOURCE_MEMBER_POLLING = true.');
+      return results;
+    }
+
     // If more than 500 metadata components were pushed, display a message
     // that we're fetching the source tracking data, which happens asynchronously.
     if (componentSuccessCount > 500) {
       logger.log(`Updating source tracking for ${componentSuccessCount} pushed components...`);
     }
 
-    // Calculate a polling timeout for SourceMembers based on the number
-    // of deployed component successes plus a buffer of 5 seconds.
-    const pollTimeoutSecs = Math.ceil(componentSuccessCount * 0.015) + 5;
     // post process after all deploys have been done to update source tracking.
-    await this._postProcess(flattenedDeploySuccesses, pollTimeoutSecs);
+    await this._postProcess(flattenedDeploySuccesses);
 
     return results;
   }
@@ -167,11 +171,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
     try {
       result = this._reinterpretResults(result);
       if (result.success && !!result.details.componentFailures) {
-        this.removeFailedAggregates(
-          result.details.componentFailures,
-          changedAggregateSourceElements,
-          this.swa.packageInfoCache
-        );
+        this.removeFailedAggregates(result.details.componentFailures, changedAggregateSourceElements);
       }
 
       // Update deleted items even if the deploy fails so the worksapce is consistent
@@ -198,7 +198,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
         try {
           // Try to get the source elements for better error messages, but still show
           // deploy failures if this errors out
-          const packagePath = this.swa.packageInfoCache.getPackagePath(packageName);
+          const packagePath = SfdxProject.getInstance().getPackagePath(packageName);
           aggregateSourceElements = await this.swa.getAggregateSourceElements(false, packagePath);
         } catch (e) {
           // Don't log to console
@@ -220,11 +220,8 @@ export class MdapiPushApi extends SourceDeployApiBase {
     }
   }
 
-  async _postProcess(pushSuccesses: any[], pollTimeoutSecs: number) {
-    const sourceMembers = await SourceUtil.getSourceMembersFromResult(pushSuccesses, this.maxRevision, pollTimeoutSecs);
-
-    await this.maxRevision.setMaxRevisionCounterFromQuery();
-    await this.maxRevision.updateSourceTracking(sourceMembers);
+  async _postProcess(pushSuccesses: any[]) {
+    await SourceUtil.updateSourceTracking(pushSuccesses, this.remoteSourceTrackingService, this.metadataRegistry);
   }
 
   static _isDeleteFailureBecauseDoesNotExistOnServer(failure) {

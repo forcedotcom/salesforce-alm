@@ -15,7 +15,7 @@ import { Job } from 'jsforce';
 
 export class DataBulkStatusCommand {
   async execute(context): Promise<any> {
-    context.ux.startSpinner();
+    context.ux.startSpinner('Getting Status');
     let conn: Connection = await Config.getActiveConnection(context);
     if (context.flags.jobid && context.flags.batchid) {
       // view batch status

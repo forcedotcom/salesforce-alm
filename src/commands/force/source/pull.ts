@@ -42,6 +42,7 @@ export class SourcePullCommand extends ToolbeltCommand {
       required: false
     })
   };
+  protected readonly lifecycleEventNames = ['preretrieve', 'postretrieve', 'postsourceupdate'];
 
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();

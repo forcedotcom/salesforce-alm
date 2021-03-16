@@ -275,6 +275,7 @@ const messages = {
       mdapiCliInvalidWaitError:
         'Specify the number of minutes to wait as a numerical value greater than or equal to -1. You can specify a decimal value if it is greater than 0.',
       mdapiDeployFailed: 'The metadata deploy operation failed.',
+      mdapiDeployCanceled: 'The metadata deploy operation was canceled.',
 
       // mdapi main topic short and long descriptions
       mdapiTopicDescription: 'retrieve and deploy metadata using Metadata API',
@@ -385,66 +386,11 @@ const messages = {
         'Use the org:shape commands to manage the org shapes you use with Salesforce CLI. Create and delete org shapes, ' +
         'and list your created org shapes.',
 
-      openCommandCliDescription: 'open an org in your browser',
-      openCommandCliDescriptionLong: 'Opens an org in your browser.',
-      openCommandCliHelp:
-        'Opens your default scratch org, or another org that you specify.' +
-        '\n\nTo open a specific page, specify the portion of the URL after "yourInstance.salesforce.com/" as --path. ' +
-        '\nFor example, specify "--path lightning" to open Lightning Experience, or specify "--path /apex/YourPage" to open ' +
-        'a Visualforce page.' +
-        '\n\nTo generate a URL but not launch your browser, specify --urlonly.' +
-        '\n\nExamples:' +
-        '\n  $ sfdx force:org:open' +
-        '\n  $ sfdx force:org:open -u me@my.org' +
-        '\n  $ sfdx force:org:open -u MyTestOrg1' +
-        '\n  $ sfdx force:org:open -r -p lightning',
-      openCommandCliPath: 'navigation URL path',
-      openCommandCliPathLong: 'Navigation URL path (not including domain).',
-      openCommandUrlonly: 'display navigation URL, but don’t launch browser',
-      openCommandUrlonlyLong: 'Displays a navigation URL, but doesn’t launch your browser.',
-      openCommandContainerAction: `You are in a headless environment. To access the org %s, open this URL in a browser:${os.EOL}${os.EOL}%s`,
-      openCommandHumanSuccess: 'Access org %s as user %s with the following URL: %s',
-      openCommandDomainWaiting: 'Waiting to resolve the Lightning Experience-enabled custom domain...',
-      openCommandDomainTimeoutError: 'The Lightning Experience-enabled custom domain is unavailable.',
-      openCommandDomainTimeoutAction:
-        'The Lightning Experience-enabled custom domain may take a few more minutes to resolve. Try the "force:org:open" command again.',
-
       accessTokenLoginUrlNotSet:
         'The instance URL is not set, or is incorrect for the given access token. API Error: %s',
 
-      displayCommandCliDescription: 'get org description',
-      displayCommandCliDescriptionLong: 'Gets the description for the current or target org.',
-      displayCommandCliHelp:
-        'Output includes your access token, client ID, connected status, ' +
-        'org ID, instance URL, username, and alias, if applicable. ' +
-        '\n\nUse --verbose to include the SFDX auth URL. Including --verbose displays the sfdxAuthUrl property ' +
-        'only if you authenticated to the org using force:auth:web:login (not force:auth:jwt:grant).' +
-        '\n\nExamples:' +
-        '\n   $ sfdx force:org:display' +
-        '\n   $ sfdx force:org:display -u me@my.org' +
-        '\n   $ sfdx force:org:display -u TestOrg1 --json' +
-        '\n   $ sfdx force:org:display -u TestOrg1 --json > tmp/MyOrgDesc.json',
-      displayCommandHumanSuccess: 'Org Description',
-
       userTopicDescription: 'perform user-related admin tasks',
       userTopicDescriptionLong: 'Use the user commands to perform user-related admin tasks.',
-
-      assignCommandCliDescription: 'assign a permission set to one or more users of an org',
-      assignCommandCliDescriptionLong: 'Assigns a named permission set to one or more users of an org.',
-      assignCommandCliHelp:
-        'Defaults to the defaultusername.' +
-        '\n\nExamples:' +
-        '\n   $ sfdx force:user:permset:assign -n DreamHouse' +
-        '\n   $ sfdx force:user:permset:assign -n DreamHouse -u me@my.org' +
-        '\n   $ sfdx force:user:permset:assign -n DreamHouse -o user1@my.org,user2,user3',
-      assignCommandCliName: 'the name of the permission set to assign',
-      assignCommandCliNameLong: 'The name of the permission set to assign.',
-      assignCommandPermissionSetNotFoundError:
-        'Permission set "%s" not found in target org. Do you need to push source?',
-      assignCommandPermissionSetNotFoundForNSError:
-        'Permission set "%s" for namespace "%s" not found in target org. Do you need to push source or install the package?',
-      assignCommandOnBehalfOf: 'comma-separated list of usernames or aliases to assign the permission set to',
-      assignCommandOnBehalfOfLong: 'Comma-separated list of usernames or aliases to assign the permission set to.',
 
       pullCommandMetadataTypeLabel: 'Metadata Type',
       pullCommandMetadataTypePath: 'Metadata Path',
@@ -553,21 +499,6 @@ const messages = {
       unexpectedSmmToolingFullNameFormat: 'Unexpected format for FullName: %s.',
       invalidResponseFromQuery: 'Invalid response from query: %s.',
 
-      docTopicDescription: 'display help for force commands',
-      docTopicLongDescription:
-        'Use the doc commands to display descriptions and help for commands in the force namespace.',
-
-      docCommandsDisplayDescription: 'display help for force commands',
-      docCommandsDisplayDescriptionLong: 'Displays help for commands in the force namespace.',
-      docCommandsDisplayHelp:
-        'Displays --help output for commands in the force namespace.' +
-        '\nTo display more details about the commands’ parameters, include the --json flag.',
-      docCommandsListDescription: 'list the force commands',
-      docCommandsListDescriptionLong: 'Lists the commands in the force namespace.',
-      docCommandsListUsageDescription: 'list only docopt usage strings',
-      docCommandsListUsageDescriptionLong: 'Lists docopt usage strings instead of command names and descriptions.',
-      docCommandsListHelp: 'Displays a list of commands in the force namespace and their descriptions.',
-
       keyChainServiceCommandFailed: 'Command failed with response.\n%s',
       keyChainServiceRequired: 'Can’t get or set a keychain value without a service name.',
       keyChainAccountRequired: 'Can’t get or set a keychain value without an account name.',
@@ -657,9 +588,9 @@ const messages = {
         '\n\nTo run specific test methods, use --tests.' +
         '\n\nExamples:' +
         '\n   $ sfdx force:apex:test:run' +
-        '\n   $ sfdx force:apex:test:run -n MyClassTest,MyOtherClassTest -r human' +
-        '\n   $ sfdx force:apex:test:run -s MySuite,MyOtherSuite -c --json' +
-        '\n   $ sfdx force:apex:test:run -t MyClassTest.testCoolFeature,MyClassTest.testAwesomeFeature,AnotherClassTest,namespace.TheirClassTest.testThis -r human' +
+        '\n   $ sfdx force:apex:test:run -n "MyClassTest,MyOtherClassTest" -r human' +
+        '\n   $ sfdx force:apex:test:run -s "MySuite,MyOtherSuite" -c --json' +
+        '\n   $ sfdx force:apex:test:run -t "MyClassTest.testCoolFeature,MyClassTest.testAwesomeFeature,AnotherClassTest,namespace.TheirClassTest.testThis" -r human' +
         '\n   $ sfdx force:apex:test:run -l RunLocalTests -d <path to outputdir> -u me@my.org',
       apexTestCommandParamTestNames: 'comma-separated list of Apex test class names to run',
       apexTestCommandParamTestNamesLong:
@@ -822,7 +753,7 @@ const messages = {
         'Authorizes a Salesforce org using a certificate associated with your private key that has been uploaded to a personal connected app.' +
         '\n\nIf you specify an --instanceurl value, this value overrides the sfdcLoginUrl value ' +
         'in your sfdx-project.json file. To specify a My Domain URL, use the format ' +
-        '<yourdomain>.my.salesforce.com (not <yourdomain>.lightning.force.com).' +
+        'MyDomainName.my.salesforce.com (not MyDomainName.lightning.force.com).' +
         '\n\nExamples:' +
         '\n   $ sfdx force:auth:jwt:grant -u me@my.org -f <path to jwt key file> -i <OAuth client id>' +
         '\n   $ sfdx force:auth:jwt:grant -u me@my.org -f <path to jwt key file> -i <OAuth client id> -s -a MyDefaultOrg' +
@@ -844,6 +775,8 @@ const messages = {
         'Authorize a Salesforce org using an SFDX auth URL stored within a file.' +
         '\nThe file must have the format "%s" or "%s".' +
         '\nThe file must contain only the URL or be a JSON file that has a top-level property named sfdxAuthUrl.' +
+        '\nUse this command to get the SFDX auth URL for a Dev Hub org you have already authorized:' +
+        '\n\n    $ sfdx force:org:display -u <DevHub> --verbose' +
         '\n\nExamples:' +
         '\n   $ sfdx force:auth:sfdxurl:store -f <path to sfdxAuthUrl file>' +
         '\n   $ sfdx force:auth:sfdxurl:store -f <path to sfdxAuthUrl file> -s -a MyDefaultOrg',
@@ -875,95 +808,13 @@ const messages = {
     }
   },
 
-  aliasSetCommand: {
-    en_US: {
-      help:
-        'You can associate an alias with only one username at a time. If you’ve set an alias multiple times, ' +
-        'the alias points to the most recent username.' +
-        '\n\nTo delete an alias, run "sfdx force:alias:set" with no username.' +
-        '\n\nExamples:' +
-        '\n   $ sfdx force:alias:set YourAlias=username@example.com' +
-        '\n   $ sfdx force:alias:set YourAlias=username@example.com YourOtherAlias=devhub@example.com' +
-        '\n   $ sfdx force:alias:set AliasToDelete=',
-      description: 'set username aliases for the Salesforce CLI',
-      longDescription: 'Sets an alias that the Salesforce CLI can use for various commands and tasks.'
-    }
-  },
-
-  aliasListCommand: {
-    en_US: {
-      help: 'Example: \n   $ sfdx force:alias:list',
-      description: 'list username aliases for the Salesforce CLI',
-      longDescription: 'Lists the aliases that the Salesforce CLI can use for various commands and tasks.'
-    }
-  },
-
-  config: {
-    en_US: {
-      description: 'configure the Salesforce CLI',
-      longDescription:
-        'Use the config commands to view and set your Salesforce CLI configuration values. ' +
-        'Set your default Dev Hub and scratch org, and your default instance URL, either globally or at the project level.'
-    }
-  },
-
   sfdxConfig: {
     en_US: {
       invalidConfigValue: 'Invalid config value. %s',
       invalidApiVersion: 'Specify a valid Salesforce API version, for example, 42.0.',
       invalidInstanceUrl: 'Specify a valid Salesforce instance URL.',
-      UnknownConfigKey: 'Unknown config key: %s'
-    }
-  },
-
-  configSetCommand: {
-    en_US: {
-      help:
-        'Sets the configuration variables that the Salesforce CLI uses for various commands and tasks. ' +
-        'Local variables apply only to your current project. Global variables apply in any directory.' +
-        '\n\nExamples:' +
-        '\n   $ sfdx force:config:set defaultusername=me@my.org defaultdevhubusername=me@myhub.org' +
-        '\n   $ sfdx force:config:set defaultdevhubusername=me@myhub.org -g',
-      description: 'set config vars for the Salesforce CLI',
-      descriptionLong: 'Sets the local and global configuration variables for the Salesforce CLI.',
-      global: 'set config var globally (to be used from any directory)',
-      globalLong: 'Sets the configuration variables globally, so they can be used from any directory.',
-      globalHelp: 'Add the --global flag to set config outside of a project.',
-      InvalidOrgValue: 'Unknown org value. Valid values are %s',
-      NoConfigKeysFound: 'Please provide config name(s) and value(s) to set.',
-      InvalidConfigFormat: 'Setting config vars must be in the format <key>=<value> but found %s',
-      DuplicateConfigKey: 'Trying to set config name "%s" twice in the same command'
-    }
-  },
-
-  configGetCommand: {
-    en_US: {
-      help:
-        'To see your default scratch org username, include "defaultusername".' +
-        '\nTo see your default Dev Hub, include "defaultdevhubusername".' +
-        '\nTo see your default instance URL, include "instanceUrl".' +
-        '\nTo see the locations where your values are set, include the --verbose flag.' +
-        '\n\nExamples:' +
-        '\n   $ sfdx force:config:get defaultusername' +
-        '\n   $ sfdx force:config:get defaultusername defaultdevhubusername instanceUrl' +
-        '\n   $ sfdx force:config:get defaultusername defaultdevhubusername --verbose',
-      description: 'get config var values for given names',
-      descriptionLong:
-        'Gets the Salesforce CLI configuration values for your default scratch org, ' +
-        'your default Dev Hub org, your default instance URL, or any combination of the three.',
-      sfdxProjectValidationFailure: 'sfdx-project.json file did not validate against the schema.',
-      NoConfigKeysFound: 'Please provide config name(s) to get.'
-    }
-  },
-
-  configListCommand: {
-    en_US: {
-      help: 'Lists the config variables that the Salesforce CLI uses for various commands and tasks.',
-      description: 'list config vars for the Salesforce CLI',
-      descriptionLong: 'Lists the configuration variables for the Salesforce CLI.',
-      key: 'Name',
-      value: 'Value',
-      location: 'Location'
+      UnknownConfigKey: 'Unknown config key: %s',
+      sfdxProjectValidationFailure: 'sfdx-project.json file did not validate against the schema.'
     }
   },
 
@@ -1127,8 +978,8 @@ const messages = {
       noPromptLong: 'Do not prompt for confirmation.',
       noAccess: 'The org with name: %s needs to be enabled for org shape before shapes can be deleted.',
       deleteCommandYesNo: 'Delete shapes for org with name: %s?  Are you sure (y/n)?',
-      humanSuccess: 'Successfully deleted shape(s) from org: %s.',
-      noShapesHumanSuccess: 'No org shapes found for org: %s.',
+      humanSuccess: 'Successfully deleted org shape for %s.',
+      noShapesHumanSuccess: "Can't delete org shape. No org shape found for org %s.",
       help:
         'Examples:' +
         '\n   $ sfdx force:org:shape:delete -u me@my.org' +
@@ -1146,28 +997,40 @@ const messages = {
     }
   },
 
-  org_list: {
+  package_displayancestry: {
     en_US: {
-      description: 'list all orgs you’ve created or authenticated to',
-      longDescription: 'Lists all orgs that the Salesforce CLI has created or authenticated to.',
-      verbose: 'list more information about each org',
-      verboseLong: 'Lists more information about each org.',
-      all: 'include expired, deleted, and unknown-status scratch orgs',
-      allLong: 'Lists all authenticated orgs, including expired, deleted, and unknown-status scratch orgs.',
-      clean: 'remove all local org authorizations for non-active orgs',
-      cleanLong: 'Remove all local org authorizations for deleted or expired orgs.',
-      prompt: 'Found (%s) org configurations to delete. Are you sure (yes/no)?',
-      noPrompt: 'do not prompt for confirmation',
-      noPromptLong: 'Do not prompt for confirmation.',
-      noActiveScratchOrgs: 'No active scratch orgs found. Specify --all to see all scratch orgs',
+      cliDescription: 'display the ancestry tree for a 2GP managed package version',
+      cliDescriptionLong: 'Displays the ancestry tree for a 2GP managed package version.',
       help:
-        'Examples:' +
-        '\n   $ sfdx force:org:list' +
-        '\n   $ sfdx force:org:list --verbose --json' +
-        '\n   $ sfdx force:org:list --verbose --json > tmp/MyOrgList.json',
-      skipConnectionStatus: 'Skips retrieving the connection status of non-scratch orgs',
-      deleteOrgs:
-        'You have %s expired or deleted local scratch org authorizations. To remove authorizations for inactive orgs, run force:org:list --clean.'
+        'Examples:\n' +
+        '   $ sfdx force:package:version:displayancestry -p package_version_alias\n' +
+        '   $ sfdx force:package:version:displayancestry -p package_version_alias --dotcode\n' +
+        '   $ sfdx force:package:version:displayancestry -p OHo...\n' +
+        '   $ sfdx force:package:version:displayancestry -p 04t...',
+      package:
+        'ID or alias of the package (starts with 0Ho) or package version (starts with 04t) to display ancestry for',
+      packageLong:
+        'The ID or alias of the package or package version to display ancestry for. If you specify a package ID (starts with 0Ho) or alias, the ancestor tree for every package version associated with the package ID is displayed.\n' +
+        'If you specify a package version (starts with 04t) or alias, the ancestry tree of the specified package version is displayed.',
+      dotcode: 'display the ancestry tree in DOT code',
+      dotcodeLong:
+        'Displays the ancestry tree in DOT code. You can use the DOT code output in graph visualization software to create tree visualizations.',
+      verbose:
+        'display both the package version ID (starts with 04t) and the version number (major.minor.patch.build) in the ancestry tree',
+      verboseLong:
+        'Displays both the package version ID (starts with 04t) and the version number (major.minor.patch.build) in the ancestry tree.',
+      invalidId:
+        'Can’t display the ancestry tree for %s. Specify a valid package ID (starts with 0Ho) or package version ID (starts with 04t), and try creating the ancestry tree again.',
+      parseError:
+        'Can’t display the ancestry tree. The specified package alias can’t be located. Check that you’re running this CLI command from the DX project directory, and try creating the ancestry tree again.',
+      versionNotFound:
+        'Can’t display the ancestry tree for %s. Verify the package version number (starts with 04t) or the package version alias listed in the sfdx-project.json file, and try creating the ancestry tree again.',
+      invalidAlias:
+        'Can’t display the ancestry tree for %s. The specified package alias can’t be found. Verify the package alias name listed in the sfdx-project.json, or specify the package ID or package version ID, and try creating the ancestry tree again.',
+      unlockedPackageError:
+        'Can’t display package ancestry. Package ancestry is available only for second-generation managed packages. Retry this command and specify a second-generation managed package or package version.',
+      noVersionsError:
+        'Can’t display package ancestry. The specified package has no associated released package versions. Retry this command after you create and promote at least one package version.'
     }
   },
 
@@ -1523,11 +1386,14 @@ const messages = {
         "\n\nRun 'sfdx force:package:list' to list all packages in the Dev Hub org.",
       name: 'package name',
       nameLong: 'Name of the package to create.',
-      orgDependent: 'Depends on unpackaged metadata in the installation org. Applies to unlocked packages only. (Beta)',
+      orgDependent: 'depends on unpackaged metadata in the installation org. Applies to unlocked packages only.',
       orgDependentLong:
-        'Package depends on unpackaged metadata in the installation org. Applies to  unlocked packages only. (Beta)\n' +
-        '\n' +
-        'Use Source Tracking in Sandboxes (Beta), to develop your org-dependent unlocked package.\n',
+        'Package depends on unpackaged metadata in the installation org. Applies to unlocked packages only.' +
+        '\nUse Source Tracking in Sandboxes to develop your org-dependent unlocked package.' +
+        '\nFor more information, see "Create Org-Dependent Unlocked Packages" in the Salesforce DX Developer Guide.',
+      errorNotificationUsername: 'active Dev Hub user designated to receive email notifications for package errors',
+      errorNotificationUsernameLong:
+        'An active Dev Hub org user designated to receive email notifications for unhandled Apex exceptions, and install, upgrade, or uninstall failures associated with your package.',
       description: 'package description',
       descriptionLong: 'Description of the package.',
       noNamespace: 'creates the package with no namespace; available only for unlocked packages.',
@@ -1589,7 +1455,8 @@ const messages = {
       verboseDescription: 'display extended package detail',
       verboseLongDescription: 'Displays extended package details.',
       convertedFromPackageId: 'Converted From Package Id',
-      isOrgDependent: 'Org-Dependent Unlocked Package (Beta)'
+      isOrgDependent: 'Org-Dependent Unlocked Package',
+      errorNotificationUsername: 'Error Notification Username'
     }
   },
 
@@ -1601,10 +1468,10 @@ const messages = {
         'The package version is based on the package contents in the specified directory.' +
         '\n\nTo retrieve details about a package version create request, including status and package version ID (04t), ' +
         'run "sfdx force:package:version:create:report -i 08c...".' +
-        '\n\nWe recommend specifying the --installationkey to protect the contents of your package and to prevent unauthorized installation of your package.' +
+        '\n\nWe recommend that you specify the --installationkey parameter to protect the contents of your package and to prevent unauthorized installation of your package.' +
         '\n\nTo list package version creation requests in the org, run "sfdx force:package:version:create:list".' +
-        '\n\nManaged packages must use the --codecoverage option and meet the code coverage requirements to promote a version to released.' +
-        '\n\nStarting in Winter ‘21, only unlocked package versions that have met the minimum 75% code coverage requirement can be promoted. Code coverage minimums aren’t enforced on org-dependent unlocked packages.' +
+        '\n\nTo promote a package version to released, you must use the --codecoverage parameter. The package must also meet the code coverage requirements. This requirement applies to both managed and unlocked packages.' +
+        '\n\nWe don’t calculate code coverage for org-dependent unlocked packages, or for package versions that specify --skipvalidation.' +
         '\n\nExamples:' +
         '\n   $ sfdx force:package:version:create -d common -k password123' +
         '\n   $ sfdx force:package:version:create -p "Your Package Alias" -k password123' +
@@ -1660,22 +1527,27 @@ const messages = {
       versiondescription: 'the description of the package version to be created',
       longVersiondescription:
         'The description of the package version to be created. Overrides the sfdx-project.json value.',
-      codeCoverage:
-        'calculate the code coverage by running the packaged Apex tests. ' +
-        'Note: Managed packages must use this option and meet the code coverage requirements to promote the version.',
+      codeCoverage: 'calculate the code coverage by running the packaged Apex tests',
       longCodeCoverage:
         'Calculate and store the code coverage percentage by running the Apex tests included in this package version. ' +
-        'Managed packages must use this option and meet the code coverage requirements to promote the version.',
+        'Before you can promote and release a managed or unlocked package version, the Apex code must meet a minimum 75% code coverage requirement. ' +
+        'We don’t calculate code coverage for org-dependent unlocked packages or for package versions that specify --skipvalidation.',
       releaseNotesUrl: 'release notes URL',
       releaseNotesUrlLong:
         'The release notes URL. This link is displayed in the package installation UI to provide release notes ' +
         'for this package version to subscribers.',
-      skipValidation:
-        'skip validation during package version creation; package versions created without validation can’t be promoted',
+      skipValidation: 'skip validation during package version creation; you can’t promote unvalidated package versions',
       skipValidationLong:
         'Skips validation of dependencies, package ancestors, and metadata during package version creation. Skipping validation reduces ' +
-        'the time it takes to create a new package version, but you can promote only validated package versions. You can specify ' +
+        'the time it takes to create a new package version, but you can promote only validated package versions. Skipping validation ' +
+        'can suppress important errors that can surface at a later stage. You can specify ' +
         'skip validation or code coverage, but not both. Code coverage is calculated during validation.',
+      skipValidationWarning:
+        'Skipping validation suppresses errors that usually surface during package version creation. Instead, ' +
+        'these errors surface at a later stage, such as installation or post-installation. If you encounter errors that ' +
+        'are difficult to debug, retry package version creation without the skipvalidation parameter.',
+      hasMetadataRemovedWarning:
+        "The package version you've created doesn't contain metadata components that were in the package version's ancestor.",
       postInstallUrl: 'post-install URL',
       postInstallUrlLong:
         'The post-install instructions URL. The contents of the post-installation instructions URL are displayed ' +
@@ -1860,7 +1732,10 @@ const messages = {
       installKey: 'Installation Key',
       codeCoverage: 'Code Coverage',
       hasPassedCodeCoverageCheck: 'Code Coverage Met',
-      validationSkipped: 'Validation Skipped'
+      validationSkipped: 'Validation Skipped',
+      releaseVersion: 'Release Version',
+      buildDurationInSeconds: 'Build Duration in Seconds',
+      hasMetadataRemoved: 'Managed Metadata Removed'
     }
   },
 
@@ -1880,6 +1755,57 @@ const messages = {
       subscriberPackageVersionId: 'Package Version ID',
       subscriberPackageVersionName: 'Version Name',
       subscriberPackageVersionNumber: 'Version'
+    }
+  },
+
+  package_version_delete: {
+    en_US: {
+      cliDescription: 'delete a package version',
+      cliLongDescription: 'Delete unlocked and second-generation managed package versions.',
+      help:
+        'Specify the ID or alias of the package version you want to delete.' +
+        '\n\nExamples:' +
+        '\n   $ sfdx force:package:version:delete -p "Your Package Alias"' +
+        '\n   $ sfdx force:package:version:delete -p 04t...',
+      package: 'ID (starts with 04t) or alias of the package to update a version of',
+      packageLong: 'The ID (starts with 04t) or alias of the package version to delete.',
+      undelete: 'undelete a deleted package version',
+      undeleteLong: 'Undelete a deleted package version.',
+      noPrompt: 'don’t prompt before deleting the package version',
+      noPromptLong: 'Don’t prompt before deleting the package version.',
+      promptDelete: 'Deleted package versions can’t be recovered.' + '\n\nDo you want to continue? (y/n)',
+      promptUndelete:
+        'This will undelete the package version, which may result in unintended consequences for customers.  Proceed with caution.' +
+        '\n\nDo you want to continue? (y/n)',
+      promptDeleteDeny: 'The request to delete this package version has been canceled.',
+      humanSuccess: 'Successfully deleted the package version.',
+      humanSuccessUndelete: 'Successfully undeleted the package version.'
+    }
+  },
+
+  package_delete: {
+    en_US: {
+      cliDescription: 'delete a package',
+      cliLongDescription:
+        'Delete unlocked and second-generation managed packages. Before you delete a package, first delete all associated package versions.',
+      help:
+        'Specify the ID or alias of the package you want to delete.' +
+        '\n\nExamples:' +
+        '\n   $ sfdx force:package:delete -p "Your Package Alias"' +
+        '\n   $ sfdx force:package:delete -p 0Ho...',
+      package: 'ID (starts with 0Ho) or alias of the package to delete',
+      packageLong: 'The ID (starts with 0Ho) or alias of the package to delete.',
+      undelete: 'undelete a deleted package',
+      undeleteLong: 'Undelete a deleted package.',
+      noPrompt: 'don’t prompt before deleting the package',
+      noPromptLong: 'Don’t prompt before deleting the package.',
+      promptDelete: 'Deleted packages can’t be recovered.' + '\n\nDo you want to continue? (y/n)',
+      promptUndelete:
+        'This will undelete the package, which may result in unintended consequences for customers.  Proceed with caution.' +
+        '\n\nDo you want to continue? (y/n)',
+      promptDeleteDeny: 'The request to delete this package was canceled',
+      humanSuccess: 'Successfully deleted the package.',
+      humanSuccessUndelete: 'Successfully undeleted the package.'
     }
   },
 
@@ -2197,6 +2123,12 @@ const messages = {
         'Provide a valid namespace value. This value must begin with a letter. It can’t include consecutive underscores, end in an underscore, be more than 15 characters long, or be a restricted or reserved namespace. Only alphanumeric characters and underscores are allowed.',
       'S-9999':
         'A fatal signup error occurred. Please try again. If you still see this error, contact Salesforce Support for assistance.',
+      'SH-0001':
+        'Can’t create scratch org. Contact the source org admin to add your Dev Hub org ID to Setup > Org Shape. Then try again.',
+      'SH-0002':
+        'Can’t create scratch org. No org shape exists for the specified sourceOrg. Create an org shape and try again.',
+      'SH-0003':
+        'Can’t create scratch org from org shape. The org shape version is outdated. Recreate the org shape and try again.',
       'C-1007':
         "The username provided to the org:create command is already in use. Run 'force:org:list --clean' to remove stale org authentications or create the org with a different username.",
       'C-1015':
@@ -2232,7 +2164,7 @@ const messages = {
         `${os.EOL}${os.EOL}Examples:` +
         `${os.EOL}   $ sfdx force:user:password:generate` +
         `${os.EOL}   $ sfdx force:user:password:generate -u me@my.org --json` +
-        `${os.EOL}   $ sfdx force:user:password:generate -o user1@my.org,user2@my.org,user3@my.org`,
+        `${os.EOL}   $ sfdx force:user:password:generate -o "user1@my.org,user2@my.org,user3@my.org"`,
       onbehalfofParam: 'comma-separated list of usernames for which to generate passwords',
       onbehalfofParamLong: 'A comma-separated list of usernames for which to generate passwords.',
       noOrgProvided: 'Please specify the org for the user(s)',
@@ -2247,63 +2179,6 @@ const messages = {
       viewWithCommand: 'You can see the password again by running "sfdx force:user:display -u %s".',
       noSelfSetAction:
         'Create a scratch org with the enableSetPasswordInApi org security setting set to TRUE and try again.'
-    }
-  },
-
-  user_create: {
-    en_US: {
-      description: 'create a user for a scratch org',
-      longDescription: 'Creates a user for a scratch org.',
-      help:
-        'Create a user for a scratch org, optionally setting an alias for use by the CLI, ' +
-        'assigning permission sets (e.g., permsets=ps1,ps2), generating a password (e.g., generatepassword=true), ' +
-        'and setting User sObject fields.' +
-        `${os.EOL}${os.EOL}Examples:` +
-        `${os.EOL}   $ sfdx force:user:create` +
-        `${os.EOL}   $ sfdx force:user:create -a testuser1 -f config/project-user-def.json` +
-        `${os.EOL}   $ sfdx force:user:create username=testuser1@my.org email=me@my.org permsets=DreamHouse` +
-        `${os.EOL}   $ sfdx force:user:create -f config/project-user-def.json email=me@my.org generatepassword=true`,
-      definitionfileParam: 'file path to a user definition',
-      definitionfileParamLong: 'File path to a user definition.',
-      setaliasParam: 'set an alias for the created username to reference within the CLI',
-      setaliasParamLong: 'Sets an alias for the created username to reference within the CLI.',
-      noOrgProvided: 'Please specify the org where the user should be created.',
-      userNotCreated: 'User must be created before %s',
-      licenseLimitExceeded: 'There are no available user licenses for the user profile "%s".',
-      duplicateUsername:
-        'The username "%s" already exists in this or another Salesforce org. Usernames must be unique across all Salesforce orgs.',
-      profileNameNotFound: 'Profile name "%s" not found in target org.  Do you need to push source?',
-      success: `Successfully created user "%s" with ID [%s] for org %s.${os.EOL}You can see more details about this user by running "sfdx force:user:display -u %s".`
-    }
-  },
-
-  user_list: {
-    en_US: {
-      description: 'lists all users of a scratch org',
-      longDescription: 'Lists all users of a scratch org that the Salesforce CLI has created or authenticated.',
-      help:
-        'The original scratch org admin is marked with "(A)"' +
-        `${os.EOL}Examples:` +
-        `${os.EOL}   $ sfdx force:user:list` +
-        `${os.EOL}   $ sfdx force:user:list -u me@my.org --json` +
-        `${os.EOL}   $ sfdx force:user:list --json > tmp/MyUserList.json`,
-      noOrgProvided:
-        'Please specify the target org of the users to list via the --targetusername flag or setting a default username.',
-      usersInOrg: 'Users in org %s'
-    }
-  },
-
-  user_display: {
-    en_US: {
-      description: 'displays information about a user of a scratch org',
-      longDescription:
-        'Displays information about a user of a scratch org that the Salesforce CLI has created or authenticated.',
-      help:
-        'Output includes the profile name, org ID, access token, instance URL, login URL, and alias if applicable.' +
-        `${os.EOL}Examples:` +
-        `${os.EOL}   $ sfdx force:user:display` +
-        `${os.EOL}   $ sfdx force:user:display -u me@my.org --json`,
-      noOrgProvided: 'Please specify the user to display via the --targetusername flag or setting a default username.'
     }
   },
 
@@ -2357,7 +2232,7 @@ const messages = {
     en_US: {
       success: 'Source was successfully converted to Metadata API format and written to the location: %s',
       invalidRootDirectory: 'The package root directory does not exist: %s',
-      noSourceInRootDirectory: 'The package root directory is empty.',
+      noSourceInRootDirectory: 'No matching source was found within the package root directory: %s',
       rootDirectoryNotASourceDirectory: 'The package root directory is not a source directory'
     }
   },
@@ -2370,87 +2245,6 @@ const messages = {
         'and to test Aura components. As of API version 45.0, you can build Lightning components using two programming models: ' +
         'Lightning Web Components, and the original model, Aura Components. Lightning web components and Aura components can ' +
         'coexist and interoperate on a page.'
-    }
-  },
-
-  lightning_test: {
-    en_US: {
-      lightningTestCommandDescription: 'invoke Aura component tests',
-      lightningTestCommandDescriptionLong:
-        'Runs Aura component tests. The Lightning Testing Service (LTS) ' +
-        'unmanaged package must be installed in your org. For details, see the LTS documentation.',
-      lightningTestCommandParamAppName: 'name of your Lightning test application',
-      lightningTestCommandParamAppNameLong:
-        'Name of your Lightning test application. The name is case insensitive, ' +
-        'and ".app" is optional, so "Test" and "test.app" are equivalent.' +
-        '\nDefault value: Test.app',
-      lightningCommandParamTestArtifactDir:
-        'directory path to store test run artifacts: for example, log files and test results',
-      lightningCommandParamTestArtifactDirLong:
-        'Directory path to store test run artifacts: log files, test results, and so on.',
-      lightningTestCommandParamReporter: 'test result format emitted to stdout; --json flag overrides this parameter',
-      lightningTestCommandParamReporterLong:
-        'Format to use when displaying test results. If you also specify the --json ' +
-        'flag, --json overrides this parameter.',
-      lightningTestCommandParamConfig: 'path to config file for the test',
-      lightningTestCommandParamConfigLong:
-        'Path to a test configuration file to configure WebDriver and other settings. ' +
-        'For details, see the LTS documentation.',
-      lightningTestCommandParamLeaveBrowserOpen: 'leave browser open',
-      lightningTestCommandParamLeaveBrowserOpenLong:
-        'Leaves browser open after the test finishes so that you can view ' + 'the test suite results.',
-      lightningTestCommandParamTimeout: 'time (ms) to wait for results element in dom',
-      lightningTestCommandParamTimeoutLong:
-        'Time, in milliseconds, to wait for the results element to be present in the DOM, ' +
-        'before failing and moving on to the next test.',
-      lightningTestCommandHelp:
-        'Examples:' +
-        '\n   $ sfdx force:lightning:test:run' +
-        '\n   $ sfdx force:lightning:test:run -a tests -r human' +
-        '\n   $ sfdx force:lightning:test:run -f config/myConfigFile.json -d testResultFolder',
-      lightningTestInvalidReporter: 'Unknown result format type. Must be one of the following values: %s',
-      lightningTestResultRetrievalFailed: 'Unable to get test results: %s',
-      lightningTestBrowserError: 'Something went wrong with the test app: %s',
-      lightningTestInstallCommandDescription: 'install Lightning Testing Service unmanaged package in your org',
-      lightningTestInstallCommandDescriptionLong:
-        'Installs a Lightning Testing Service (LTS) unmanaged package into your org.',
-      lightningTestInstallCommandParamWait: 'number of minutes to wait for installation status',
-      lightningTestInstallCommandParamWaitLong: 'Maximum number of minutes to wait for installation status.',
-      lightningTestInstallCommandParamVersion: 'release version of Lightning Testing Service',
-      lightningTestInstallCommandParamVersionLong: 'The release version of LTS unmanaged package you want to install.',
-      lightningTestInstallCommandParamType:
-        "type of unmanaged package. 'full' option contains both jasmine and mocha, plus examples",
-      lightningTestInstallCommandParamTypeLong:
-        "Type of LTS unmanaged package to install. 'jasmine' and 'mocha' contains the essentials for development, 'full' contains both, and adds sample components and tests in the package. 'full' is best for 'kicking the tires' of LTS.",
-      lightningTestInstallCommandHelp:
-        'Examples:' +
-        '\n   $ sfdx force:lightning:test:install' +
-        '\n   $ sfdx force:lightning:test:install -w 0 -r v1.0' +
-        '\n   $ sfdx force:lightning:test:install -t jasmine',
-      scratchOrgOnly:
-        'Lightning Testing Service can only run in scratch orgs, because tests can permanently change org data.',
-      waitNotNumber: 'The value specified for wait argument, %s, is not a number.',
-      invalidType: 'The value specified for type argument, %s, is invalid.',
-      invalidVersion:
-        "Release tag %s doesn't exist. For the list of available releases, go to https://github.com/forcedotcom/LightningTestingService/releases.",
-      packageIdRetrievalIssue:
-        'An error occurred trying to reach %s to retrieve the LTS package ID. See the debug log for details.',
-      packageIdExtractionIssue:
-        'Unable to extract a package ID from the response from %s. See the debug log for details.',
-      testRunError:
-        'Something went wrong with the test run. It might be an environmental or configuration issue.' +
-        '\nError Message: %s',
-      lightningTestingServiceDeprecated:
-        'The functionality has been moved to a plugin that you must install seperately. ' +
-        'For details on the new plugin see: https://github.com/forcedotcom/LightningTestingService/blob/master/README.md#installing-the-lightning-testing-service'
-    }
-  },
-
-  limits: {
-    en_US: {
-      mainTopicDescriptionHelp: 'view your org’s limits',
-      mainTopicLongDescriptionHelp:
-        'Use the limits commands to view your org’s limits ' + 'and how close you are to reaching them.'
     }
   },
 
@@ -2516,10 +2310,6 @@ const messages = {
       create_shape_command_username: 'a username or alias for the target org',
       create_shape_command_username_long:
         'Username or alias of the previously authorized org from which you want to create an org shape.',
-      create_shape_command_definitionfile:
-        'creates a scratch definition file based on the specified source org. If a file name isn’t specified, the default is: <source org ID>-<unique 15-character ID>-scratch-def.json',
-      create_shape_command_definitionfile_long:
-        'Creates a scratch definition file based on the specified source org. This name must end in scratch-def.json. If you specify a name that doesn’t end in scratch-def.json, we’ll append it. The file is generated in the config directory.',
       create_shape_command_no_access: 'The org needs to be enabled for org shape before one can be created.'
     }
   },

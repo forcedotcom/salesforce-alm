@@ -11,10 +11,24 @@ import * as Config from '../force-cli/force-cli-config';
 import * as Messages from '../force-cli/force-cli-messages';
 import { ensureJsonArray, ensureJsonMap, ensureString, toJsonMap, isJsonArray } from '@salesforce/ts-types';
 import { Reporter } from '../../lib/test/reporter';
-import { Field, SubqueryField, FunctionField, getFields } from './soqlParser';
 import { EOL } from 'os';
 import { Connection, QueryResult } from 'jsforce';
 
+export class Field {
+  public name: string;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+}
+
+export class SubqueryField extends Field {
+  public fields: Field[] = [];
+}
+
+export class FunctionField extends Field {
+  public alias: string;
+}
 class QueryReporter extends Reporter {
   public columns: Field[];
 
@@ -331,15 +345,6 @@ export class DataSoqlQueryCommand {
     }
   }
 }
-
-/**
- * get attribute names from the query using the antlr parser
- * @param {string} query - the query
- * @returns {string[]}
- */
-export let getAllAttributesNames = function(query: string, logger?): Field[] {
-  return getFields(query, logger);
-};
 
 let handleResults = async function(
   conn: Connection,

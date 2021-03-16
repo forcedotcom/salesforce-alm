@@ -64,8 +64,7 @@ class DataImportApi {
    * @param flags - The flags on the context passed to the command.
    * @returns BBPromise.<Object>
    */
-  validate(context: Dictionary<any> = {}) {
-    const options = context.flags;
+  validate(options: Dictionary<any> = {}) {
     const { sobjecttreefiles, plan } = options;
 
     // --sobjecttreefiles option is required when --plan option is unset
@@ -90,7 +89,7 @@ class DataImportApi {
       options.importPlanConfig = JSON.parse(fs.readFileSync(options.plan, 'utf8'));
       return this.validator
         .validate(options.importPlanConfig)
-        .then(() => context)
+        .then(() => options)
         .catch(err => {
           if (err.name === 'ValidationSchemaFieldErrors') {
             throw almError({ bundle: 'data', keyName: 'dataImportCommandValidationFailure' }, [
@@ -101,7 +100,7 @@ class DataImportApi {
           throw err;
         });
     }
-    return BBPromise.resolve(context);
+    return BBPromise.resolve(options);
   }
 
   /**
@@ -113,8 +112,7 @@ class DataImportApi {
    *
    * @param options
    */
-  execute(context: Dictionary<any> = {}) {
-    const options = context.flags;
+  execute(options: Dictionary<any> = {}) {
     const refMap = new Map();
 
     // convert string of filepaths to array of filepaths.  Supporting both space and comma

@@ -8,7 +8,6 @@
 import * as fsx from 'fs-extra';
 import * as klaw from 'klaw';
 import * as path from 'path';
-import * as util from 'util';
 
 import * as BBPromise from 'bluebird';
 import * as optional from 'optional-js';
@@ -23,18 +22,17 @@ const glob = BBPromise.promisify(require('glob'));
 import { AuraDefinitionBundleMetadataType } from './metadataTypeImpl/auraDefinitionBundleMetadataType';
 import { WaveTemplateBundleMetadataType } from './metadataTypeImpl/waveTemplateBundleMetadataType';
 
-import srcDevUtil = require('../core/srcDevUtil');
 import Messages = require('../messages');
 const messages = Messages();
-import * as sourceState from './sourceState';
+import { toReadableState } from './workspaceFileState';
 import * as SourceUtil from './sourceUtil';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { ForceIgnore } from './forceIgnore';
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 import { LightningComponentBundleMetadataType } from './metadataTypeImpl/lightningComponentBundleMetadataType';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { ManifestEntry } from './types';
 import { getFileName } from './sourcePathUtil';
-import { SfdxError } from '@salesforce/core';
+import { fs as fsCore, SfdxError } from '@salesforce/core';
 import { AggregateSourceElements } from './aggregateSourceElements';
 
 const fsx_ensureDir = BBPromise.promisify(fsx.ensureDir);
@@ -120,7 +118,7 @@ const _processFile = function(
     fileProperties,
     bundleDefinitionProperty
   );
-  if (util.isNullOrUndefined(element)) {
+  if (!element) {
     this.logger.warn(`Unsupported type: ${metadataType.getMetadataName()} path: ${pathWithPackage}`);
   }
 };
@@ -148,17 +146,29 @@ const _processPath = function(item, metadataRegistry, sourceWorkspaceAdapter, so
         }
       } else {
         if (metadataType.hasContent()) {
-          const indexOfMetaExt = item.path.indexOf(MetadataRegistry.getMetadataFileExt());
-          const retrievedContentPath = item.path.substring(0, indexOfMetaExt);
-          //Skipping content file validation for ExperienceBundle metadata type since it is a special case and does not have a corresponding content file.
-          if (
-            metadataType.getMetadataName() !== 'ExperienceBundle' &&
-            !srcDevUtil.pathExistsSync(retrievedContentPath)
-          ) {
+          const indexOfMetaExt: string = item.path.indexOf(MetadataRegistry.getMetadataFileExt());
+          const retrievedContentPath: string = item.path.substring(0, indexOfMetaExt);
+
+          const throwMissingContentError = () => {
             const err = new Error();
             err['name'] = 'Missing content file';
             err['message'] = messages.getMessage('MissingContentFile', retrievedContentPath);
             throw err;
+          };
+
+          // LightningComponentBundleMetadataTypes can have a .css or .js file as the main content
+          // so check for both before erroring.
+          if (metadataType instanceof LightningComponentBundleMetadataType) {
+            const cssContentPath = retrievedContentPath.replace(/\.js$/, '.css');
+            if (!fsCore.existsSync(retrievedContentPath) && !fsCore.existsSync(cssContentPath)) {
+              throwMissingContentError();
+            }
+          } else {
+            // Skipping content file validation for ExperienceBundle metadata type since it is
+            // a special case and does not have a corresponding content file.
+            if (metadataType.getMetadataName() !== 'ExperienceBundle' && !fsCore.existsSync(retrievedContentPath)) {
+              throwMissingContentError();
+            }
           }
         }
       }
@@ -184,7 +194,7 @@ const _mapToOutputElements = function(aggregateSourceElements: AggregateSourceEl
     let filePath = paths[paths.length - 1];
 
     // Remove the leading slash
-    if (!util.isNullOrUndefined(filePath) && path.isAbsolute(filePath)) {
+    if (filePath && path.isAbsolute(filePath)) {
       filePath = filePath.substring(1);
     }
 
@@ -192,7 +202,7 @@ const _mapToOutputElements = function(aggregateSourceElements: AggregateSourceEl
       fullName: workspaceElement.getFullName(),
       type: workspaceElement.getMetadataName(),
       filePath,
-      state: sourceState.toString(workspaceElement.getState())
+      state: toReadableState(workspaceElement.getState())
     };
   });
 };
@@ -408,7 +418,7 @@ class MdapiConvertApi {
 
         const metadataRegistry = sourceWorkspaceAdapter.metadataRegistry;
         const aggregateSourceElements = new AggregateSourceElements();
-        this.forceIgnore = new ForceIgnore(this._package_root);
+        this.forceIgnore = ForceIgnore.findAndCreate(this._package_root);
 
         // Use a "new" promise to block the promise chain until the source metadata package is processed.
         return new BBPromise((resolve, reject) => {

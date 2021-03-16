@@ -11,7 +11,7 @@ import * as util from 'util';
 import { WorkspaceElementObj } from './workspaceElement';
 import { SourceDeployApi, DeployResult } from './sourceDeployApi';
 import { parseWaitParam, validateManifestPath } from './sourceUtil';
-import { Messages, SfdxError, SfdxErrorConfig } from '@salesforce/core';
+import { Messages, SfdxError, SfdxErrorConfig, SfdxProject } from '@salesforce/core';
 
 import { MdapiPushApi } from './sourcePushApi';
 import srcDevUtil = require('../core/srcDevUtil');
@@ -20,7 +20,6 @@ import logger = require('../core/logApi');
 import * as almError from '../core/almError';
 import * as syncCommandHelper from './syncCommandHelper';
 import { SourceDeployApiBase } from './sourceDeployApiBase';
-import { PackageInfoCache } from './packageInfoCache';
 import { AnalyticsGlobal } from '@salesforce/plugin-analytics/lib/analyticsGlobal';
 
 declare const global: AnalyticsGlobal;
@@ -92,7 +91,7 @@ export class SourceApiCommand {
           e.failures.forEach(failure => syncCommandHelper.createDeployFailureRow(rows, failure, projectPath));
           const messageBundle = this.deploytype === 'deploy' ? this.deployMsgs : this.pushMsgs;
 
-          const actions = PackageInfoCache.getInstance().hasMultiplePackages()
+          const actions = SfdxProject.getInstance().hasMultiplePackages()
             ? ['Check the order of your dependencies and ensure all metadata is included.']
             : [];
 
@@ -307,9 +306,7 @@ export class SourceApiCommand {
   createEvent() {
     let listOfMetadataTypesDeployed = this.metadataTypeDeployed.toString();
     const operation: string = this.isDeploy() ? 'source:deploy' : 'source:push';
-    const totalNumberOfPackagesInProject: number = this.isDeploy()
-      ? SourceDeployApi.totalNumberOfPackages
-      : MdapiPushApi.totalNumberOfPackages;
+    const totalNumberOfPackagesInProject: number = SfdxProject.getInstance().getUniquePackageDirectories().length;
     const packagesDeployed = this.isDeploy() ? SourceDeployApi.packagesDeployed : MdapiPushApi.packagesDeployed;
     const istruncated: boolean = listOfMetadataTypesDeployed.length < 8000 ? false : true;
     if (istruncated) {

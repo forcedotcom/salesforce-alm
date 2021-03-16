@@ -23,22 +23,26 @@ import * as pathUtil from './sourcePathUtil';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { AsyncCreatable } from '@salesforce/kit';
-import { Logger, Messages, SfdxError } from '@salesforce/core';
+import { Lifecycle, Logger, Messages, SfdxError, SfdxProject } from '@salesforce/core';
 import { SrcStatusApi } from './srcStatusApi';
-import { MaxRevision } from './MaxRevision';
+import { RemoteSourceTrackingService } from './remoteSourceTrackingService';
 import { WorkspaceElementObj } from './workspaceElement';
 import * as util from 'util';
 import { SourceLocations } from './sourceLocations';
+import { SourceResult, MetadataResult } from './sourceHooks';
+import path = require('path');
 
 export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
   public smmHelper: SourceMetadataMemberRetrieveHelper;
-  public maxRevision: MaxRevision;
+  public remoteSourceTrackingService: RemoteSourceTrackingService;
   public obsoleteNames: any[];
   public scratchOrg: any;
   public swa: SourceWorkspaceAdapter;
-  private messages: any;
+  private readonly messages: any;
   private logger!: Logger;
   private force: any;
+
+  private statusApi!: SrcStatusApi;
 
   public constructor(options: MdapiPullApi.Options) {
     super(options);
@@ -53,7 +57,9 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
   }
 
   protected async init(): Promise<void> {
-    this.maxRevision = await MaxRevision.getInstance({ username: this.scratchOrg.name });
+    this.remoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
+      username: this.scratchOrg.name
+    });
     this.logger = await Logger.child(this.constructor.name);
     if (!this.swa) {
       const options: SourceWorkspaceAdapter.Options = {
@@ -74,9 +80,15 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     }
 
     await this._checkForConflicts(options);
+
+    // if no remote changes were made, quick exit
+    if (this.statusApi && !this.statusApi.getRemoteChanges().length) {
+      return [];
+    }
+
     const packages = await this.smmHelper.getRevisionsAsPackage(this.obsoleteNames);
     const results = await BBPromise.mapSeries(Object.keys(packages), async pkgName => {
-      this.swa.packageInfoCache.setActivePackage(pkgName);
+      SfdxProject.getInstance().setActivePackage(pkgName);
       const pkg = packages[pkgName];
       const opts = Object.assign({}, options);
       this.logger.debug('Retrieving', pkgName);
@@ -108,14 +120,12 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
         }
         this.logger.debug(`Retrieve result:`, result);
         // Update local metadata source.
-        return this._postRetrieve(result, opts);
+        return await this._postRetrieve(result, opts);
       } finally {
         // Delete the output dir.
         await SourceUtil.cleanupOutputDir(opts.retrievetargetdir);
       }
     });
-    // update the serverMaxRevision
-    await this.maxRevision.setMaxRevisionCounterFromQuery();
 
     return results;
   }
@@ -164,14 +174,8 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
         .getAllWorkspaceElements()
         .map(workspaceElement => workspaceElement.toObject());
 
-      // WARNING
-      // there exists a race condition here where between when we query / pull / write
-      // to maxRevision.json - something could've changed on the server this change will appear on the next command
-      // the metadata api should be updated to return RevisionCounter with each of the source members returned
-
       await SourceLocations.nonDecomposedElementsIndex.maybeRefreshIndex(inboundFiles);
-      await SourceUtil.getSourceMembersFromResult(inboundFiles, this.maxRevision);
-      await this.maxRevision.updateSourceTracking();
+      await this.remoteSourceTrackingService.sync();
     }
 
     return this._processResults(result, inboundFiles);
@@ -189,32 +193,77 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
       this.swa.metadataRegistry
     );
 
+    const postRetrieveHookInfo: MetadataResult = {};
     result.fileProperties.forEach(fileProperty => {
+      let { fullName, fileName } = fileProperty;
+
       if (fileProperty.type === 'Package') {
         return;
       }
       // After retrieving, switch back to path separators (for Windows)
-      fileProperty.fullName = pathUtil.replaceForwardSlashes(fileProperty.fullName);
-      fileProperty.fileName = pathUtil.replaceForwardSlashes(fileProperty.fileName);
+      fileProperty.fullName = fullName = pathUtil.replaceForwardSlashes(fullName);
+      fileProperty.fileName = fileName = pathUtil.replaceForwardSlashes(fileName);
       this.swa.processMdapiFileProperty(
         changedSourceElements,
         options.retrievetargetdir,
         fileProperty,
         bundleFileProperties
       );
+
+      if (!(typeof postRetrieveHookInfo[fullName] === 'object')) {
+        postRetrieveHookInfo[fullName] = {
+          mdapiFilePath: []
+        };
+      }
+
+      postRetrieveHookInfo[fullName].mdapiFilePath = postRetrieveHookInfo[fullName].mdapiFilePath.concat(
+        path.join(options.retrievetargetdir, fileName)
+      );
     });
+
+    // emit post retrieve event
+    await Lifecycle.getInstance().emit('postretrieve', postRetrieveHookInfo);
 
     this.obsoleteNames.forEach(obsoleteName => {
       this.swa.handleObsoleteSource(changedSourceElements, obsoleteName.fullName, obsoleteName.type);
     });
 
-    return swa.updateSource(
+    const sourcePromise = swa.updateSource(
       changedSourceElements,
       options.manifest,
       false /** check for duplicates **/,
       options.unsupportedMimeTypes,
       options.forceoverwrite
     );
+
+    return sourcePromise
+      .then(updatedSource => {
+        // emit post source update event
+        let postSourceUpdateHookInfo: SourceResult = {};
+        updatedSource.forEach(sourceElementMap => {
+          sourceElementMap.forEach(sourceElement => {
+            const fullName = sourceElement.aggregateFullName;
+
+            if (!postSourceUpdateHookInfo[fullName]) {
+              postSourceUpdateHookInfo[fullName] = {
+                workspaceElements: []
+              };
+            }
+
+            const hookInfo = postSourceUpdateHookInfo[fullName];
+            const newElements = hookInfo.workspaceElements.concat(
+              sourceElement.workspaceElements.map(we => we.toObject())
+            );
+
+            hookInfo.workspaceElements = [...newElements];
+            postSourceUpdateHookInfo[fullName] = hookInfo;
+          });
+        });
+        Lifecycle.getInstance()
+          .emit('postsourceupdate', postSourceUpdateHookInfo)
+          .then(() => {});
+      })
+      .then(() => sourcePromise);
   }
 
   _processResults(result, inboundFiles: WorkspaceElementObj[]) {
@@ -234,19 +283,20 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
       // do not check for conflicts when pull --forceoverwrite
       return [];
     }
-    const statusApi = await SrcStatusApi.create({ org: this.scratchOrg, adapter: this.swa });
-    return statusApi
+    this.statusApi = await SrcStatusApi.create({ org: this.scratchOrg, adapter: this.swa });
+    return this.statusApi
       .doStatus({ local: true, remote: true }) // rely on status so that we centralize the logic
-      .then(() => statusApi.getLocalConflicts())
+      .then(() => this.statusApi.getLocalConflicts())
       .catch(err => {
-        let errorMessage;
+        let sfdxError = SfdxError.wrap(err);
         if (err.errorCode === 'INVALID_TYPE') {
           const messages: Messages = Messages.loadMessages('salesforce-alm', 'source_pull');
-          errorMessage = messages.getMessage('NonScratchOrgPull');
+          sfdxError.message = messages.getMessage('NonScratchOrgPull');
+        } else if (err.errorCode === 'INVALID_SESSION_ID') {
+          sfdxError.actions = [this.messages.getMessage('invalidInstanceUrlForAccessTokenAction')];
         } else {
-          errorMessage = err.message;
+          sfdxError.message = err.message;
         }
-        const sfdxError = (SfdxError.wrap(err).message = errorMessage);
         throw sfdxError;
       })
       .then(conflicts => {

@@ -20,7 +20,8 @@ export class InFolderMetadataType extends DefaultMetadataType {
    * @param filePath
    */
   getAggregateFullNameFromFilePath(filePath: string): string {
-    const filepathArr = filePath.split(path.sep);
+    const normalizedFilePath = path.normalize(filePath);
+    const filepathArr = normalizedFilePath.split(path.sep);
     const startIndex = filepathArr.lastIndexOf(this.typeDefObj.defaultDirectory) + 1;
     const parentFolder = filepathArr.slice(startIndex, filepathArr.length - 1).join(path.sep);
     const fileName = PathUtil.getFileName(filePath);
@@ -58,6 +59,21 @@ export class InFolderMetadataType extends DefaultMetadataType {
 
   getAggregateFullNameFromSourceMemberName(sourceMemberName: string): string {
     return sourceMemberName;
+  }
+
+  /**
+   * Returns the base metadata type name for InFolder types, which is useful when matching
+   * type/name pairs (e.g., from a manifest) to AggregateSourceElements.  The only non-
+   * conforming InFolder type is EmailTemplate, so this is really just to support that type.
+   *   Examples:
+   *     Document --> Document
+   *     EmailTemplate --> Email
+   *     Report --> Report
+   *     Dashboard --> Dashboard
+   */
+  getBaseTypeName(): string {
+    // split a string on capital letters and return the first entry
+    return this.getMetadataName().split(/(?=[A-Z])/)[0];
   }
 
   sourceMemberFullNameCorrespondsWithWorkspaceFullName(

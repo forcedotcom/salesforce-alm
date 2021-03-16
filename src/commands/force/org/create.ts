@@ -115,6 +115,7 @@ export class OrgCreateCommand extends ToolbeltCommand {
       required: false
     })
   };
+  protected readonly lifecycleEventNames = ['postorgcreate'];
 
   async resolveHubOrgContext(): Promise<Dictionary<any>> {
     //I'd prefer not to do this, But supporting targetusername natively causes a bunch of problems for the existing dev hub

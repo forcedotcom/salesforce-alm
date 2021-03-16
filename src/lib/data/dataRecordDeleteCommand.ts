@@ -24,8 +24,9 @@ export class DataRecordDeleteCommand {
     const result: any = context.flags.usetoolingapi
       ? await conn.tooling.destroy(context.flags.sobjecttype, sobjectid)
       : await conn.sobject(context.flags.sobjecttype).destroy(sobjectid);
+
+    context.ux.stopSpinner();
     if (result.success) {
-      context.ux.stopSpinner();
       Display.success(Messages.get('DataRecordDeleteSuccess', sobjectid));
     } else {
       let errors = '';
@@ -35,7 +36,6 @@ export class DataRecordDeleteCommand {
           errors += '  ' + err + '\n';
         });
       }
-      context.ux.stopSpinner();
       Display.failure(Messages.get('DataRecordDeleteFailure', errors));
     }
     return result as RecordResult;

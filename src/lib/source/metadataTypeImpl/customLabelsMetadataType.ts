@@ -6,6 +6,7 @@
  */
 
 import { NondecomposedTypesWithChildrenMetadataType } from './nondecomposedTypesWithChildrenMetadataType';
+import { SourceLocations } from '../sourceLocations';
 
 export class CustomLabelsMetadataType extends NondecomposedTypesWithChildrenMetadataType {
   parseSourceMemberForMetadataRetrieve(
@@ -18,5 +19,15 @@ export class CustomLabelsMetadataType extends NondecomposedTypesWithChildrenMeta
       type: sourceMemberType,
       isNameObsolete
     };
+  }
+
+  // if name is singular 'CustomLabel' and there are no other entries in the nonDecomposedElementsIndex then we should delete the file
+  // e.g. we're deleting the last CustomLabel entry in the CustomLabels file
+  shouldDeleteWorkspaceAggregate(metadataType: string): boolean {
+    if (metadataType === 'CustomLabel') {
+      return SourceLocations.nonDecomposedElementsIndex.values().length === 1;
+    } else {
+      return metadataType === this.getAggregateMetadataName();
+    }
   }
 }

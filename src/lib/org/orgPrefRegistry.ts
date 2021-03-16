@@ -5,7 +5,6 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as util from 'util';
 import { Config } from '../../lib/core/configApi';
 
 /**
@@ -14,7 +13,7 @@ import { Config } from '../../lib/core/configApi';
  */
 // P R I V A T E
 
-const currentApiVersion = new Config().getApiVersion();
+let currentApiVersion: string;
 
 // pref APIs
 const AccountSettingsApi = 'accountSettings';
@@ -506,6 +505,14 @@ const orgPreferenceSettingsTypeMigrateMap = new Map([
   ['voiceEnabled', DeprecatedSettingsApi]
 ]);
 
+function getCurrentApiVersion(): string {
+  if (!currentApiVersion) {
+    currentApiVersion = new Config().getApiVersion();
+  }
+
+  return currentApiVersion;
+}
+
 // P U B L I C
 // vars and functions below exposed in API
 export = {
@@ -572,11 +579,9 @@ export = {
    * @param prefName The org preference name
    * @returns the MDAPI name for the org preference
    */
-  forMdApi(prefName, apiVersion?) {
-    if (util.isNullOrUndefined(apiVersion)) {
-      apiVersion = currentApiVersion;
-    }
-    if (apiVersion >= 47.0) {
+  forMdApi(prefName, apiVersion: string = getCurrentApiVersion()) {
+    const _apiVersion = parseInt(apiVersion, 10);
+    if (_apiVersion >= 47.0) {
       return orgPreferenceMdMap.get(prefName);
     } else {
       return orgPreferenceMdMapPre47.get(prefName);
@@ -588,11 +593,9 @@ export = {
    * @param prefName The org preference name
    * @returns the API name for the org preference
    */
-  whichApi(prefName, apiVersion?) {
-    if (util.isNullOrUndefined(apiVersion)) {
-      apiVersion = currentApiVersion;
-    }
-    if (apiVersion >= 47.0) {
+  whichApi(prefName, apiVersion: string = getCurrentApiVersion()) {
+    const _apiVersion = parseInt(apiVersion, 10);
+    if (_apiVersion >= 47.0) {
       return orgPreferenceApiMap.get(prefName);
     } else {
       return orgPreferenceApiMapPre47.get(prefName);
@@ -603,11 +606,9 @@ export = {
    * Convenience method for testing to get Org Preference Map
    * @returns the Org Preference Map
    */
-  allPrefsMap(apiVersion?) {
-    if (util.isNullOrUndefined(apiVersion)) {
-      apiVersion = currentApiVersion;
-    }
-    if (apiVersion >= 47.0) {
+  allPrefsMap(apiVersion: string = getCurrentApiVersion()) {
+    const _apiVersion = parseInt(apiVersion, 10);
+    if (_apiVersion >= 47.0) {
       return orgPreferenceApiMap;
     } else {
       return orgPreferenceApiMapPre47;

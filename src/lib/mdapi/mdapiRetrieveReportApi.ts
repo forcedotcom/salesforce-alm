@@ -6,7 +6,7 @@
  */
 
 import * as path from 'path';
-import * as fs from 'fs';
+import { fs } from '@salesforce/core';
 
 // 3pp
 import * as mkdirp from 'mkdirp';
@@ -21,8 +21,6 @@ import logger = require('../core/logApi');
 import * as almError from '../core/almError';
 import Stash = require('../core/stash');
 import messages = require('../messages');
-
-const fsWriteFile = BBPromise.promisify(fs.writeFile);
 
 const RETRIEVE_ERROR_EXIT_CODE = 1;
 
@@ -110,7 +108,8 @@ class MdRetrieveReportApi {
     const retrieveTargetFile = `${mdApi.retrieveTargetPath}${path.sep}${zipFilename}`;
 
     // write zip to retrievetargetdir
-    return fsWriteFile(retrieveTargetFile, result.zipFile, 'base64')
+    return fs
+      .writeFile(retrieveTargetFile, result.zipFile, 'base64')
       .then(() => {
         this._log(`Wrote retrieve zip to ${retrieveTargetFile}.`);
 

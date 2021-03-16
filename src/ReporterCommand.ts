@@ -38,7 +38,7 @@ export abstract class ReporterCommand extends ToolbeltCommand {
           options: ['human', 'csv', 'json']
         },
         this.resultFormatOptions
-      )
+      ) as any
     );
     return super.flags;
   }

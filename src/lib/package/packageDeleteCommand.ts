@@ -11,12 +11,14 @@ import Messages = require('../messages');
 const messages = Messages();
 import pkgUtils = require('./packageUtils');
 
-class PackageUpdateCommand {
+class PackageDeleteCommand {
   // TODO: proper property typing
   [property: string]: any;
 
-  constructor() {
-    this.logger = logger.child('package:update');
+  constructor(stdinPrompt?) {
+    this.stdinPrompt = stdinPrompt;
+    this.logger = logger.child('PackageDeleteCommand');
+    this.isUndelete = false;
   }
 
   execute(context) {
@@ -28,7 +30,7 @@ class PackageUpdateCommand {
     });
   }
 
-  _execute(context) {
+  async _execute(context) {
     this.org = context.org;
     this.force = context.org.force;
 
@@ -37,14 +39,16 @@ class PackageUpdateCommand {
 
     const request: any = {};
     request.Id = packageId;
-    if (context.flags.name) {
-      request.Name = context.flags.name;
-    }
-    if (context.flags.description) {
-      request.Description = context.flags.description;
-    }
-    if (context.flags.errornotificationusername) {
-      request.PackageErrorUsername = context.flags.errornotificationusername;
+    this.isUndelete = context.flags.undelete;
+    request.IsDeprecated = !this.isUndelete;
+
+    // user must acknowledge the warning prompt or use noprompt flag
+    const accepted = await this._prompt(
+      context.flags.noprompt,
+      messages.getMessage(this.isUndelete ? 'promptUndelete' : 'promptDelete', [], 'package_delete')
+    );
+    if (!accepted) {
+      throw new Error(messages.getMessage('promptDeleteDeny', [], 'package_delete'));
     }
 
     return this.force.toolingUpdate(this.org, 'Package2', request).then(updateResult => {
@@ -55,9 +59,20 @@ class PackageUpdateCommand {
     });
   }
 
+  async _prompt(noninteractive, message) {
+    const answer = noninteractive ? 'YES' : await this.stdinPrompt(message);
+    // print a line of white space after the prompt is entered for separation
+    this.logger.log('');
+    return answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y';
+  }
+
   getHumanSuccessMessage(result) {
-    return messages.getMessage('humanSuccess', [result.id], 'package_update');
+    return messages.getMessage(
+      this.isUndelete ? 'humanSuccessUndelete' : 'humanSuccess',
+      [result.id],
+      'package_delete'
+    );
   }
 }
 
-export = PackageUpdateCommand;
+export = PackageDeleteCommand;

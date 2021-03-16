@@ -5,26 +5,22 @@
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// Node
-import * as util from 'util';
 // Local
 import MetadataRegistry = require('./metadataRegistry');
-import * as sourceState from './sourceState';
+import { WorkspaceFileState } from './workspaceFileState';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { ForceIgnore } from './forceIgnore';
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AsyncCreatable } from '@salesforce/kit';
-import { Logger } from '@salesforce/core';
-import { MaxRevision } from './MaxRevision';
-import { SourceMember } from './SourceMember';
-import { PackageInfoCache } from './packageInfoCache';
+import { Logger, SfdxProject } from '@salesforce/core';
+import { RemoteSourceTrackingService, ChangeElement } from './remoteSourceTrackingService';
 
 export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
   public scratchOrg: any;
   public force: any;
   public swa: SourceWorkspaceAdapter;
-  public maxRevision: MaxRevision;
+  public remoteSourceTrackingService: RemoteSourceTrackingService;
   public locallyChangedWorkspaceElements: any[];
   public localChanges: any[];
   public remoteChanges: any[];
@@ -39,12 +35,14 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     this.locallyChangedWorkspaceElements = [];
     this.localChanges = [];
     this.remoteChanges = [];
-    this.forceIgnore = new ForceIgnore();
+    this.forceIgnore = ForceIgnore.findAndCreate(SfdxProject.resolveProjectPathSync());
   }
 
   protected async init(): Promise<void> {
     this.logger = await Logger.child(this.constructor.name);
-    this.maxRevision = await MaxRevision.getInstance({ username: this.scratchOrg.name });
+    this.remoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
+      username: this.scratchOrg.name
+    });
     if (!this.swa) {
       const options: SourceWorkspaceAdapter.Options = {
         org: this.scratchOrg,
@@ -59,15 +57,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
   async doStatus(options): Promise<void | any[]> {
     this.populateLocalChanges(options);
     await this.populateServerChanges(options);
-    await this.populateRemoteChangesFromFile(options);
     return this.markConflicts(options);
-  }
-
-  private async populateRemoteChangesFromFile(options) {
-    if (!options.remote) {
-      return;
-    }
-    await this.convertSourceMembersToRemoteChanges(await this.maxRevision.retrieveChangedElements());
   }
 
   private populateLocalChanges(options) {
@@ -93,86 +83,57 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     });
   }
 
+  // Retrieve metadata CRUD changes from the org, filtering any forceignored metadata,
+  // then assign remote changes for conflict detection and status reporting.
   private async populateServerChanges(options) {
     if (!options.remote) {
       return [];
     }
 
-    const maxRevisionNum = this.maxRevision.getServerMaxRevision();
-    this.logger.debug(`populateServerChanges maxrevision: ${maxRevisionNum}`);
-    const sourceMembers: SourceMember[] = await this.maxRevision.querySourceMembersFrom(maxRevisionNum);
-    await this.convertSourceMembersToRemoteChanges(sourceMembers);
-
-    // filter the sourcemembers from the forceignore and only store the not-ignored ones in maxRevision.json
-    sourceMembers.filter(sourceMember => {
+    // Returns false when a changeElement matches a forceignore rule
+    const forceIgnoreAllows = (changeElement: ChangeElement) => {
       const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
-        sourceMember.MemberType,
+        changeElement.type,
         this.swa.metadataRegistry
       );
-
+      // if user wants to ignore a permissionset with fullname abc then we check if forceignore denies abc.permissionset
       if (sourceMemberMetadataType) {
-        sourceMember.MemberName = sourceMemberMetadataType.handleSlashesForSourceMemberName(sourceMember.MemberName);
+        const fullName = sourceMemberMetadataType.getAggregateFullNameFromSourceMemberName(changeElement.name);
+        const filename = `${fullName}.${sourceMemberMetadataType.getExt()}`;
+        return this.forceIgnore.accepts(filename);
       }
+      return true;
+    };
 
-      return this.forceIgnoreSourceMember(sourceMember, sourceMemberMetadataType);
-    });
+    const changeElements = await this.remoteSourceTrackingService.retrieveUpdates();
 
-    await this.maxRevision.writeSourceMembers(sourceMembers);
-  }
-
-  private async convertSourceMembersToRemoteChanges(sourceMembers: SourceMember[]) {
-    let allRemoteChanges: SourceMember[] = [];
-    for (const sourceMember of sourceMembers) {
-      const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
-        sourceMember.MemberType,
-        this.swa.metadataRegistry
-      );
-      if (sourceMemberMetadataType) {
-        sourceMember.MemberName = sourceMemberMetadataType.handleSlashesForSourceMemberName(sourceMember.MemberName);
-      }
-      if (!this.forceIgnoreSourceMember(sourceMember, sourceMemberMetadataType)) {
-        const els = await this.createRemoteChangeElementsFromSourceMember(sourceMember);
-        allRemoteChanges = [...allRemoteChanges, ...els];
+    // Create an array of remote changes from the retrieved updates
+    for (const changeElement of changeElements) {
+      if (forceIgnoreAllows(changeElement)) {
+        const remoteChange = await this.createRemoteChangeElements(changeElement);
+        this.remoteChanges = [...this.remoteChanges, ...remoteChange];
       }
     }
-
-    const remoteChanges = allRemoteChanges.reduce((x: any[], y: any) => x.concat(y), []) as any[];
-    this.remoteChanges = remoteChanges.filter(
-      sm => !(sm.state === sourceState.DELETED && util.isNullOrUndefined(sm.filePath))
-    );
   }
 
-  private forceIgnoreSourceMember(sourceMember: SourceMember, sourceMemberMetadataType) {
-    // if user wants to ignore a permissionset with fullname abc then we check if forceignore denies abc.permissionset
-    if (sourceMemberMetadataType) {
-      const filename = `${sourceMemberMetadataType.getAggregateFullNameFromSourceMemberName(
-        sourceMember.MemberName
-      )}.${sourceMemberMetadataType.getExt()}`;
-      if (this.forceIgnore.denies(filename)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private async createRemoteChangeElementsFromSourceMember(sourceMember: SourceMember) {
+  private async createRemoteChangeElements(changeElement: ChangeElement) {
     const remoteChangeElements = [];
     const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
-      sourceMember.MemberType,
+      changeElement.type,
       this.swa.metadataRegistry
     );
     if (sourceMemberMetadataType) {
-      if (sourceMemberMetadataType.trackRemoteChangeForSourceMemberName(sourceMember.MemberName)) {
+      if (sourceMemberMetadataType.trackRemoteChangeForSourceMemberName(changeElement.name)) {
         const correspondingWorkspaceElements = await this.getCorrespondingWorkspaceElements(
-          sourceMember,
+          changeElement,
           sourceMemberMetadataType
         );
-        const state = this.getRemoteChangeState(sourceMember, correspondingWorkspaceElements);
+        const state = this.getRemoteChangeState(changeElement, correspondingWorkspaceElements);
         const metadataType = sourceMemberMetadataType.getMetadataName();
 
         if (this.swa.metadataRegistry.isSupported(metadataType)) {
           if (
-            !util.isNullOrUndefined(correspondingWorkspaceElements) &&
+            correspondingWorkspaceElements &&
             correspondingWorkspaceElements.length > 0 &&
             !sourceMemberMetadataType.displayAggregateRemoteChangesOnly()
           ) {
@@ -180,21 +141,25 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
               const remoteChangeElement = {
                 state,
                 fullName: workspaceElement.getFullName(),
-                type: sourceMemberMetadataType.getDisplayNameForRemoteChange(sourceMember.MemberType),
-                filePath: workspaceElement.getSourcePath(),
-                revisionCounter: sourceMember.RevisionCounter
+                type: sourceMemberMetadataType.getDisplayNameForRemoteChange(changeElement.type),
+                filePath: workspaceElement.getSourcePath()
               };
 
               remoteChangeElements.push(remoteChangeElement);
             });
           } else {
-            const remoteChangeElement = {
-              state,
-              fullName: sourceMember.MemberName,
-              type: sourceMemberMetadataType.getDisplayNameForRemoteChange(sourceMember.MemberType),
-              revisionCounter: sourceMember.RevisionCounter
-            };
-            remoteChangeElements.push(remoteChangeElement);
+            if (state !== WorkspaceFileState.DELETED) {
+              const remoteChangeElement = {
+                state,
+                fullName: changeElement.name,
+                type: sourceMemberMetadataType.getDisplayNameForRemoteChange(changeElement.type)
+              };
+              remoteChangeElements.push(remoteChangeElement);
+            } else {
+              this.logger.debug(
+                `${changeElement.type}.${changeElement.name} was not locally tracked but deleted in the org.`
+              );
+            }
           }
         }
       }
@@ -203,39 +168,35 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     return remoteChangeElements;
   }
 
-  private getRemoteChangeState(sourceMember: SourceMember, correspondingLocalWorkspaceElements) {
-    if (sourceMember.IsNameObsolete) {
-      return sourceState.DELETED;
-    } else if (
-      !util.isNullOrUndefined(correspondingLocalWorkspaceElements) &&
-      correspondingLocalWorkspaceElements.length > 0
-    ) {
-      return sourceState.CHANGED;
+  private getRemoteChangeState(changeElement: ChangeElement, correspondingLocalWorkspaceElements) {
+    if (changeElement.deleted) {
+      return WorkspaceFileState.DELETED;
+    } else if (correspondingLocalWorkspaceElements && correspondingLocalWorkspaceElements.length > 0) {
+      return WorkspaceFileState.CHANGED;
     } else {
-      return sourceState.NEW;
+      return WorkspaceFileState.NEW;
     }
   }
 
-  private async getCorrespondingWorkspaceElements(sourceMember: SourceMember, sourceMemberMetadataType) {
+  private async getCorrespondingWorkspaceElements(changeElement: ChangeElement, sourceMemberMetadataType) {
     const allLocalAggregateElements = await this.swa.getAggregateSourceElements(false);
     if (!allLocalAggregateElements.isEmpty()) {
       if (sourceMemberMetadataType) {
-        const aggregateFullName = sourceMemberMetadataType.getAggregateFullNameFromSourceMemberName(
-          sourceMember.MemberName
-        );
+        const aggregateFullName = sourceMemberMetadataType.getAggregateFullNameFromSourceMemberName(changeElement.name);
         const aggregateMetadataName = sourceMemberMetadataType.getAggregateMetadataName();
         const key = AggregateSourceElement.getKeyFromMetadataNameAndFullName(aggregateMetadataName, aggregateFullName);
-        const fileLocation = this.swa.sourceLocations.getFilePath(aggregateMetadataName, sourceMember.MemberName);
-        // if we cannot find an existing fileLocation, it means that the SourceMember has been deleted
+        const fileLocation = this.swa.sourceLocations.getFilePath(aggregateMetadataName, changeElement.name);
+        // if we cannot find an existing fileLocation, it means that the SourceMember has been deleted or the metadata
+        // hasn't been retrieved from the org yet.
         if (!fileLocation) {
           this.logger.debug(
-            `getCorrespondingWorkspaceElements: Did not find any existing source files for member ${sourceMember.MemberName}. Returning empty array...`
+            `getCorrespondingWorkspaceElements: Did not find any existing source files for member ${changeElement.name}. Returning empty array...`
           );
           return [];
         }
-        const pkgName = PackageInfoCache.getInstance().getPackageNameFromSourcePath(fileLocation);
+        const pkgName = SfdxProject.getInstance().getPackageNameFromPath(fileLocation);
         const localAggregateSourceElement = allLocalAggregateElements.getSourceElement(pkgName, key);
-        if (!util.isNullOrUndefined(localAggregateSourceElement)) {
+        if (localAggregateSourceElement) {
           const workspaceElements = localAggregateSourceElement.getWorkspaceElements();
           if (workspaceElements.length > 0) {
             return workspaceElements.filter(workspaceElement => {
@@ -245,11 +206,11 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
               );
               return (
                 workspaceElementMetadataType.sourceMemberFullNameCorrespondsWithWorkspaceFullName(
-                  sourceMember.MemberName,
+                  changeElement.name,
                   workspaceElement.getFullName()
                 ) ||
                 workspaceElementMetadataType.sourceMemberFullNameCorrespondsWithWorkspaceFullName(
-                  `${sourceMember.MemberType}s`, //for nonDecomposedTypesWithChildrenMetadataTypes we need to check their type
+                  `${changeElement.type}s`, //for nonDecomposedTypesWithChildrenMetadataTypes we need to check their type
                   workspaceElement.getFullName()
                 )
               );
@@ -284,7 +245,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
             workspaceElement.getFullName()
           )
         );
-        if (!util.isNullOrUndefined(remoteChanges) && remoteChanges.length > 0) {
+        if (remoteChanges && remoteChanges.length > 0) {
           localChange.isConflict = true;
           remoteChanges.forEach(remoteChange => {
             remoteChange.isConflict = true;

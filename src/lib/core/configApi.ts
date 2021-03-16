@@ -16,7 +16,6 @@
 
 // Node
 import * as fs from 'fs';
-import * as util from 'util';
 import * as path from 'path';
 
 // Thirdparty
@@ -24,7 +23,6 @@ import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
 
 // Local module object.
-import SfdxConfig = require('../config/SfdxConfig');
 import * as errors from './errors';
 import messages = require('../messages');
 import * as almError from './almError';
@@ -33,6 +31,7 @@ import srcDevUtil = require('./srcDevUtil');
 import consts = require('./constants');
 import SchemaValidator = require('../schema/schemaValidator');
 import logApi = require('./logApi');
+import { ConfigAggregator } from '@salesforce/core';
 
 const pjson = require('../../../package.json');
 const sfdxProjectSchemaPath = path.join(__dirname, '..', '..', '..', 'schemas', 'sfdxProjectSchema.json');
@@ -82,32 +81,19 @@ const _throwUnexpectedVersionFormat = function(incorrectVersion) {
  */
 Config.prototype.getApiVersion = function() {
   // If we already stored an api version return it.
-  if (!util.isNullOrUndefined(this.apiVersion)) {
+  if (this.apiVersion) {
     return this.apiVersion;
   }
 
   try {
-    // This should use SfdxAggregator but can't because too many places in the code
-    // call this as a sync method
-    const globalConfig = new SfdxConfig(true).readSync();
-    let localConfig;
-    try {
-      localConfig = new SfdxConfig(false).readSync();
-    } catch (e) {
-      // This could be a non-project directory;
-    }
-
-    // local takes precedence; also sfdx config defaults to returning an empty object when
-    // no config is defined.
-    const _config = _.merge({}, globalConfig, localConfig);
-    const apiVersion = process.env.SFDX_API_VERSION || _config.apiVersion;
+    const apiVersion = ConfigAggregator.getValue('apiVersion').value as string;
     const apiVersionRegEx = /\bv?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)/;
 
     if (apiVersionRegEx.test(apiVersion)) {
       this.apiVersion = apiVersion;
     }
     // If there is something in workspace config and it didn't validate throw an error.
-    else if (!util.isNullOrUndefined(apiVersion)) {
+    else if (apiVersion) {
       _throwUnexpectedVersionFormat(apiVersion);
     }
     // else proceed
@@ -118,9 +104,9 @@ Config.prototype.getApiVersion = function() {
   }
 
   // Not globally defined so the apiVersion comes off of package.json version.
-  if (util.isNullOrUndefined(this.apiVersion)) {
+  if (!this.apiVersion) {
     // No version specified in pjson - unlikely but...
-    if (util.isNullOrUndefined(this.pjson.version)) {
+    if (this.pjson.version == null) {
       const errorName = 'MissingVersionAttribute';
       throw srcDevUtil.getError(messages().getMessage(errorName, null, 'versionCommand'), errorName);
     }
@@ -140,7 +126,7 @@ Config.prototype.getApiVersion = function() {
 };
 
 Config.prototype.getProjectPath = function() {
-  if (util.isNullOrUndefined(this.projectDir)) {
+  if (!this.projectDir) {
     this.projectDir = projectDirectory.getPath();
     checkHiddenStateFolder(this.projectDir);
   }
@@ -181,7 +167,7 @@ Config.prototype.getOauthCallbackUrl = function() {
  * @returns {*} A key value.
  */
 Config.prototype.getAppConfig = function() {
-  if (util.isNullOrUndefined(this.appConfig)) {
+  if (!this.appConfig) {
     this.appConfig = this.getConfigContent();
   }
 
@@ -236,9 +222,9 @@ const _extractPackageDirPaths = function(messagesLocale, configObject, workspace
   const pathsArray = [];
   const packageDirectories = workspaceConfig.packageDirectories;
 
-  if (!util.isNullOrUndefined(packageDirectories) && packageDirectories.length !== 0) {
+  if (packageDirectories && packageDirectories.length !== 0) {
     packageDirectories.forEach(packageDir => {
-      if (!util.isNullOrUndefined(packageDir.path)) {
+      if (packageDir.path) {
         if (path.isAbsolute(packageDir.path)) {
           const error = new Error(messagesLocale.getMessage('InvalidAbsolutePath', packageDir.path));
           error['name'] = 'InvalidProjectWorkspace';
@@ -250,14 +236,14 @@ const _extractPackageDirPaths = function(messagesLocale, configObject, workspace
         packageDir.path = packageDir.path.replace(regex, path.sep);
         pathsArray.push(path.resolve(projectDir, packageDir.path));
       }
-      if (!util.isNullOrUndefined(packageDir.default)) {
+      if (packageDir.default != null) {
         if (typeof packageDir.default !== 'boolean') {
           const error = new Error(messagesLocale.getMessage('InvalidValueForDefaultPath'));
           error['name'] = 'InvalidProjectWorkspace';
           throw error;
         }
         if (packageDir.default === true) {
-          if (util.isNullOrUndefined(configObject.defaultPackagePath)) {
+          if (!configObject.defaultPackagePath) {
             configObject.defaultPackagePath = packageDir.path;
           } else {
             const error = new Error(messagesLocale.getMessage('MultipleDefaultPaths'));
@@ -270,7 +256,7 @@ const _extractPackageDirPaths = function(messagesLocale, configObject, workspace
       }
     });
 
-    if (util.isNullOrUndefined(configObject.defaultPackagePath)) {
+    if (!configObject.defaultPackagePath) {
       const error = new Error(messagesLocale.getMessage('MissingDefaultPath'));
       error['name'] = 'InvalidProjectWorkspace';
       throw error;
@@ -370,7 +356,7 @@ Config.prototype.getConfigContentWithValidation = async function(projectDir = th
     if (err.name === 'ValidationSchemaFieldErrors') {
       throw almError(
         {
-          bundle: 'configGetCommand',
+          bundle: 'sfdxConfig',
           keyName: 'sfdxProjectValidationFailure'
         },
         ['sfdx-project.json', err.message]
@@ -392,7 +378,7 @@ Config.prototype.getConfigContent = function(projectDir = this.getProjectPath())
  * @param projectDir The absolute path to the directory containing the workspace.
  */
 Config.prototype.setConfigContent = function(configFileName, configDir, config) {
-  if (!util.isNullOrUndefined(config)) {
+  if (config) {
     srcDevUtil.ensureDirectoryExistsSync(configDir);
 
     let promise = BBPromise.resolve({});

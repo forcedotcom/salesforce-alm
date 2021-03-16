@@ -26,16 +26,15 @@ export class StaticResourceContentStrategy implements ContentDecompositionStrate
     return staticResource.getContentPaths();
   }
 
-  saveContent(
+  async saveContent(
     metadataFilePath,
     retrievedContentFilePaths,
     retrievedMetadataFilePath,
     createDuplicates,
     unsupportedMimeTypes: string[],
     forceoverwrite = false
-  ): [string[], string[], string[], string[]] {
+  ): Promise<[string[], string[], string[], string[]]> {
     const newPaths = [];
-    const deletedPaths = [];
     const staticResource = new StaticResource(
       metadataFilePath,
       this.metadataType,
@@ -43,7 +42,7 @@ export class StaticResourceContentStrategy implements ContentDecompositionStrate
       retrievedMetadataFilePath,
       unsupportedMimeTypes
     );
-    const [updatedPaths, duplicatePaths] = staticResource.saveResource(
+    const [updatedPaths, duplicatePaths, deletedPaths] = await staticResource.saveResource(
       retrievedContentFilePaths[0],
       createDuplicates,
       forceoverwrite

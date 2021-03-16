@@ -8,7 +8,7 @@
 // Node
 import * as path from 'path';
 import * as util from 'util';
-import * as fs from 'fs';
+import { fs } from '@salesforce/core';
 
 // 3PP
 import * as BBPromise from 'bluebird';

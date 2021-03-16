@@ -26,7 +26,8 @@ const DEFAULT_SELECT =
 const VERBOSE_SELECT =
   'SELECT Id, Package2Id, SubscriberPackageVersionId, Name, Package2.Name, Package2.NamespacePrefix, ' +
   'Description, Tag, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, ' +
-  'CreatedDate, LastModifiedDate, IsPasswordProtected, AncestorId, ValidationSkipped, ConvertedFromVersionId, Package2.IsOrgDependent ' +
+  'CreatedDate, LastModifiedDate, IsPasswordProtected, CodeCoverage, HasPassedCodeCoverageCheck, AncestorId, ValidationSkipped, ' +
+  'ConvertedFromVersionId, Package2.IsOrgDependent, ReleaseVersion, BuildDurationInSeconds, HasMetadataRemoved ' +
   'FROM Package2Version';
 
 const DEFAULT_ORDER_BY_FIELDS = 'Package2Id, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber';
@@ -100,10 +101,29 @@ class PackageVersionListCommand {
             record.AncestorId = 'N/A';
           }
 
+          let codeCoverage =
+            record.CodeCoverage != null
+              ? `${record.CodeCoverage['apexCodeCoveragePercentage']}%`
+              : record.Package2.IsOrgDependent === true || record.ValidationSkipped === true
+              ? 'N/A'
+              : '';
+
+          let hasPassedCodeCoverageCheck =
+            record.Package2.IsOrgDependent === true || record.ValidationSkipped === true
+              ? 'N/A'
+              : record.HasPassedCodeCoverageCheck;
+
           let isOrgDependent =
             containerOptionsMap.get(record.Package2Id) === 'Managed'
               ? 'N/A'
               : record.Package2.IsOrgDependent === true
+              ? 'Yes'
+              : 'No';
+
+          let hasMetadataRemoved =
+            containerOptionsMap.get(record.Package2Id) !== 'Managed'
+              ? 'N/A'
+              : record.HasMetadataRemoved === true
               ? 'Yes'
               : 'No';
 
@@ -131,13 +151,16 @@ class PackageVersionListCommand {
             CreatedDate: moment(record.CreatedDate).format('YYYY-MM-DD HH:mm'),
             LastModifiedDate: moment(record.LastModifiedDate).format('YYYY-MM-DD HH:mm'),
             InstallUrl: pkgUtils.INSTALL_URL_BASE + record.SubscriberPackageVersionId,
-            CodeCoverage: 'Data unavailable',
-            HasPassedCodeCoverageCheck: 'Data unavailable',
+            CodeCoverage: codeCoverage,
+            HasPassedCodeCoverageCheck: hasPassedCodeCoverageCheck,
             ValidationSkipped: record.ValidationSkipped,
             AncestorId: record.AncestorId,
             AncestorVersion: ancestorVersion,
             Alias: AliasStr,
-            IsOrgDependent: isOrgDependent
+            IsOrgDependent: isOrgDependent,
+            ReleaseVersion: record.ReleaseVersion == null ? '' : Number.parseFloat(record.ReleaseVersion).toFixed(1),
+            BuildDurationInSeconds: record.BuildDurationInSeconds == null ? '' : record.BuildDurationInSeconds,
+            HasMetadataRemoved: hasMetadataRemoved
           });
         });
       }
@@ -197,6 +220,8 @@ class PackageVersionListCommand {
       where.push(`LastModifiedDate = LAST_N_DAYS:${lastModLastDays}`);
     }
 
+    // exclude deleted
+    where.push('IsDeprecated = false');
     return where;
   }
 
@@ -322,6 +347,18 @@ class PackageVersionListCommand {
       columns.push({
         key: 'IsOrgDependent',
         label: messages.getMessage('isOrgDependent', [], 'package_list')
+      });
+      columns.push({
+        key: 'ReleaseVersion',
+        label: messages.getMessage('releaseVersion', [], 'package_version_list')
+      });
+      columns.push({
+        key: 'BuildDurationInSeconds',
+        label: messages.getMessage('buildDurationInSeconds', [], 'package_version_list')
+      });
+      columns.push({
+        key: 'HasMetadataRemoved',
+        label: messages.getMessage('hasMetadataRemoved', [], 'package_version_list')
       });
     }
 

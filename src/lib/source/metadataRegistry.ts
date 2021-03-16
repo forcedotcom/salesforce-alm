@@ -12,12 +12,8 @@ import * as util from 'util';
 // 3pp
 import * as _ from 'lodash';
 
-// Local
-import * as projectDirUtil from '../core/projectDir';
-import srcDevUtil = require('../core/srcDevUtil');
-import BlockListManager = require('./blockListManager');
-
 import { TypeDefObj } from './typeDefObj';
+import { fs, SfdxProject } from '@salesforce/core';
 
 interface TypeDefObjs {
   [key: string]: TypeDefObj;
@@ -242,7 +238,7 @@ class MetadataRegistry {
   private lwcDefTypes;
   private typeDefsByExtension;
   private readonly metadataFileExt;
-  private projectPath: string;
+  private readonly projectPath: string;
 
   constructor() {
     this.typeDefs = this.getMetadataTypeDefs();
@@ -252,13 +248,10 @@ class MetadataRegistry {
     this.lwcDefTypes = _lwcDefTypes;
     this.typeDefsByExtension = this.getTypeDefsByExtension();
     this.metadataFileExt = METADATA_FILE_EXT;
-    this.projectPath = projectDirUtil.getPath();
+    this.projectPath = SfdxProject.resolveProjectPathSync();
   }
 
   isSupported(metadataName) {
-    if (BlockListManager.isBlockListed(metadataName)) {
-      return false;
-    }
     const isSupportedType = !util.isNullOrUndefined(this.getTypeDefinitionByMetadataName(metadataName));
     if (isSupportedType) {
       return true;
@@ -271,7 +264,7 @@ class MetadataRegistry {
     return METADATA_FILE_EXT;
   }
 
-  getMetadataTypeDefs() {
+  public getMetadataTypeDefs() {
     if (!this.typeDefs) {
       const metadataInfos = require(path.join(__dirname, '..', '..', '..', 'metadata', 'metadataTypeInfos.json')) as {
         typeDefs: TypeDefObjs;
@@ -294,7 +287,7 @@ class MetadataRegistry {
   }
 
   // Returns list of default directories for all metadata types
-  getTypeDirectories(): string[] {
+  private getTypeDirectories(): string[] {
     if (util.isNullOrUndefined(this.typeDirectories)) {
       const metadataTypeInfos = this.getMetadataTypeDefs() as TypeDefObjs;
       return Object.values(metadataTypeInfos).map(i => i.defaultDirectory);
@@ -303,7 +296,7 @@ class MetadataRegistry {
     }
   }
 
-  getTypeDefsByExtension() {
+  private getTypeDefsByExtension() {
     const typeDefsByExtension = new Map();
     Object.keys(this.typeDefs).forEach(metadataName => {
       const metadataTypeExtension = this.typeDefs[metadataName].ext;
@@ -312,7 +305,7 @@ class MetadataRegistry {
     return typeDefsByExtension;
   }
 
-  getLightningDefByFileName(fileName) {
+  public getLightningDefByFileName(fileName) {
     return this.lightningDefTypes[
       Object.keys(this.lightningDefTypes).find(key => {
         const lightningDefType = this.lightningDefTypes[key];
@@ -321,7 +314,7 @@ class MetadataRegistry {
     ];
   }
 
-  getWaveDefByFileName(fileName) {
+  public getWaveDefByFileName(fileName) {
     return this.waveDefTypes[
       Object.keys(this.waveDefTypes).find(key => {
         const waveDefType = this.waveDefTypes[key];
@@ -330,7 +323,7 @@ class MetadataRegistry {
     ];
   }
 
-  getLightningDefByType(type) {
+  public getLightningDefByType(type) {
     return this.lightningDefTypes[
       Object.keys(this.lightningDefTypes).find(key => {
         const lightningDefType = this.lightningDefTypes[key];
@@ -344,12 +337,12 @@ class MetadataRegistry {
    * @param name
    * @returns {any[]}
    */
-  getTypeDefinitionsByDirectoryName(name) {
+  public getTypeDefinitionsByDirectoryName(name) {
     const metadataNames = Object.keys(this.typeDefs).filter(key => this.typeDefs[key].defaultDirectory === name);
     return metadataNames.map(metadataName => this.typeDefs[metadataName]);
   }
 
-  getTypeDefinitionByMetadataName(metadataName: string) {
+  public getTypeDefinitionByMetadataName(metadataName: string) {
     let typeDef = this.typeDefs[metadataName];
     if (!typeDef && metadataName.endsWith('Settings')) {
       // even though there is one "Settings" in the describeMetadata response when you retrieve a setting it comes
@@ -363,14 +356,14 @@ class MetadataRegistry {
   }
 
   // given file extension, return type def
-  getTypeDefinitionByFileName(filePath: string, useTrueExtType?: boolean) {
+  public getTypeDefinitionByFileName(filePath: string, useTrueExtType?: boolean) {
     if (util.isNullOrUndefined(filePath)) {
       return null;
     }
 
     let workspaceFilePath = filePath;
     if (filePath.startsWith(this.projectPath)) {
-      workspaceFilePath = filePath.substring(this.projectPath.length, filePath.length);
+      workspaceFilePath = filePath.substring(SfdxProject.resolveProjectPathSync().length, filePath.length);
     }
 
     if (workspaceFilePath.includes(`${path.sep}aura${path.sep}`)) {
@@ -471,7 +464,7 @@ class MetadataRegistry {
 
     const fullName = path.basename(fileName, path.extname(fileName));
     const typeDef = typeDefsToCheck.find(typeDef =>
-      srcDevUtil.pathExistsSync(path.join(dir, `${fullName}.${typeDef.ext}${this.metadataFileExt}`))
+      fs.existsSync(path.join(dir, `${fullName}.${typeDef.ext}${this.metadataFileExt}`))
     );
     if (!util.isNullOrUndefined(typeDef)) {
       return typeDef;
@@ -511,7 +504,7 @@ class MetadataRegistry {
     return util.isNullOrUndefined(dir) || dir === path.parse(dir).root || dir === '.';
   }
 
-  isValidAuraSuffix(suffix) {
+  public isValidAuraSuffix(suffix) {
     const auraTypeDefKey = Object.keys(this.lightningDefTypes).find(key => {
       const fileSuffix = this.lightningDefTypes[key].fileSuffix;
       return fileSuffix && fileSuffix === suffix;
@@ -519,7 +512,7 @@ class MetadataRegistry {
     return !util.isNullOrUndefined(auraTypeDefKey);
   }
 
-  isValidWaveTemplateSuffix(suffix) {
+  private isValidWaveTemplateSuffix(suffix) {
     const wtTypeDefKey = Object.keys(this.waveDefTypes).find(key => {
       const fileSuffix = this.waveDefTypes[key].fileSuffix;
       return fileSuffix && fileSuffix === suffix;
@@ -527,7 +520,7 @@ class MetadataRegistry {
     return !util.isNullOrUndefined(wtTypeDefKey);
   }
 
-  isValidLwcSuffix(suffix) {
+  public isValidLwcSuffix(suffix) {
     const lwcTypeDefKey = Object.keys(this.lwcDefTypes).find(key => {
       const fileSuffix = this.lwcDefTypes[key].fileSuffix;
       return fileSuffix && fileSuffix === suffix;
@@ -535,14 +528,14 @@ class MetadataRegistry {
     return !util.isNullOrUndefined(lwcTypeDefKey);
   }
 
-  isValidMetadataExtension(ext) {
+  public isValidMetadataExtension(ext) {
     const extWithoutPeriod = ext.replace('.', '');
     const isValidMetadataExtension = !util.isNullOrUndefined(this.typeDefsByExtension.get(extWithoutPeriod));
 
     return isValidMetadataExtension || this.isValidAuraSuffix(ext) || this.isValidLwcSuffix(ext);
   }
 
-  isValidDecompositionExtension(ext) {
+  private isValidDecompositionExtension(ext) {
     const extWithoutPeriod = ext.replace('.', '');
     const includeDecomposedSubtypes = true;
     const typeDefKey = Object.keys(this.typeDefs).find(key =>
@@ -552,7 +545,7 @@ class MetadataRegistry {
     return !util.isNullOrUndefined(typeDefKey) && typeDef.ext.toLowerCase() !== extWithoutPeriod.toLowerCase();
   }
 
-  isValidExperienceBundleFile(sourcePath) {
+  private isValidExperienceBundleFile(sourcePath) {
     const relativeFilePath = MetadataRegistry.splitOnDirName(
       `${this.typeDefs.ExperienceBundle.defaultDirectory}${path.sep}`,
       sourcePath
@@ -583,16 +576,16 @@ class MetadataRegistry {
     return [pathToSplit.substring(0, dirStartIndex - 1), pathToSplit.substring(dirEndIndex)];
   }
 
-  isValidSourceFilePath(sourcePath) {
+  public isValidSourceFilePath(sourcePath) {
     let fileName = path.basename(sourcePath);
     if (fileName.endsWith(this.metadataFileExt)) {
       fileName = fileName.substring(0, fileName.indexOf(this.metadataFileExt));
     }
-
+    const projectPath = SfdxProject.resolveProjectPathSync();
     let workspaceSourcePath = sourcePath;
     // Aura / LWC are special
-    if (sourcePath.startsWith(this.projectPath)) {
-      workspaceSourcePath = sourcePath.substring(this.projectPath.length, sourcePath.length);
+    if (sourcePath.startsWith(projectPath)) {
+      workspaceSourcePath = sourcePath.substring(SfdxProject.resolveProjectPathSync().length, sourcePath.length);
     }
     if (workspaceSourcePath.includes(`${path.sep}aura${path.sep}`)) {
       const cmpName = path.basename(path.dirname(sourcePath));
@@ -628,7 +621,7 @@ class MetadataRegistry {
     }
   }
 
-  isCustomName(name) {
+  public isCustomName(name) {
     const customNameRegex = new RegExp(/.*__.$/);
     return customNameRegex.test(name);
   }

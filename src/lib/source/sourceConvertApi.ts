@@ -11,24 +11,25 @@ import * as util from 'util';
 // 3pp
 import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
-import { fs } from '@salesforce/core';
+import { fs, Lifecycle, SfdxProject } from '@salesforce/core';
 import { copy } from 'fs-extra';
 
 // Local
 import MetadataRegistry = require('./metadataRegistry');
 import srcDevUtil = require('../core/srcDevUtil');
-import * as sourceState from './sourceState';
+import { WorkspaceFileState } from './workspaceFileState';
 import * as sourceUtil from './sourceUtil';
 import Messages = require('../messages');
 const messages = Messages();
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { ForceIgnore } from './forceIgnore';
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 import * as almError from '../core/almError';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import * as SourceUtil from './sourceUtil';
 import { SfdxError } from '@salesforce/core';
 import { SourceElementsResolver } from './sourceElementsResolver';
+import { MetadataSourceResult } from './sourceHooks';
 
 class SourceConvertApi {
   static revert?: boolean;
@@ -37,11 +38,13 @@ class SourceConvertApi {
   // TODO: proper property typing
   [property: string]: any;
 
+  public sourceWorkspaceAdapter: SourceWorkspaceAdapter;
+
   constructor(org: any, swa?: SourceWorkspaceAdapter) {
     this.sourceWorkspaceAdapter = swa;
     this.scratchOrg = org;
     this.projectDir = this.scratchOrg.config.getProjectPath();
-    this.forceIgnore = new ForceIgnore();
+    this.forceIgnore = ForceIgnore.findAndCreate(SfdxProject.resolveProjectPathSync());
   }
 
   /**
@@ -98,7 +101,7 @@ class SourceConvertApi {
     }
 
     if (sourceElements.isEmpty()) {
-      throw new Error(messages.getMessage('noSourceInRootDirectory', [], 'sourceConvertCommand'));
+      throw new Error(messages.getMessage('noSourceInRootDirectory', [rootDir], 'sourceConvertCommand'));
     }
 
     return this.convertSourceToMdapi(outputDir, packagename, sourceElements, false, unsupportedMimeTypes);
@@ -227,7 +230,7 @@ class SourceConvertApi {
             );
             if (
               workspaceElement.getDeleteSupported() &&
-              workspaceElement.getState() === sourceState.DELETED &&
+              workspaceElement.getState() === WorkspaceFileState.DELETED &&
               workspaceElementMetadataType.isAddressable()
             ) {
               destructiveChangeTypeNamePairs.push({
@@ -254,6 +257,7 @@ class SourceConvertApi {
     const decompositionDir = await sourceUtil.createOutputDir('decomposition');
 
     const translationsMap = {};
+    const preDeployHookInfo: MetadataSourceResult = {};
     return BBPromise.map(aggregateSourceElements, element =>
       element
         .getFilePathTranslations(targetPath, decompositionDir, unsupportedMimeTypes, forceIgnore)
@@ -262,6 +266,16 @@ class SourceConvertApi {
             // check for duplicates since fs.copyAsync will throw an EEXIST error on duplicate files/dirs
             if (util.isNullOrUndefined(translationsMap[translation.mdapiPath])) {
               translationsMap[translation.mdapiPath] = translation.sourcePath;
+              preDeployHookInfo[element.aggregateFullName] = {
+                workspaceElements: element.workspaceElements.map(workspaceElement => ({
+                  fullName: workspaceElement.fullName,
+                  metadataName: workspaceElement.metadataName,
+                  sourcePath: workspaceElement.sourcePath,
+                  state: workspaceElement.state,
+                  deleteSupported: workspaceElement.deleteSupported
+                })),
+                mdapiFilePath: translation.mdapiPath
+              };
               return BBPromise.resolve(translation.sourcePath)
                 .then(sourcePath => copy(sourcePath, translation.mdapiPath))
                 .catch(err => {
@@ -283,11 +297,20 @@ class SourceConvertApi {
         srcDevUtil.deleteDirIfExistsSync(targetPath);
         throw this.err;
       }
-      /** MD types like static resources might have a zip file created which need to be deleted after conversion to MD format*/
-      if (srcDevUtil.getZipDirPath()) {
-        srcDevUtil.deleteIfExistsSync(srcDevUtil.getZipDirPath());
-      }
-      return sourceUtil.cleanupOutputDir(decompositionDir);
+
+      // emit pre deploy event if convert is successful. We do this only on a
+      // successful convert because consumers will only want to be notified
+      // if a deploy is about to occur. A deploy won't occur if convert fails.
+      return Lifecycle.getInstance()
+        .emit('predeploy', preDeployHookInfo)
+        .then(() => {
+          // MD types like static resources might have a zip file created
+          // which need to be deleted after conversion to MD format
+          if (srcDevUtil.getZipDirPath()) {
+            srcDevUtil.deleteIfExistsSync(srcDevUtil.getZipDirPath());
+          }
+          return sourceUtil.cleanupOutputDir(decompositionDir);
+        });
     });
   }
 
@@ -348,7 +371,10 @@ class SourceConvertApi {
               metadataRegistry
             );
 
-            if (workspaceElement.getState() !== sourceState.DELETED && workspaceElementMetadataType.isAddressable()) {
+            if (
+              workspaceElement.getState() !== WorkspaceFileState.DELETED &&
+              workspaceElementMetadataType.isAddressable()
+            ) {
               SourceConvertApi.addNoDupes(
                 typeNamePairs,
                 {

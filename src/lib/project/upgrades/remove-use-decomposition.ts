@@ -29,7 +29,7 @@ export default async function(
     return new UpgradeAction(
       messages.getMessage('action_removeUseDecomposition', [consts.WORKSPACE_CONFIG_FILENAME], 'projectUpgrade'),
       async () => {
-        const json = await utils.readJSON(projectFile);
+        const json = (await utils.readJSON(projectFile)) as any;
         delete json.useDecomposition;
         return fs.writeFileAsync(projectFile, JSON.stringify(json, undefined, 2));
       }

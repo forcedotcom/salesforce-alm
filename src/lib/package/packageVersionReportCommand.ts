@@ -17,9 +17,10 @@ import pkgUtils = require('./packageUtils');
 // Stripping CodeCoverage, HasPassedCodeCoverageCheck as they are causing a perf issue in 49.0+ W-7495440
 const QUERY =
   'SELECT Id, Package2Id, SubscriberPackageVersionId, Name, Description, Tag, Branch, AncestorId, ValidationSkipped, ' +
-  'MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, ConvertedFromVersionId, Package2.IsOrgDependent ' +
+  'MajorVersion, MinorVersion, PatchVersion, BuildNumber, IsReleased, CodeCoverage, HasPassedCodeCoverageCheck, ConvertedFromVersionId, ' +
+  'Package2.IsOrgDependent, ReleaseVersion, BuildDurationInSeconds, HasMetadataRemoved ' +
   'FROM Package2Version ' +
-  "WHERE Id = '%s' " +
+  "WHERE Id = '%s' AND IsDeprecated != true " +
   'ORDER BY Package2Id, Branch, MajorVersion, MinorVersion, PatchVersion, BuildNumber';
 
 class PackageVersionReportCommand {
@@ -77,12 +78,21 @@ class PackageVersionReportCommand {
             record.AncestorId = 'N/A';
           }
         }
+
+        record.CodeCoverage =
+          record.Package2.IsOrgDependent === true || record.ValidationSkipped === true ? 'N/A' : record.CodeCoverage;
+
+        record.HasPassedCodeCoverageCheck =
+          record.Package2.IsOrgDependent === true || record.ValidationSkipped === true
+            ? 'N/A'
+            : record.HasPassedCodeCoverageCheck;
+
         record.Package2.IsOrgDependent =
           packageType === 'Managed' ? 'N/A' : record.Package2.IsOrgDependent === true ? 'Yes' : 'No';
 
-        // For the stripped code coverage values, use Data unavailable
-        record.CodeCoverage = 'Data unavailable';
-        record.HasPassedCodeCoverageCheck = 'Data unavailable';
+        // set HasMetadataRemoved to N/A for Unlocked, and No when value is false or absent (pre-230)
+        record.HasMetadataRemoved =
+          packageType !== 'Managed' ? 'N/A' : record.HasMetadataRemoved === true ? 'Yes' : 'No';
 
         if (context.flags.json) {
           // add AncestorVersion to the json record
@@ -130,11 +140,16 @@ class PackageVersionReportCommand {
               { key: 'Ancestor Version', value: ancestorVersion },
               {
                 key: messages.getMessage('codeCoverage', [], 'package_version_list'),
-                value: 'Data unavailable'
+                value:
+                  record.CodeCoverage == null
+                    ? ' '
+                    : record.CodeCoverage['apexCodeCoveragePercentage']
+                    ? `${record.CodeCoverage['apexCodeCoveragePercentage']}%`
+                    : record.CodeCoverage // N/A
               },
               {
                 key: messages.getMessage('hasPassedCodeCoverageCheck', [], 'package_version_list'),
-                value: 'Data unavailable'
+                value: record.HasPassedCodeCoverageCheck
               },
               {
                 key: messages.getMessage('convertedFromVersionId', [], 'package_version_list'),
@@ -143,6 +158,18 @@ class PackageVersionReportCommand {
               {
                 key: messages.getMessage('isOrgDependent', [], 'package_list'),
                 value: record.Package2.IsOrgDependent
+              },
+              {
+                key: messages.getMessage('releaseVersion', [], 'package_version_list'),
+                value: record.ReleaseVersion == null ? '' : Number.parseFloat(record.ReleaseVersion).toFixed(1)
+              },
+              {
+                key: messages.getMessage('buildDurationInSeconds', [], 'package_version_list'),
+                value: record.BuildDurationInSeconds == null ? '' : record.BuildDurationInSeconds
+              },
+              {
+                key: messages.getMessage('hasMetadataRemoved', [], 'package_version_list'),
+                value: record.HasMetadataRemoved
               }
             ];
         if (!this.verbose) {
@@ -152,7 +179,12 @@ class PackageVersionReportCommand {
             delete retRecord.ConvertedFromVersionId;
           } else {
             retRecord.splice(retRecord.map(e => e.key).indexOf('Id'), 1);
-            retRecord.splice(retRecord.map(e => e.key).indexOf('ConvertedFromVersionId'), 1);
+            retRecord.splice(
+              retRecord
+                .map(e => e.key)
+                .indexOf(messages.getMessage('convertedFromVersionId', [], 'package_version_list')),
+              1
+            );
           }
         }
         return retRecord;

@@ -56,6 +56,7 @@ export class SourcePushCommand extends ToolbeltCommand {
       min: Duration.minutes(consts.MIN_SRC_WAIT_MINUTES)
     })
   };
+  protected readonly lifecycleEventNames = ['predeploy', 'postdeploy'];
 
   public async run(): Promise<unknown> {
     const { SourceApiCommand } = require('../../../lib/source/sourceApiCommand');

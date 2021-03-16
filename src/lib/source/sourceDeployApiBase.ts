@@ -13,16 +13,15 @@ import MdapiDeployApi = require('../mdapi/mdapiDeployApi');
 import SourceConvertApi = require('./sourceConvertApi');
 import srcDevUtil = require('../core/srcDevUtil');
 import StashApi = require('../core/stash');
-import * as sourceState from './sourceState';
+import { WorkspaceFileState } from './workspaceFileState';
 
 import { toArray } from './sourceUtil';
 
 import consts = require('../core/constants');
 import { AsyncCreatable } from '@salesforce/kit';
-import { Logger } from '@salesforce/core';
+import { Lifecycle, Logger, SfdxProject } from '@salesforce/core';
 import { DeployResult } from './sourceDeployApi';
 import { AggregateSourceElements } from './aggregateSourceElements';
-import { PackageInfoCache } from './packageInfoCache';
 const { INSTANCE_URL_TOKEN } = consts;
 const { sequentialExecute } = srcDevUtil;
 
@@ -43,7 +42,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
     this.logger = await Logger.child(this.constructor.name);
   }
 
-  abstract async doDeploy(options): Promise<DeployResult>;
+  abstract doDeploy(options): Promise<DeployResult>;
 
   /**
    * Set additional required MDAPI options config and deploy
@@ -71,7 +70,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
     aggregateSourceElements.getAllSourceElements().forEach(aggregateSourceElement => {
       deployedSourceElements = deployedSourceElements.concat(
         isDelete
-          ? aggregateSourceElement.getWorkspaceElements().filter(el => el.getState() === sourceState.DELETED)
+          ? aggregateSourceElement.getWorkspaceElements().filter(el => el.getState() === WorkspaceFileState.DELETED)
           : aggregateSourceElement.getWorkspaceElements()
       );
     });
@@ -86,7 +85,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
    * @param {boolean} createDestructiveChanges Whether destructiveChanges.xml needs to be created for this deployment
    * @returns {any}
    */
-  convertAndDeploy(
+  async convertAndDeploy(
     options: any,
     sourceWorkspaceAdapter: any,
     aggregateSourceElements: AggregateSourceElements,
@@ -94,38 +93,43 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
   ) {
     const sourceConvertApi = new SourceConvertApi(this.orgApi, sourceWorkspaceAdapter);
 
-    return sourceConvertApi
-      .convertSourceToMdapi(
+    let result;
+    try {
+      const [sourceElementsToUpsert, deletedTypeNamePairs] = await sourceConvertApi.convertSourceToMdapi(
         options.deploydir,
         null,
         aggregateSourceElements,
         createDestructiveChanges,
         options.unsupportedMimeTypes,
         options.delete
-      )
-      .then(([sourceElementsToUpsert, deletedTypeNamePairs]) => {
-        // replace tokens embedded in source
-        if (options.replacetokens) {
-          return this.replaceTokens(options.deploydir).then(() => [sourceElementsToUpsert, deletedTypeNamePairs]);
-        }
+      );
 
-        return [sourceElementsToUpsert, deletedTypeNamePairs];
-      })
-      .then(([sourceElementsToUpsert, deletedTypeNamePairs]) => {
-        let pollIntervalStrategy;
-        // If checkonly or testlevel is set don't provide a poller or it will display
-        // a status message from the mdapiDeploy logging on every poll.
-        if (!(options.checkonly || options.testlevel || this.isAsync)) {
-          pollIntervalStrategy = new MdapiPollIntervalStrategy(sourceElementsToUpsert, deletedTypeNamePairs);
-        }
-        return this.mdapiDeploy(options, pollIntervalStrategy);
-      })
-      .catch(err => {
-        if (err.name === 'mdapiDeployFailed') {
-          return err.result;
-        }
-        throw err;
-      });
+      // replace tokens embedded in source
+      if (options.replacetokens) {
+        await this.replaceTokens(options.deploydir);
+      }
+
+      let pollIntervalStrategy;
+      // If checkonly or testlevel is set don't provide a poller or it will display
+      // a status message from the mdapiDeploy logging on every poll.
+      if (!(options.checkonly || options.testlevel || this.isAsync)) {
+        pollIntervalStrategy = new MdapiPollIntervalStrategy(sourceElementsToUpsert, deletedTypeNamePairs);
+      }
+      result = await this.mdapiDeploy(options, pollIntervalStrategy);
+      return result;
+    } catch (err) {
+      if (err.name === 'mdapiDeployFailed') {
+        result = err.result;
+        return result;
+      }
+      throw err;
+    } finally {
+      // Emit post deploy event upon success or failure.  If result is undefined
+      // most likely there was an error during conversion.
+      if (result) {
+        Lifecycle.getInstance().emit('postdeploy', result);
+      }
+    }
   }
 
   /**
@@ -133,16 +137,12 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
    * @param componentFailures
    * @param aggregateSourceElements
    */
-  removeFailedAggregates(
-    componentFailures: any,
-    deployedSourceElements: AggregateSourceElements,
-    packageInfoCache: PackageInfoCache
-  ) {
+  removeFailedAggregates(componentFailures: any, deployedSourceElements: AggregateSourceElements) {
     let failedSourcePaths = [];
     const failures = toArray(componentFailures);
     failures.forEach(failure => {
       const key = `${failure.componentType}__${failure.fullName}`;
-      const packageName = packageInfoCache.getPackageNameFromSourcePath(failure.fileName);
+      const packageName = SfdxProject.getInstance().getPackageNameFromPath(failure.fileName);
       const element = deployedSourceElements.getSourceElement(packageName, key);
       if (element) {
         element.getWorkspaceElements().forEach(element => {
@@ -158,7 +158,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
    * when the source is deployed to a new org
    * @param dir The directory where the metadata resides
    */
-  replaceTokens(dir: string) {
+  async replaceTokens(dir: string) {
     const replaceConfigs = [
       {
         regex: INSTANCE_URL_TOKEN,

@@ -14,7 +14,7 @@ import * as BBPromise from 'bluebird';
 
 const dns = BBPromise.promisifyAll(require('dns'));
 
-import * as openBrowser from 'opn';
+import * as openBrowser from 'open';
 
 // Local
 import Messages = require('../messages');

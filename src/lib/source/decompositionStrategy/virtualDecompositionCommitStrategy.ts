@@ -6,7 +6,7 @@
  */
 
 // Node
-import * as fs from 'fs';
+import { fs } from '@salesforce/core';
 import * as util from 'util';
 
 import { DecompositionConfig } from './decompositionConfig';
@@ -24,17 +24,17 @@ export class VirtualDecompositionCommitStrategy extends FineGrainTrackingCommitS
     super(decompositionConfig);
   }
 
-  commit(
+  async commit(
     documents: Map<string, MetadataDocument>,
     existingPaths: string[],
     createDuplicates: boolean,
     forceoverwrite = false
-  ): [string[], string[], string[], string[]] {
+  ): Promise<[string[], string[], string[], string[]]> {
     let newPaths: string[];
     let deletedPaths: string[];
     let updatedPaths: string[];
     let dupPaths: string[] = [];
-    [newPaths, updatedPaths, deletedPaths, dupPaths] = super.commit(
+    [newPaths, updatedPaths, deletedPaths, dupPaths] = await super.commit(
       documents,
       existingPaths,
       createDuplicates /** generateDuplicates */,

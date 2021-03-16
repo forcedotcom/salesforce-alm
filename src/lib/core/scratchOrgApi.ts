@@ -28,8 +28,7 @@ import * as mkdirp from 'mkdirp';
 import { Config } from './configApi';
 import Alias = require('./alias');
 import * as OrgInfo from '../org/scratchOrgInfoApi';
-import SfdxConfig = require('../config/SfdxConfig');
-import { ConfigAggregator } from '@salesforce/core';
+import { ConfigAggregator, Config as CoreConfig } from '@salesforce/core';
 import * as almError from './almError';
 import configValidator = require('./configValidator');
 import logger = require('./logApi');
@@ -54,9 +53,9 @@ const _buildNoOrgError = org => {
 
   const noConfigError = new Error(message);
   noConfigError.name = 'NoOrgFound';
-  if (org.type === SfdxConfig.OrgDefaults.USERNAME) {
+  if (org.type === CoreConfig.DEFAULT_USERNAME) {
     set(noConfigError, 'action', messages.getMessage('defaultOrgNotFoundAction'));
-  } else if (org.type === SfdxConfig.OrgDefaults.DEVHUB) {
+  } else if (org.type === CoreConfig.DEFAULT_DEV_HUB_USERNAME) {
     set(noConfigError, 'action', messages.getMessage('defaultOrgNotFoundDevHubAction'));
   }
   return noConfigError;
@@ -243,11 +242,11 @@ const _groupOrgs = async function(configsAcrossDevHubs, orgClass, excludePropert
   // targetdevhubusername
   return BBPromise.all([
     orgClass
-      .create(undefined, orgClass.Defaults.DEVHUB)
+      .create(undefined, CoreConfig.DEFAULT_DEV_HUB_USERNAME)
       .then(org => org.name)
       .catch(() => null),
     orgClass
-      .create(undefined, orgClass.Defaults.USERNAME)
+      .create(undefined, CoreConfig.DEFAULT_USERNAME)
       .then(org => org.name)
       .catch(() => null)
   ]).then(defaultOrgs =>
@@ -318,7 +317,14 @@ class Org {
    * All commands target USERNAME, except commands that specify a different
    * default, like org:create specifing DEVHUB has a default.
    */
-  static Defaults = SfdxConfig.OrgDefaults;
+  static Defaults = {
+    DEVHUB: CoreConfig.DEFAULT_DEV_HUB_USERNAME,
+    USERNAME: CoreConfig.DEFAULT_USERNAME,
+
+    list() {
+      return [CoreConfig.DEFAULT_DEV_HUB_USERNAME, CoreConfig.DEFAULT_USERNAME];
+    }
+  };
 
   /**
    * Construct a new org. No configuration is initialized at this point. To
@@ -331,7 +337,7 @@ class Org {
    * and find defaults for the project.
    * @constructor
    */
-  constructor(force?, type = SfdxConfig.OrgDefaults.USERNAME) {
+  constructor(force?, type = CoreConfig.DEFAULT_USERNAME) {
     // eslint-disable-next-line
     const Force = require('./force');
 
@@ -388,6 +394,20 @@ class Org {
     return this.aggregator;
   }
 
+  async initializeConfig(): Promise<CoreConfig> {
+    let config: CoreConfig;
+    try {
+      config = await CoreConfig.create({ isGlobal: false });
+    } catch (err) {
+      if (err.name === 'InvalidProjectWorkspace') {
+        config = await CoreConfig.create({ isGlobal: true });
+      } else {
+        throw err;
+      }
+    }
+    return config;
+  }
+
   /**
    * Get if this org is the actual workspace org. The WORKSPACE type is set by default
    * so we can retrive the workspace org by default when getConfig is called. However,
@@ -398,8 +418,7 @@ class Org {
    */
   isWorkspaceOrg() {
     return (
-      this.type === SfdxConfig.OrgDefaults.USERNAME &&
-      this.getName() === this.config.getAppConfigIfInWorkspace()[this.type]
+      this.type === CoreConfig.DEFAULT_USERNAME && this.getName() === this.config.getAppConfigIfInWorkspace()[this.type]
     );
   }
 
@@ -463,7 +482,7 @@ class Org {
    * @returns {*}
    */
   getMaxRevision() {
-    return new StateFile(this.config, this.getDataPath('maxrevision.json'));
+    return new StateFile(this.config, this.getDataPath('maxRevision.json'));
   }
 
   /**
@@ -566,15 +585,16 @@ class Org {
           _alias && aliases.push(_alias);
         })
         .then(() => this.resolvedAggregator())
-        .then(aggregator => {
+        .then(async aggregator => {
           // Get the aggregated config for this type of org
           const info = aggregator.getInfo(this.type);
 
           // We only want to delete the default if it is in the local or global
           // config file. i.e. we can't delete an env var.
           if ((info.value === name || info.value === alias) && (info.isGlobal() || info.isLocal())) {
-            // Pass in undefined to unset it
-            return SfdxConfig.set(info.isGlobal(), this.type);
+            const config = await CoreConfig.create({ isGlobal: info.isGlobal() });
+            config.unset(this.type);
+            await config.write();
           }
           return BBPromise.resolve();
         })
@@ -636,44 +656,17 @@ class Org {
         savedData = dataToSave;
         return srcDevUtil.saveGlobalConfig(this.getFileName(), savedData);
       })
-      .then(() => {
+      .then(async () => {
         AuthInfo.clearCache(configObject.username);
         this.logger.info(`Saved org configuration: ${this.getFileName()}`);
 
         if (saveAsDefault) {
-          return this.saveAsDefault().then(() => {
-            this.authConfig = configObject;
-            return savedData;
-          });
+          const config = await this.initializeConfig();
+          config.set(this.type, this.alias || this.name);
+          await config.write();
         }
         this.authConfig = configObject;
         return BBPromise.resolve(savedData);
-      });
-  }
-
-  saveAsDefault() {
-    let config;
-    let local = true;
-
-    try {
-      config = new SfdxConfig();
-    } catch (err) {
-      if (err.name === 'InvalidProjectWorkspace') {
-        local = false;
-        config = new SfdxConfig(true);
-      } else {
-        throw err;
-      }
-    }
-
-    return config
-      .read()
-      .then(contents => {
-        contents[this.type] = this.alias || this.name;
-        return config.write(contents);
-      })
-      .then(() => {
-        this.logger.info(`Updated ${local ? 'local' : 'global'} org reference`);
       });
   }
 
@@ -691,7 +684,7 @@ class Org {
       if (config.devHubUsername) {
         hubOrgPromise = Org.create(config.devHubUsername);
       } else {
-        hubOrgPromise = Org.create(devHubUsername, Org.Defaults.DEVHUB);
+        hubOrgPromise = Org.create(devHubUsername, CoreConfig.DEFAULT_DEV_HUB_USERNAME);
       }
 
       return hubOrgPromise
@@ -793,7 +786,7 @@ class Org {
       if (orgData.isDevHub) {
         org = this;
       } else if (orgData.devHubUsername) {
-        org = Org.create(orgData.devHubUsername, Org.Defaults.DEVHUB);
+        org = Org.create(orgData.devHubUsername, CoreConfig.DEFAULT_DEV_HUB_USERNAME);
       }
 
       return org;

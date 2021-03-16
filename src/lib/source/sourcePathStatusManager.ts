@@ -4,71 +4,77 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { fs as fscore } from '@salesforce/core';
+import { fs as fscore, Logger, SfdxProject } from '@salesforce/core';
 import * as path from 'path';
 
-import * as _sourceState from './sourceState';
+import { WorkspaceFileState, toReadableState, ReadableFileState } from './workspaceFileState';
 import MetadataRegistry = require('./metadataRegistry');
-import { ForceIgnore } from './forceIgnore';
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 import srcDevUtil = require('../core/srcDevUtil');
 import Messages = require('../messages');
 const messages = Messages();
 
-import { Logger } from '@salesforce/core';
 import { AsyncCreatable } from '@salesforce/kit';
-import { PackageInfoCache } from './packageInfoCache';
 import { Workspace } from './workspace';
 import { MetadataTypeFactory } from './metadataTypeFactory';
+import { JsonMap, Nullable } from '@salesforce/ts-types';
+import { Stats } from 'fs';
 
-interface SourcePathStatusManagerOptions {
-  org: any;
-  isStateless?: boolean;
-}
-
-interface Filter {
+type Filter = {
   changesOnly?: boolean;
   packageDirectory?: string;
   sourcePath?: string;
+};
+
+type PartiallyRequired<T, U extends keyof T> = Required<Pick<T, U>> & Partial<Omit<T, U>>;
+
+export namespace SourcePathInfo {
+  // We only require sourcePath because that's the bare minimum required to instaniate a SourcePathInfo.
+  export interface BaseEntry extends PartiallyRequired<Entry, 'sourcePath'> {}
+
+  export interface Entry {
+    changeTime: number;
+    contentHash: string;
+    deferContentHash: boolean;
+    isArtifactRoot: boolean;
+    isDirectory: boolean;
+    isMetadataFile: boolean;
+    isWorkspace: boolean;
+    metadataType: string;
+    modifiedTime: number;
+    package: string;
+    size: number;
+    sourcePath: string;
+    state: WorkspaceFileState;
+  }
+
+  export type Json = Entry & JsonMap;
 }
 
-interface SourcePathInfoOptions {
-  deferContentHash?: boolean;
-  sourcePath?: string;
-  isDirectory?: boolean;
-  size?: number;
-  modifiedTime?: string;
-  changeTime?: string;
-  contentHash?: string;
-  isMetadataFile?: boolean;
-  state?: string;
-  isWorkspace?: boolean;
-  isArtifactRoot?: boolean;
-  package?: string;
-  metadataType?: string;
-}
-
-export class SourcePathInfo extends AsyncCreatable<SourcePathInfoOptions> {
-  public sourcePath: string;
-  public isDirectory: boolean;
-  public size: number;
-  public modifiedTime: string;
-  public changeTime: string;
+export class SourcePathInfo extends AsyncCreatable<SourcePathInfo.BaseEntry> implements SourcePathInfo.Entry {
+  public changeTime: number;
   public contentHash: string;
-  public isMetadataFile: boolean;
-  public state: string;
-  public isWorkspace: boolean;
+  public deferContentHash: boolean = false;
   public isArtifactRoot: boolean;
-  public package: string;
-  public packageInfoCache: PackageInfoCache;
+  public isDirectory: boolean;
+  public isMetadataFile: boolean;
+  public isWorkspace: boolean;
   public metadataType: string;
-  public deferContentHash?: boolean;
+  public modifiedTime: number;
+  public package: string;
+  public size: number;
+  public sourcePath: string;
+  public state: WorkspaceFileState;
 
-  constructor(options: SourcePathInfoOptions) {
+  constructor(options: SourcePathInfo.BaseEntry) {
     super(options);
     Object.assign(this, options);
   }
 
   protected async init(): Promise<void> {
+    // if modifiedTime and state already exist, we assume that there's no need to reprocess
+    // the sourcePathInfo and that the other properties already exist. Technically, not
+    // a safe assumption... but it seems to work out
     if (!this.modifiedTime || !this.state) {
       await this.initFromPath(this.sourcePath, this.deferContentHash);
     }
@@ -76,32 +82,32 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfoOptions> {
 
   /**
    * Return a clone of this SourcePathInfo, overriding specified properties.
-   * @param overrides SourcePathInfoOptions that should override the cloned properties
+   * @param overrides SourcePathInfo properties that should override the cloned properties
    */
-  public clone(overrides: SourcePathInfoOptions = {}): SourcePathInfo {
-    const clone = new SourcePathInfo(this);
-    Object.assign(clone, overrides);
-    return clone;
+  public async clone(overrides: Partial<SourcePathInfo.Entry> = {}): Promise<SourcePathInfo> {
+    const entry = Object.assign({}, this.toJson(), overrides);
+    return SourcePathInfo.create(entry);
   }
 
   /**
    * Initialize path info based on a path in the workspace
    */
   public async initFromPath(sourcePath: string, deferContentHash?: boolean) {
-    const packageInfoCache = PackageInfoCache.getInstance();
-
     // If we are initializing from path then the path is new
-    this.state = _sourceState.NEW;
+    this.state = WorkspaceFileState.NEW;
     this.sourcePath = sourcePath;
 
-    this.package = packageInfoCache.getPackageNameFromSourcePath(sourcePath);
+    const packageDir = SfdxProject.getInstance().getPackageNameFromPath(sourcePath);
+    if (packageDir) {
+      this.package = packageDir;
+    }
 
-    let filestat;
+    let filestat: Stats;
     try {
       filestat = await fscore.stat(sourcePath);
     } catch (e) {
       // If there is an error with filestat then the path is deleted
-      this.state = _sourceState.DELETED;
+      this.state = WorkspaceFileState.DELETED;
       return;
     }
     this.isDirectory = filestat.isDirectory();
@@ -133,7 +139,7 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfoOptions> {
   /**
    * If the source has been modified, return the path info for the change
    */
-  public async getPendingPathInfo() {
+  public async getPendingPathInfo(): Promise<Nullable<SourcePathInfo>> {
     const pendingPathInfo = await SourcePathInfo.create({
       sourcePath: this.sourcePath,
       metadataType: this.metadataType,
@@ -151,7 +157,7 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfoOptions> {
       return pendingPathInfo;
     }
     // Unless deleted, new paths always return true. no need for further checks
-    if (this.state === _sourceState.NEW) {
+    if (this.state === WorkspaceFileState.NEW) {
       return this;
     }
     // Next we'll check if the path infos are different
@@ -164,7 +170,7 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfoOptions> {
       // Now we will compare the content hashes
       await pendingPathInfo.computeContentHash();
       if (pendingPathInfo.contentHash !== this.contentHash) {
-        pendingPathInfo.state = _sourceState.CHANGED;
+        pendingPathInfo.state = WorkspaceFileState.CHANGED;
         return pendingPathInfo;
       } else {
         // The hashes are the same, so the file hasn't really changed. Update our info.
@@ -178,26 +184,55 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfoOptions> {
   }
 
   public isDeleted(): boolean {
-    return this.state === _sourceState.DELETED;
+    return this.state === WorkspaceFileState.DELETED;
   }
 
   public isNew(): boolean {
-    return this.state === _sourceState.NEW;
+    return this.state === WorkspaceFileState.NEW;
   }
 
   public isChanged(): boolean {
-    return this.state === _sourceState.CHANGED;
+    return this.state === WorkspaceFileState.CHANGED;
   }
 
-  public getState(): string {
-    return _sourceState.toString(this.state);
+  public getState(): ReadableFileState {
+    return toReadableState(this.state);
   }
+
+  public toJson(): SourcePathInfo.Json {
+    const entry: SourcePathInfo.Json = {
+      sourcePath: this.sourcePath,
+      isDirectory: this.isDirectory,
+      size: this.size,
+      modifiedTime: this.modifiedTime,
+      changeTime: this.changeTime,
+      contentHash: this.contentHash,
+      isMetadataFile: this.isMetadataFile,
+      state: this.state,
+      isWorkspace: this.isWorkspace,
+      isArtifactRoot: this.isArtifactRoot,
+      package: this.package,
+      metadataType: this.metadataType,
+      deferContentHash: this.deferContentHash
+    };
+    // remove all properites with a null value
+    return Object.keys(entry)
+      .filter(k => !!entry[k])
+      .reduce((a, k) => ({ ...a, [k]: entry[k] }), {} as SourcePathInfo.Json);
+  }
+}
+
+namespace SourcePathStatusManager {
+  export type Options = {
+    org: any;
+    isStateless?: boolean;
+  };
 }
 
 /**
  * Manages a data model for tracking changes to local workspace paths
  */
-export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusManagerOptions> {
+export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusManager.Options> {
   public logger!: Logger;
   public fileMoveLogger!: Logger;
   public org: any;
@@ -208,15 +243,12 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
 
   public static metadataRegistry: MetadataRegistry;
 
-  private packageInfoCache: PackageInfoCache;
-
-  constructor(options: SourcePathStatusManagerOptions) {
+  constructor(options: SourcePathStatusManager.Options) {
     super(options);
     this.org = options.org;
     this.isStateless = options.isStateless || false;
     this.workspacePath = options.org.config.getProjectPath();
-    this.forceIgnore = new ForceIgnore();
-    this.packageInfoCache = PackageInfoCache.getInstance();
+    this.forceIgnore = ForceIgnore.findAndCreate(SfdxProject.resolveProjectPathSync());
     SourcePathStatusManager.metadataRegistry = new MetadataRegistry();
   }
 
@@ -237,23 +269,24 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
    * Get path infos for the source workspace, applying any filters specified.
    */
   public async getSourcePathInfos(filter: Filter = {}): Promise<SourcePathInfo[]> {
-    const { packageDirectory, changesOnly, sourcePath } = filter;
+    // normalize packageDirectory (if defined) to end with a path separator
+    filter.packageDirectory = normalizeDirectoryPath(filter.packageDirectory);
+
     const trackedPackages = this.workspace.trackedPackages.map(p => normalizeDirectoryPath(p));
-    const allPackages = this.packageInfoCache.packagePaths.map(p => normalizeDirectoryPath(p));
+    const allPackages = SfdxProject.getInstance()
+      .getUniquePackageDirectories()
+      .map(p => normalizeDirectoryPath(p.fullPath));
     const untrackedPackages = allPackages.filter(rootDir => !trackedPackages.includes(rootDir));
 
-    // normalize packageDirectory (if defined) to end with a path separator
-    const packageDirPath = normalizeDirectoryPath(packageDirectory);
-
     // if a root directory is specified, make sure it is a project source directory
-    if (rootDirNotSourceDir(packageDirPath, allPackages)) {
+    if (rootDirectoryIsNotASourceDirectory(filter.packageDirectory, allPackages)) {
       throw new Error(messages.getMessage('rootDirectoryNotASourceDirectory', [], 'sourceConvertCommand'));
     }
 
     // If a sourcePath was passed in and we are in stateless mode (e.g., changesets)
     // add only the specified source path to workspacePathInfos.
-    if (this.isStateless && sourcePath) {
-      await this.workspace.handleArtifact(sourcePath);
+    if (this.isStateless && filter.sourcePath) {
+      await this.workspace.handleArtifact(filter.sourcePath);
     } else {
       if (untrackedPackages.length > 0) {
         await this.workspace.walkDirectories(untrackedPackages);
@@ -262,41 +295,27 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
 
     // This is a shallow copy of the content in sourcePathInfos.json,
     // or walking the file system to build that file.
-    const sourcePathInfos = [...this.workspace.values()];
-    let processedSourcePathInfos = new Map<string, SourcePathInfo>();
+    const sourcePathInfos = await this.workspace.getInitializedValues();
+    const processedSourcePathInfos = new Map<string, SourcePathInfo>();
 
     // Keep track of adds and deletes to detect moves
     const addedSourcePathInfos: SourcePathInfo[] = [];
     const deletedSourcePathInfos: SourcePathInfo[] = [];
 
     for (const sourcePathInfo of sourcePathInfos) {
-      // default to including this sourcePathInfo
-      let shouldIncludeSourcePathInfo = true;
+      const shouldIncludeSourcePathInfo = this.shouldIncludeSourcePathInfo(sourcePathInfo, filter);
 
-      // Filter out first by packageDirPath, then sourcePath, then .forceignore
-      if (packageDirPath) {
-        shouldIncludeSourcePathInfo = sourcePathInfo.sourcePath.includes(packageDirPath);
-      }
-      if (shouldIncludeSourcePathInfo && sourcePath) {
-        shouldIncludeSourcePathInfo = sourcePathInfo.sourcePath.includes(sourcePath);
-      }
-      if (this.forceIgnore.denies(sourcePathInfo.sourcePath)) {
-        shouldIncludeSourcePathInfo = false;
-      }
-
+      // If this is null, that means that the source has NOT changed
       const pendingSourcePathInfo = await sourcePathInfo.getPendingPathInfo();
 
       if (!pendingSourcePathInfo) {
-        // Null pendingSourcePathInfo means the sourcePathInfo has not changed
-        if (!changesOnly) {
-          // If the path didn't change and we aren't limiting to changes then add it
-          if (shouldIncludeSourcePathInfo) {
-            processedSourcePathInfos.set(sourcePathInfo.sourcePath, sourcePathInfo);
-          }
+        if (!filter.changesOnly && shouldIncludeSourcePathInfo) {
+          // If the source has NOT changed but we're NOT filtering on changesOnly, then add it
+          processedSourcePathInfos.set(sourcePathInfo.sourcePath, sourcePathInfo);
         }
       } else {
         if (shouldIncludeSourcePathInfo) {
-          // The path has changed so add it
+          // The source has changed so add it
           if (
             pendingSourcePathInfo.isDirectory &&
             !pendingSourcePathInfo.isDeleted() &&
@@ -309,7 +328,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
               if (spi) {
                 processedSourcePathInfos.set(spi.sourcePath, spi);
                 // Keep track of added files to check if they are moves
-                if (spi.state === _sourceState.NEW) {
+                if (spi.state === WorkspaceFileState.NEW) {
                   addedSourcePathInfos.push(spi);
                 }
               }
@@ -318,29 +337,61 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
           processedSourcePathInfos.set(pendingSourcePathInfo.sourcePath, pendingSourcePathInfo);
 
           // Keep track of deleted files to check if they are moves
-          if (pendingSourcePathInfo.state === _sourceState.DELETED) {
+          if (pendingSourcePathInfo.state === WorkspaceFileState.DELETED) {
             deletedSourcePathInfos.push(pendingSourcePathInfo);
           }
         }
       }
     }
 
-    return this.processFileMoves(addedSourcePathInfos, deletedSourcePathInfos, processedSourcePathInfos);
+    const finalSourcePathInfos = await this.processFileMoves(
+      addedSourcePathInfos,
+      deletedSourcePathInfos,
+      processedSourcePathInfos
+    );
+    this.logger.debug(`Found ${finalSourcePathInfos.length} sourcePathInfos`);
+    finalSourcePathInfos.forEach(key => this.logger.debug(key));
+    return finalSourcePathInfos;
+  }
+
+  /**
+   * Determine if the provided sourcePathInfo should be processed during a source action (deploy, retrieve, push, pull, convert)
+   * A sourcePathInfo is INCLUDED if any of the following crietria are met:
+   * 1. If the sourcePathInfo.sourcePath is nested under the package directory
+   * 2. If the sourcePathInfo.sourcePath is the same or is nested under filter.sourcePath
+   * 3. If the sourcePathInfo.sourcePath is NOT ignored in the .forceignore file
+   */
+  public shouldIncludeSourcePathInfo(sourcePathInfo: SourcePathInfo, filter: Filter = {}): boolean {
+    const { packageDirectory, sourcePath } = filter;
+    // default to including this sourcePathInfo
+    let shouldIncludeSourcePathInfo = true;
+
+    if (packageDirectory) {
+      shouldIncludeSourcePathInfo = sourcePathInfo.sourcePath.includes(packageDirectory);
+    }
+
+    if (shouldIncludeSourcePathInfo && sourcePath) {
+      shouldIncludeSourcePathInfo = sourcePathInfo.sourcePath.includes(sourcePath);
+    }
+
+    if (this.forceIgnore.denies(sourcePathInfo.sourcePath)) {
+      shouldIncludeSourcePathInfo = false;
+    }
+    return shouldIncludeSourcePathInfo;
   }
 
   // Detects SourcePathInfo moves by looking for matching partial file
   // paths of an add and a delete, then updates sourcePathInfos.json.
-  private processFileMoves(
+  private async processFileMoves(
     addedSourcePathInfos: SourcePathInfo[],
     deletedSourcePathInfos: SourcePathInfo[],
     processedSourcePathInfos: Map<string, SourcePathInfo>
-  ): SourcePathInfo[] {
+  ): Promise<SourcePathInfo[]> {
     // Only do move detection if there were both added and deleted files.
     if (addedSourcePathInfos.length && deletedSourcePathInfos.length) {
       this.logger.debug(
         `There were ${addedSourcePathInfos.length} adds and ${deletedSourcePathInfos.length} deletes. Checking if these are moves.`
       );
-      const packageInfoCache = PackageInfoCache.getInstance();
 
       // The SourcePathInfo updates to commit to sourcePathInfos.json
       const spiUpdates: SourcePathInfo[] = [];
@@ -350,7 +401,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
       // Iterate over all deleted SourcePathInfos and compare to added SourcePathInfos
       while ((deletedSpi = deletedSourcePathInfos.pop())) {
         const fullPath = deletedSpi.sourcePath;
-        const packagePath = packageInfoCache.getPackagePath(deletedSpi.package);
+        const packagePath = SfdxProject.getInstance().getPackagePath(deletedSpi.package);
         const pathAfterPackageDir = fullPath.replace(packagePath, '');
 
         this.logger.debug(`Looking for ${pathAfterPackageDir} in list of added files`);
@@ -385,9 +436,9 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
             // We have to create a different SourcePathInfo instance to use for commit
             // in this case because we want to commit the add with some of the data from
             // the deleted file but track the changed file state.
-            const movedSpiBeforeChanges = matchingAddedSpi.clone({
+            const movedSpiBeforeChanges = await matchingAddedSpi.clone({
               size: deletedSpi.size,
-              state: _sourceState.CHANGED,
+              state: WorkspaceFileState.CHANGED,
               contentHash: deletedSpi.contentHash
             });
             spiUpdates.push(movedSpiBeforeChanges);
@@ -419,11 +470,11 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
    */
   public async commitChangedPathInfos(sourcePathInfos: SourcePathInfo[]): Promise<void> {
     for (const sourcePathInfo of sourcePathInfos) {
-      if (sourcePathInfo.state !== _sourceState.UNCHANGED) {
+      if (sourcePathInfo.state !== WorkspaceFileState.UNCHANGED) {
         if (sourcePathInfo.isDeleted()) {
           this.workspace.unset(sourcePathInfo.sourcePath);
         } else {
-          sourcePathInfo.state = _sourceState.UNCHANGED;
+          sourcePathInfo.state = WorkspaceFileState.UNCHANGED;
           this.workspace.set(sourcePathInfo.sourcePath, sourcePathInfo);
         }
       }
@@ -466,7 +517,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
       } else {
         sourcePathInfo = await SourcePathInfo.create({ sourcePath: updatedPath });
       }
-      sourcePathInfo.state = _sourceState.UNCHANGED;
+      sourcePathInfo.state = WorkspaceFileState.UNCHANGED;
       this.workspace.set(updatedPath, sourcePathInfo);
     });
 
@@ -524,11 +575,16 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
   }
 }
 
-function rootDirNotSourceDir(packageDirPath: string, trackedPackages: string[]): boolean {
-  return !!packageDirPath && !trackedPackages.find(pkg => packageDirPath.startsWith(pkg));
-}
-
-// Return a directory path that ends with a path separator
+/**
+ * Ensure that the directory path ends with a path separator
+ */
 function normalizeDirectoryPath(dirPath: string): string {
   return dirPath && !dirPath.endsWith(path.sep) ? `${dirPath}${path.sep}` : dirPath;
+}
+
+/**
+ * Determine if the provided directroy path has source files
+ */
+function rootDirectoryIsNotASourceDirectory(packageDirPath: string, trackedPackages: string[]): boolean {
+  return !!packageDirPath && !trackedPackages.find(pkg => packageDirPath.startsWith(pkg));
 }

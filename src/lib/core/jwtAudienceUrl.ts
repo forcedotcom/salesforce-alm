@@ -34,7 +34,11 @@ export const getJwtAudienceUrl = function(oauthConfig) {
   } else if (srcDevUtil.isInternalUrl(loginUrl)) {
     // This is for internal developers when just doing authorize;
     audienceUrl = loginUrl;
-  } else if (createdOrgInstance.startsWith('cs') || url.parse(loginUrl).hostname === 'test.salesforce.com') {
+  } else if (
+    createdOrgInstance.startsWith('cs') ||
+    createdOrgInstance.endsWith('s') ||
+    url.parse(loginUrl).hostname === 'test.salesforce.com'
+  ) {
     audienceUrl = urls.sandbox;
   } else if (createdOrgInstance.startsWith('gs1')) {
     audienceUrl = 'https://gs1.salesforce.com';

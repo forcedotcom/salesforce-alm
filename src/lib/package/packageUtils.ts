@@ -18,6 +18,7 @@ import { SfdxError, Messages } from '@salesforce/core';
 Messages.importMessagesDirectory(__dirname);
 
 import Messages_old = require('../messages');
+import ux from 'cli-ux';
 
 const messages = Messages_old();
 
@@ -61,144 +62,7 @@ const DEFAULT_PACKAGE_DIR = {
   default: true
 };
 
-class SubscriberPackageVersionQuery {
-  static readonly SELECT =
-    'SELECT Package2ContainerOptions, SubscriberPackageId, InstallValidationStatus, ' +
-    'RemoteSiteSettings, CspTrustedSites FROM SubscriberPackageVersion ';
-  // Represents case when the SubscriberPackageVersion table row can't be queried because:
-  //  - the user didn't provide an installKey and it was needed
-  //  - or, the user provided an incorrect installKey
-  private invalidInstallKey: boolean = false;
-  subscriberPackageId: string;
-  installationValidationStatus: string;
-  // All RSS/CSP external third party websites
-  trustedSites: [];
-  package2ContainerOptions: string;
-  org: any;
-  force: any;
-  allPackageVersionId: string;
-  installationKey: string;
-  queryStr: string;
-  logger: any;
-
-  /**
-   *
-   * @param allPackageVersionId the id to use for querying SubscriberPackageVerison
-   * @param installationKey (optional) provide this if
-   */
-  constructor(org: any, force: any, logger: any, allPackageVersionId: string, installationKey: string) {
-    this.org = org;
-    this.force = force;
-    this.logger = logger;
-    this.allPackageVersionId = allPackageVersionId;
-    this.installationKey = installationKey;
-    if (installationKey != null) {
-      const escapedInstallationKey =
-        this.installationKey != null ? this.installationKey.replace(/\\/g, '\\\\').replace(/\'/g, "\\'") : null;
-      this.queryStr =
-        SubscriberPackageVersionQuery.SELECT +
-        `WHERE Id = '${allPackageVersionId}' AND InstallationKey = '${escapedInstallationKey}'`;
-    } else {
-      this.queryStr = SubscriberPackageVersionQuery.SELECT + `WHERE Id = '${allPackageVersionId}'`;
-    }
-  }
-
-  /**
-   *
-   */
-  async _runQuery() {
-    let queryResult = null;
-    try {
-      queryResult = await this.force.toolingQuery(this.org, this.queryStr);
-      return queryResult;
-    } catch (e) {
-      if (e.name === 'INSTALL_KEY_INVALID' || e.name === 'INSTALL_KEY_REQUIRED') {
-        // it's replicated but an install key is required for install, but wasn't provided.
-        // this is an acceptable condition due to ability to install a package version into a
-        // scratch org w/o install key if it's installed in the scratch org's dev hub
-        this.invalidInstallKey = true;
-      } else if (!SubscriberPackageVersionQuery.isErrorPackageNotAvailable(e)) {
-        throw e;
-      }
-      return null;
-    }
-  }
-
-  /**
-   * Run the query, populate all the fields, designed to be run multiple times for replication checking
-   * @param retries total number of retries to allow the package to replicate
-   * @param pollInterval ms to wait between retries
-   * @returns nothing, if this doesn't throw an exception it can be considered a valid object,
-   *          however the properties may be undefined if the values couldn't be retrieved due to installKey problems
-   * @throws runtime exceptions that cannot be handled and Error when APV hasn't replicated yet
-   */
-  async query(retries: number, pollInterval: number) {
-    while (retries-- >= 0) {
-      let queryResult = await this._runQuery();
-      if (queryResult == null) {
-        if (this.invalidInstallKey) {
-          return; // no sense in retrying
-        } // else fall through to retry
-      } else {
-        if (queryResult.records && queryResult.records.length > 0) {
-          this.installationValidationStatus = queryResult.records[0].InstallValidationStatus;
-          if (
-            this.installationValidationStatus != 'PACKAGE_UNAVAILABLE' &&
-            this.installationValidationStatus != 'UNINSTALL_IN_PROGRESS'
-          ) {
-            this._populateObject(queryResult.records[0]);
-            return;
-          }
-        }
-      }
-      if (retries > 0) {
-        await BBPromise.delay(pollInterval).then(() => {
-          this.logger.log(messages.getMessage('publishWaitProgress', [], 'package_install'));
-        });
-      }
-    }
-
-    if (this.installationValidationStatus && this.installationValidationStatus == 'UNINSTALL_IN_PROGRESS') {
-      // There are no more reties.  Throw an error indicating the package is unavailable.
-      // For UNINSTALL_IN_PROGRESS, though, allow install to proceed which will result in an appropriate UninstallInProgressProblem
-      // error message being displayed.
-      return;
-    } else {
-      throw new Error(messages.getMessage('errorApvIdNotPublished', [], 'package_install'));
-    }
-  }
-
-  private _populateObject(queryResultRecord) {
-    this.subscriberPackageId = queryResultRecord.SubscriberPackageId;
-    this.installationValidationStatus = queryResultRecord.InstallValidationStatus;
-    this.package2ContainerOptions = queryResultRecord.Package2ContainerOptions;
-    const rssUrls = queryResultRecord.RemoteSiteSettings.settings.map(rss => rss.url);
-    const cspUrls = queryResultRecord.CspTrustedSites.settings.map(csp => csp.endpointUrl);
-    this.trustedSites = rssUrls.concat(cspUrls);
-  }
-
-  private static isErrorPackageNotAvailable(err) {
-    return err.name === 'UNKNOWN_EXCEPTION' || err.name === 'PACKAGE_UNAVAILABLE';
-  }
-}
-
 export = {
-  SubscriberPackageVersionQuery,
-
-  async getSubscriberPackageVersionQuery(
-    org: any,
-    force: any,
-    logger: any,
-    allPackageVersionId: string,
-    installationKey: string,
-    retries: number,
-    pollInterval: number
-  ): Promise<SubscriberPackageVersionQuery> {
-    let spv = new SubscriberPackageVersionQuery(org, force, logger, allPackageVersionId, installationKey);
-    await spv.query(retries, pollInterval);
-    return spv;
-  },
-
   BY_PREFIX: (function() {
     const byIds: any = {};
     ID_REGISTRY.forEach(id => {
@@ -295,6 +159,16 @@ export = {
     } catch (err) {
       return false;
     }
+  },
+
+  // determines if error is from malformed SubscriberPackageVersion query
+  // this is in place to allow cli to run against app version 214, where SPV queries
+  // do not require installation key
+  isErrorFromSPVQueryRestriction(err) {
+    return (
+      err.name === 'MALFORMED_QUERY' &&
+      err.message.includes('Implementation restriction: You can only perform queries of the form Id')
+    );
   },
 
   isErrorPackageNotAvailable(err) {
@@ -433,6 +307,29 @@ export = {
   },
 
   /**
+   * Given 04t the package type type (Managed, Unlocked, Locked(deprecated?))
+   * @param package2VersionId the 04t
+   * @param force For tooling query
+   * @param org For tooling query
+   * @param installKey For tooling query, if an install key is applicable to the package version it must be passed in the queries
+   * @throws Error with message when package2 cannot be found
+   */
+  async getPackage2TypeBy04t(package2VersionId: string, force: any, org: any, installKey: any): Promise<string> {
+    let query = `SELECT Package2ContainerOptions FROM SubscriberPackageVersion WHERE id ='${package2VersionId}'`;
+
+    if (installKey) {
+      const escapedInstallationKey = installKey.replace(/\\/g, '\\\\').replace(/\'/g, "\\'");
+      query += ` AND InstallationKey ='${escapedInstallationKey}'`;
+    }
+
+    const queryResult = await force.toolingQuery(org, query);
+    if (!queryResult || queryResult.records === null || queryResult.records.length === 0) {
+      throw SfdxError.create('salesforce-alm', 'packaging', 'errorInvalidPackageId', [package2VersionId]);
+    }
+    return queryResult.records[0].Package2ContainerOptions;
+  },
+
+  /**
    * Given a package version ID (05i) or subscriber package version ID (04t), return the subscriber package version ID (04t)
    * @param versionId The suscriber package version ID
    * @param force For tooling query
@@ -480,6 +377,28 @@ export = {
       }
       return results;
     });
+  },
+
+  /**
+   * Return the Package2Version.HasMetadataRemoved field value for the given Id (05i)
+   * @param packageVersionId package version ID (05i)
+   * @param force For tooling query
+   * @param org For tooling query
+   */
+  async getHasMetadataRemoved(packageVersionId, force, org) {
+    const query = `SELECT HasMetadataRemoved FROM Package2Version WHERE Id = '${packageVersionId}'`;
+
+    const queryResult = await force.toolingQuery(org, query);
+    if (!queryResult || queryResult.records === null || queryResult.records.length === 0) {
+      throw new Error(
+        messages.getMessage(
+          'errorInvalidIdNoMatchingVersionId',
+          [this.BY_LABEL.PACKAGE_VERSION_ID.label, packageVersionId, this.BY_LABEL.PACKAGE_VERSION_ID.label],
+          'packaging'
+        )
+      );
+    }
+    return queryResult.records[0].HasMetadataRemoved;
   },
 
   /**
@@ -638,14 +557,18 @@ export = {
                 'packaging'
               )
             );
-          } else if (!queryResult.records[0].IsReleased) {
-            throw new Error(
-              messages.getMessage('errorAncestorNotReleased', [packageDescriptorJson.ancestorVersion], 'packaging')
-            );
+          } else {
+            const releasedAncestor = queryResult.records.find(rec => rec.IsReleased === true);
+            if (!releasedAncestor) {
+              throw new Error(
+                messages.getMessage('errorAncestorNotReleased', [packageDescriptorJson.ancestorVersion], 'packaging')
+              );
+            } else {
+              var queriedAncestorId = releasedAncestor.Id;
+            }
           }
 
           // check for discrpancy between queried ancestorId and descriptor's ancestorId
-          const queriedAncestorId = queryResult.records[0].Id;
           if (
             Object.prototype.hasOwnProperty.call(packageDescriptorJson, 'ancestorId') &&
             ancestorId !== queriedAncestorId
@@ -782,6 +705,13 @@ export = {
         // complete
         if (this._isStatusEqualTo(results, [STATUS_SUCCESS])) {
           // success
+
+          // for Managed packages with removed metadata, output a warning
+          if (results[0].HasMetadataRemoved === true) {
+            ux.warn(messages.getMessage('hasMetadataRemovedWarning', [], 'package_version_create'));
+          }
+
+          // update sfdx-project.json
           if (withProject && !process.env.SFDX_PROJECT_AUTOUPDATE_DISABLE_FOR_PACKAGE_VERSION_CREATE) {
             const query = `SELECT MajorVersion, MinorVersion, PatchVersion, BuildNumber FROM Package2Version WHERE Id = '${results[0].Package2VersionId}'`;
             const package2VersionVersionString = await force.toolingQuery(org, query).then(pkgQueryResult => {
