@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as Error from './force-cli-error';
 import util = require('util');
+import * as Error from './force-cli-error';
 
 // could expand with get and set locale functions
-let locale = 'en_US';
+const locale = 'en_US';
 
-export let get = function(label: string, ...args: any[]): string {
+export const get = function (label: string, ...args: any[]): string {
   if (!messages[locale]) {
     Error.exitWithMessage('Locale "' + locale + '" doesn’t exist');
   }
@@ -19,7 +19,7 @@ export let get = function(label: string, ...args: any[]): string {
     Error.exitWithMessage('Message "' + label + '" doesn’t exist');
   }
   if (args) {
-    let expectedNumArgs = messages[locale][label].split('%s').length - 1;
+    const expectedNumArgs = messages[locale][label].split('%s').length - 1;
     if (args.length !== expectedNumArgs) {
       Error.exitWithMessage(
         'Wrong number of args for message: ' + label + '\nExpect ' + expectedNumArgs + ' got ' + args.length
@@ -32,25 +32,13 @@ export let get = function(label: string, ...args: any[]): string {
   return messages[locale][label];
 };
 
-const WAIT_DESC = 'the number of minutes to wait for the command to complete before displaying the results';
-const WAIT_LONG_DESC = 'The number of minutes to wait for the command to complete before displaying the results.';
-const PERFLOGLEVEL_JSON_HELP = '\n\nTo get data on API performance metrics, specify both --perflog and --json.';
-const DATA_RECORD_HELP =
-  'The format of a field-value pair is <fieldName>=<value>.' +
-  '\nEnclose all field-value pairs in one set of double quotation marks, delimited by spaces.' +
-  '\nEnclose values that contain spaces in single quotes.' +
-  PERFLOGLEVEL_JSON_HELP;
-const DATA_BULK_HELP =
-  'One job can contain many batches, depending on the length of the CSV file.' +
-  '\nReturns a job ID and a batch ID. Use these IDs to check job status with data:bulk:status.';
-
 type Messages = {
   readonly [index: string]: {
     readonly [index: string]: string;
   };
 };
 
-let messages: Messages = {
+const messages: Messages = {
   en_US: {
     // the apex:limits command is hidden
     ApexLimitsDescription: 'display current org’s Apex governor limits',
@@ -81,180 +69,6 @@ let messages: Messages = {
       '\n   $ sfdx force:apex:log:tail -c -s',
 
     ConfigNoLoginFound: 'No active login found. Please log in again.',
-
-    DataBulkDeleteDescription: 'bulk delete records from a csv file',
-    DataBulkDeleteLongDescription: 'Deletes a batch of records listed in a CSV file.',
-    DataBulkDeleteHelp:
-      'The file must be a CSV file with only one column: "Id".' +
-      '\n' +
-      DATA_BULK_HELP +
-      '\n\nExamples:\n   $ sfdx force:data:bulk:delete -s Account -f ./path/to/file.csv' +
-      '\n   $ sfdx force:data:bulk:delete -s MyObject__c -f ./path/to/file.csv',
-    DataBulkDeleteSobjectTypeDescription: 'the sObject type of the records you’re deleting',
-    DataBulkDeleteSobjectTypeLongDescription: 'The sObject type of the records you’re deleting.',
-    DataBulkDeleteCsvFilePathDescription: 'the path to the CSV file containing the ids of the records to delete',
-    DataBulkDeleteCsvFilePathLongDescription:
-      'The path to the CSV file that contains the IDs of the records to delete.',
-    DataBulkDeleteWaitDescription: WAIT_DESC,
-    DataBulkDeleteWaitLongDescription: WAIT_LONG_DESC,
-
-    DataBulkStatusDescription: 'view the status of a bulk data load job or batch',
-    DataBulkStatusLongDescription: 'Polls the Bulk API for job status or batch status.',
-    DataBulkStatusHelp:
-      'Examples:\n   $ sfdx force:data:bulk:status -i 750xx000000005sAAA' +
-      '\n   $ sfdx force:data:bulk:status -i 750xx000000005sAAA -b 751xx000000005nAAA',
-    DataBulkStatusJobIdDescription: 'the ID of the job you want to view or of the job whose batch you want to view',
-    DataBulkStatusJobIdLongDescription:
-      'The ID of the job you want to view or of the job whose batch you want to view.',
-    DataBulkStatusBatchIdDescription: 'the ID of the batch whose status you want to view',
-    DataBulkStatusBatchIdLongDescription: 'The ID of the batch whose status you want to view.',
-    DataBulkStatusNoBatchFound: 'Unable to find batch %s for job %s.', // {batch id}, {job id}
-    DataBulkStatusJobError: 'Unable to retrieve status of job %s.', // {job id}
-
-    DataBulkUpsertDescription: 'bulk upsert records from a CSV file',
-    DataBulkUpsertLongDescription:
-      'Creates a job and one or more batches for inserting new rows and updating ' +
-      'existing rows by accessing the Bulk API.',
-    DataBulkUpsertHelp:
-      'Inserts or updates records from a CSV file. ' +
-      '\n' +
-      DATA_BULK_HELP +
-      '\n\nFor information about formatting your CSV file, see "Prepare CSV Files" in the Bulk API Developer Guide.' +
-      '\n\nExamples:\n   $ sfdx force:data:bulk:upsert -s MyObject__c -f ./path/to/file.csv -i MyField__c' +
-      '\n   $ sfdx force:data:bulk:upsert -s MyObject__c -f ./path/to/file.csv -i Id -w 2',
-    DataBulkUpsertSobjectTypeDescription: 'the sObject type of the records you want to upsert',
-    DataBulkUpsertSobjectTypeLongDescription: 'The sObject type of the records you want to upsert.',
-    DataBulkUpsertCsvFilePathDescription: 'the path to the CSV file that defines the records to upsert',
-    DataBulkUpsertCsvFilePathLongDescription: 'The path to the CSV file that defines the records to upsert.',
-    DataBulkUpsertExternalIdDescription: 'the column name of the external ID',
-    DataBulkUpsertExternalIdLongDescription: 'The column name of the external ID.',
-    DataBulkUpsertWaitDescription: WAIT_DESC,
-    DataBulkUpsertWaitLongDescription: WAIT_LONG_DESC,
-    DataBulkUpsertCsvWrongNumberFields: 'Row #%s has %s columns. Expected %s columns.',
-    // {record num}, {column nums}, {expected col. nums}
-    DataBulkUpsertExternalIdRequired: 'An External ID is required on %s to perform an upsert.', // {sobject name}
-    DataBulkUpsertCheckStatusCommand:
-      'Check batch #%s’s status with the command:' + '\nsfdx force:data:bulk:status -i %s -b %s', // {batch num}, {job id}, {batch id}
-    DataBulkUpsertPollingInfo:
-      'Will poll the batch statuses every %s seconds' +
-      '\nTo fetch the status on your own, press CTRL+C and use the command:' +
-      '\nsfdx force:data:bulk:status -i %s -b [<batchId>]', // {polling frequency}, {job id}
-    DataBulkUpsertBatchQueued: 'Batch #%s queued (Batch ID: %s).', // {batch num}, {batch id}
-    DataBulkTimeOut:
-      'The operation timed out. Check the status with command:' + '\nsfdx force:data:bulk:status -i %s -b %s',
-
-    DataRecordWhereDescription: 'a list of <fieldName>=<value> pairs to search for',
-    DataRecordWhereLongDescription: 'A list of <fieldName>=<value> pairs to search for.',
-    DataRecordNeitherSobjectidNorWhereError: 'Provide either -i or -w.',
-    DataRecordBothSobjectidAndWhereError: 'Provide either -i or -w, but not both.',
-
-    DataRecordCreateDescription: 'create a record',
-    DataRecordCreateLongDescription: 'Creates and inserts a record.',
-    DataRecordCreateHelp:
-      DATA_RECORD_HELP +
-      '\n\nExamples:\n   $ sfdx force:data:record:create -s Account -v "Name=Acme"' +
-      '\n   $ sfdx force:data:record:create -s Account -v "Name=\'Universal Containers\'"' +
-      '\n   $ sfdx force:data:record:create -s Account -v "Name=\'Universal Containers\' Website=www.example.com"' +
-      '\n   $ sfdx force:data:record:create -t -s TraceFlag -v "DebugLevelId=7dl170000008U36AAE ' +
-      'StartDate=2017-12-01T00:26:04.000+0000 ExpirationDate=2017-12-01T00:56:04.000+0000 ' +
-      'LogType=CLASS_TRACING TracedEntityId=01p17000000R6bLAAS"' +
-      '\n   $ sfdx force:data:record:create -s Account -v "Name=Acme" --perflog --json',
-    DataRecordCreateValuesDescription: 'the <fieldName>=<value> pairs you’re creating',
-    DataRecordCreateValuesLongDescription: 'The <fieldName>=<value> pairs you’re creating.',
-    DataRecordCreateSobjectDescription: 'the type of the record you’re creating',
-    DataRecordCreateSobjectLongDescription: 'The sObject type of the record you’re creating.',
-    DataRecordCreateToolingDescription: 'create the record with tooling api',
-    DataRecordCreateToolingLongDescription: 'Create the record using Tooling API.',
-    DataRecordCreateSuccess: 'Successfully created record: %s.', // {record id}
-    DataRecordCreateFailure: 'Failed to create record. %s', // {list of error messages}
-
-    DataRecordDeleteDescription: 'delete a record',
-    DataRecordDeleteLongDescription: 'Deletes a single record.',
-    DataRecordDeleteHelp:
-      'Specify an sObject type and either an ID or a list of <fieldName>=<value> pairs.' +
-      '\n' +
-      DATA_RECORD_HELP +
-      '\n\nExamples:' +
-      '\n   $ sfdx force:data:record:delete -s Account -i 001D000000Kv3dl' +
-      '\n   $ sfdx force:data:record:delete -s Account -w "Name=Acme"' +
-      '\n   $ sfdx force:data:record:delete -s Account -w "Name=\'Universal Containers\'"' +
-      "\n   $ sfdx force:data:record:delete -s Account -w \"Name='Universal Containers' Phone='(123) 456-7890'\"" +
-      '\n   $ sfdx force:data:record:delete -t -s TraceFlag -i 7tf170000009cU6AAI --perflog --json',
-    DataRecordDeleteSobjectDescription: 'the type of the record you’re deleting',
-    DataRecordDeleteSobjectLongDescription: 'The sObject type of the record you’re deleting.',
-    DataRecordDeleteToolingDescription: 'delete the record with Tooling API',
-    DataRecordDeleteToolingLongDescription: 'Delete the record using Tooling API.',
-    DataRecordDeleteIdDescription: 'the ID of the record you’re deleting',
-    DataRecordDeleteIdLongDescription: 'The ID of the record you’re deleting.',
-    DataRecordDeleteSuccess: 'Successfully deleted record: %s.', // {record id}
-    DataRecordDeleteFailure: 'Failed to delete record. %s', // {list of error messages}
-
-    DataRecordGetDescription: 'view a record',
-    DataRecordGetLongDescription: 'Displays a single record.',
-    DataRecordGetHelp:
-      'Specify an sObject type and either an ID or a list of <fieldName>=<value> pairs.' +
-      '\n' +
-      DATA_RECORD_HELP +
-      '\n\nExamples:' +
-      '\n   $ sfdx force:data:record:get -s Account -i 001D000000Kv3dl' +
-      '\n   $ sfdx force:data:record:get -s Account -w "Name=Acme"' +
-      '\n   $ sfdx force:data:record:get -s Account -w "Name=\'Universal Containers\'"' +
-      "\n   $ sfdx force:data:record:get -s Account -w \"Name='Universal Containers' Phone='(123) 456-7890'\"" +
-      '\n   $ sfdx force:data:record:get -t -s TraceFlag -i 7tf170000009cUBAAY --perflog --json',
-    DataRecordGetSobjectDescription: 'the type of the record you’re retrieving',
-    DataRecordGetSobjectLongDescription: 'The sObject type of the record you’re retrieving.',
-    DataRecordGetToolingDescription: 'retrieve the record with Tooling API',
-    DataRecordGetToolingLongDescription: 'Retrieve the record using Tooling API.',
-    DataRecordGetIdDescription: 'the ID of the record you’re retrieving',
-    DataRecordGetIdLongDescription: 'The ID of the record you’re retrieving.',
-    DataRecordGetNoRecord: 'No matching record found.',
-    DataRecordGetMultipleRecords:
-      '%s is not a unique qualifier for %s; %s records were retrieved.' +
-      // {field value}, {field name}, {number of records with given value}
-      '\nRetrieve only one record.',
-    DataRecordGetIdFormatError: 'Could not parse field value %s. Expected format <fieldName>=<value>.', // {field name}
-
-    DataRecordUpdateDescription: 'update a record',
-    DataRecordUpdateLongDescription: 'Updates a single record.',
-    DataRecordUpdateHelp:
-      DATA_RECORD_HELP +
-      '\n\nExamples:' +
-      '\n   $ sfdx force:data:record:update -s Account -i 001D000000Kv3dl -v "Name=NewAcme"' +
-      '\n   $ sfdx force:data:record:update -s Account -w "Name=\'Old Acme\'" -v "Name=\'New Acme\'"' +
-      '\n   $ sfdx force:data:record:update -s Account -i 001D000000Kv3dl -v "Name=\'Acme III\' Website=www.example.com"' +
-      '\n   $ sfdx force:data:record:update -t -s TraceFlag -i 7tf170000009cUBAAY -v "ExpirationDate=2017-12-01T00:58:04.000+0000"' +
-      '\n   $ sfdx force:data:record:update -s Account -i 001D000000Kv3dl -v "Name=NewAcme" --perflog --json',
-    DataRecordUpdateSobjectDescription: 'the type of the record you’re updating',
-    DataRecordUpdateSobjectLongDescription: 'The sObject type of the record you’re updating.',
-    DataRecordUpdateToolingDescription: 'update the record with Tooling API',
-    DataRecordUpdateToolingLongDescription: 'Update the record using Tooling API.',
-    DataRecordUpdateValuesDescription: 'the <fieldName>=<value> pairs you’re updating',
-    DataRecordUpdateValuesLongDescription: 'The <fieldName>=<value> pairs you’re updating.',
-    DataRecordUpdateIdDescription: 'the ID of the record you’re updating',
-    DataRecordUpdateIdLongDescription: 'The ID of the record you’re updating.',
-    DataRecordUpdateNoFields: 'Specify at least one field to update, in the format <fieldName>=<value>.',
-    DataRecordUpdateSuccess: 'Successfully updated record: %s.', // {record id}
-    DataRecordUpdateFailure: 'Failed to update record. %s', // {list of error messages}
-
-    DataSOQLQueryDescription: 'execute a SOQL query',
-    DataSOQLQueryLongDescription: 'Executes a SOQL query.',
-    DataSOQLQueryHelp:
-      'When you execute this command in a project, ' +
-      'it executes the query against the data in your default scratch org.' +
-      PERFLOGLEVEL_JSON_HELP +
-      '\n\nExamples:\n   $ sfdx force:data:soql:query -q "SELECT Id, Name, Account.Name FROM Contact"' +
-      "\n   $ sfdx force:data:soql:query -q \"SELECT Id, Name FROM Account WHERE ShippingState IN ('CA', 'NY')\"" +
-      '\n   $ sfdx force:data:soql:query -q "SELECT Name FROM ApexTrigger" -t' +
-      '\n   $ sfdx force:data:soql:query -q "SELECT Name FROM ApexTrigger" --perflog --json',
-    DataSOQLQueryNoResults: 'Your query returned no results.',
-    DataSOQLQueryQueryDescription: 'SOQL query to execute',
-    DataSOQLQueryQueryLongDescription: 'SOQL query to execute.',
-    DataSOQLQueryToolingDescription: 'execute query with Tooling API',
-    DataSOQLQueryToolingLongDescription: 'Execute the query using Tooling API.',
-    DataSOQLQueryMoreMissingUrl: 'Server response is missing the next URL; cannot query the rest of the results.',
-    DataSOQLQueryMoreMissingRecords:
-      'Server response is missing the next records; cannot display the rest of the results.',
-    DataSOQLQueryInvalidReporter: 'Unknown result format type. Must be one of the following values: %s',
 
     DisplayWarning: 'WARNING: %s', // {message}
     DisplayHeaderApplication: 'Application',
@@ -317,6 +131,6 @@ let messages: Messages = {
 
     TextUtilMalformedKeyValuePair: 'Malformed key=value pair for value: %s',
 
-    WaitTimeError: 'Wait time must be greater than 0 minutes'
-  }
+    WaitTimeError: 'Wait time must be greater than 0 minutes',
+  },
 };

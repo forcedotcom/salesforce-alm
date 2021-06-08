@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { Org } from '@salesforce/core/lib/org';
 import { QueryResult } from 'jsforce';
@@ -29,11 +29,11 @@ export class CommunitiesServices {
       `SELECT Id, Status FROM NETWORK WHERE NAME = '${name}'`
     );
     if (result.totalSize > 0) {
-      let record = result.records[0];
-      return <CommunityInfo>{
-        name: name,
+      const record = result.records[0];
+      return {
+        name,
         id: record['Id'],
-        status: record['Status']
+        status: record['Status'],
       };
     }
   }

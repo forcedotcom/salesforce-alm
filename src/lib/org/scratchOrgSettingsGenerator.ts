@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -12,21 +12,21 @@ import * as path from 'path';
 
 // Thirdparty
 
-const js2xmlparser = require('js2xmlparser');
 import { UX } from '@salesforce/command';
-import OrgPrefRegistry = require('./orgPrefRegistry');
 import { Messages, fs } from '@salesforce/core';
 import { has } from 'lodash';
 import { get, getObject, getString } from '@salesforce/ts-types';
 import { set, isEmpty } from '@salesforce/kit';
 import { Config } from '../../lib/core/configApi';
+import OrgPrefRegistry = require('./orgPrefRegistry');
+const js2xmlparser = require('js2xmlparser');
 
 Messages.importMessagesDirectory(__dirname);
 const orgSettingsMessages: Messages = Messages.loadMessages('salesforce-alm', 'org_settings');
 
 /** This is the contents of the package.xml that we will use when we deploy settings to a scratch org. */
 
-const _packageFileContents: string = `<?xml version="1.0" encoding="UTF-8"?>
+const _packageFileContents = `<?xml version="1.0" encoding="UTF-8"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 %s
     <version>%s</version>
@@ -87,14 +87,16 @@ class SettingsGenerator {
    *  For api versions less than 47.0 it will return a warning.
    */
   async migrate(scratchDef, apiVersion): Promise<void> {
-    //Make sure we have old style preferences
-    if (!scratchDef.orgPreferences) return;
+    // Make sure we have old style preferences
+    if (!scratchDef.orgPreferences) {
+      return;
+    }
 
     if (util.isNullOrUndefined(apiVersion)) {
       apiVersion = this.currentApiVersion;
     }
 
-    //First, let's map the old style tooling preferences into MD-API preferences
+    // First, let's map the old style tooling preferences into MD-API preferences
     this.settingData = {};
 
     const ux = await UX.create();
@@ -121,12 +123,12 @@ class SettingsGenerator {
     }
 
     if (scratchDef.orgPreferences.enabled) {
-      scratchDef.orgPreferences.enabled.forEach(pref => {
+      scratchDef.orgPreferences.enabled.forEach((pref) => {
         storePrefs(this.settingData, pref, true);
       });
     }
     if (scratchDef.orgPreferences.disabled) {
-      scratchDef.orgPreferences.disabled.forEach(pref => {
+      scratchDef.orgPreferences.disabled.forEach((pref) => {
         storePrefs(this.settingData, pref, false);
       });
     }
@@ -135,7 +137,7 @@ class SettingsGenerator {
       apiVersion >= 47.0 ? 'deprecatedPrefFormat' : 'deprecatedPrefFormatLegacy',
       [
         JSON.stringify({ orgPreferences: scratchDef.orgPreferences }, null, 4),
-        JSON.stringify({ settings: this.settingData }, null, 4)
+        JSON.stringify({ settings: this.settingData }, null, 4),
       ]
     );
     if (apiVersion >= 47.0) {
@@ -143,7 +145,7 @@ class SettingsGenerator {
     } else {
       ux.warn(message);
     }
-    //No longer need these
+    // No longer need these
     delete scratchDef.orgPreferences;
   }
 
@@ -153,21 +155,21 @@ class SettingsGenerator {
   async extractAndMigrateSettings(scratchDef): Promise<void> {
     const oldScratchDef = JSON.stringify({ settings: scratchDef.settings }, null, 4);
 
-    //Make sure we have old style preferences
+    // Make sure we have old style preferences
     if (!this.orgPreferenceSettingsMigrationRequired(scratchDef)) {
       this.settingData = getObject(scratchDef, 'settings');
       return;
     }
-    //First, let's map the old style tooling preferences into MD-API preferences
+    // First, let's map the old style tooling preferences into MD-API preferences
     this.settingData = {};
 
     const ux = await UX.create();
     function storePrefs(data, pref, prefVal): boolean {
-      var mdApiName = OrgPrefRegistry.newPrefNameForOrgSettingsMigration(pref);
+      let mdApiName = OrgPrefRegistry.newPrefNameForOrgSettingsMigration(pref);
       if (util.isNullOrUndefined(mdApiName)) {
         mdApiName = pref;
       }
-      var orgPrefApi = OrgPrefRegistry.whichApiFromFinalPrefName(mdApiName);
+      const orgPrefApi = OrgPrefRegistry.whichApiFromFinalPrefName(mdApiName);
       if (util.isNullOrUndefined(orgPrefApi)) {
         ux.warn(`Unknown org preference: ${pref}, ignored.`);
         return false;
@@ -189,23 +191,23 @@ class SettingsGenerator {
       return orgPrefApi != OrgPrefRegistry.ORG_PREFERENCE_SETTINGS;
     }
 
-    var orgPreferenceSettings = getObject(scratchDef, 'settings.orgPreferenceSettings');
+    const orgPreferenceSettings = getObject(scratchDef, 'settings.orgPreferenceSettings');
     delete scratchDef.settings.orgPreferenceSettings;
     this.settingData = getObject(scratchDef, 'settings');
 
-    var migrated = false;
-    for (var preference in orgPreferenceSettings) {
+    let migrated = false;
+    for (const preference in orgPreferenceSettings) {
       if (storePrefs(this.settingData, preference, orgPreferenceSettings[preference])) {
         migrated = true;
       }
     }
 
-    //Since we could have recommended some preferences that are still in OPS, only warn if any actually got moved there
+    // Since we could have recommended some preferences that are still in OPS, only warn if any actually got moved there
     if (migrated) {
       // It would be nice if cli.ux.styledJSON could return a colorized JSON string instead of logging to stdout.
       const message = orgSettingsMessages.getMessage('migratedPrefFormat', [
         oldScratchDef,
-        JSON.stringify({ settings: this.settingData }, null, 4)
+        JSON.stringify({ settings: this.settingData }, null, 4),
       ]);
       ux.warn(message);
     }
@@ -221,8 +223,8 @@ class SettingsGenerator {
     const settingsDir = path.join(destRoot, 'settings');
     const objectsDir = path.join(destRoot, 'objects');
     const packageFilePath = path.join(destRoot, 'package.xml');
-    let allRecTypes: string[] = [];
-    let allBps: string[] = [];
+    const allRecTypes: string[] = [];
+    const allBps: string[] = [];
     try {
       await fs.access(destRoot, fs.constants.F_OK);
       await fs.rmdir(destRoot);
@@ -232,7 +234,7 @@ class SettingsGenerator {
 
     await Promise.all([
       this.writeSettingsIfNeeded(settingsDir),
-      this.writeObjectSettingsIfNeeded(objectsDir, allRecTypes, allBps)
+      this.writeObjectSettingsIfNeeded(objectsDir, allRecTypes, allBps),
     ]);
 
     await this.writePackageFile(allRecTypes, allBps, packageFilePath, apiVersion);
@@ -243,7 +245,7 @@ class SettingsGenerator {
     let packageContentInternals = '';
     let settingsMemberReferences = '';
     if (this.settingData) {
-      Object.keys(this.settingData).forEach(item => {
+      Object.keys(this.settingData).forEach((item) => {
         const typeName = this.cap(item).replace('Settings', '');
         settingsMemberReferences += '\n        <members>' + typeName + '</members>';
       });
@@ -251,7 +253,7 @@ class SettingsGenerator {
     }
     let objectMemberReferences = '';
     if (this.objectSettingsData) {
-      Object.keys(this.objectSettingsData).forEach(item => {
+      Object.keys(this.objectSettingsData).forEach((item) => {
         objectMemberReferences += '\n        <members>' + this.cap(item) + '</members>';
       });
       packageContentInternals += util.format(_packageFileTypeSection, objectMemberReferences, 'CustomObject');
@@ -289,21 +291,21 @@ class SettingsGenerator {
     return componentNames && componentNames.length > 0
       ? util.format(
           _packageFileTypeSection,
-          componentNames.map(item => '\n    <members>' + item + '</members>').join(''),
+          componentNames.map((item) => '\n    <members>' + item + '</members>').join(''),
           componentType
         )
       : '';
   }
 
   _createSettingsFileContent(name, json) {
-    if (name == `OrgPreferenceSettings`) {
-      //this is a stupid format
+    if (name == 'OrgPreferenceSettings') {
+      // this is a stupid format
       let res = `<?xml version="1.0" encoding="UTF-8"?>
 <OrgPreferenceSettings xmlns="http://soap.sforce.com/2006/04/metadata">
 `;
       res += Object.keys(json)
         .map(
-          pref =>
+          (pref) =>
             `    <preferences>
         <settingName>` +
             this.cap(pref) +
@@ -321,17 +323,17 @@ class SettingsGenerator {
     }
   }
 
-  _createObjectFileContent(name: string, json: Object, allRecTypes: String[], allBps: String[]) {
-    //name already capped
+  _createObjectFileContent(name: string, json: Object, allRecTypes: string[], allBps: string[]) {
+    // name already capped
     let res = `<?xml version="1.0" encoding="UTF-8"?>
 <Object xmlns="http://soap.sforce.com/2006/04/metadata">
 `;
-    let sharingModel = getString(json, 'sharingModel');
+    const sharingModel = getString(json, 'sharingModel');
     if (sharingModel) {
       res += '    <sharingModel>' + this.cap(sharingModel) + '</sharingModel>\n';
     }
 
-    let defaultRecordType = getString(json, 'defaultRecordType');
+    const defaultRecordType = getString(json, 'defaultRecordType');
     if (defaultRecordType) {
       // We need to keep track of these globally for when we generate the package XML.
       allRecTypes.push(name + '.' + this.cap(defaultRecordType));
@@ -368,7 +370,7 @@ class SettingsGenerator {
         <active>true</active>
 `;
       if (bpName) {
-        //We need to keep track of these globally for the package.xml
+        // We need to keep track of these globally for the package.xml
         allBps.push(name + '.' + bpName);
         res += '        <businessProcess>' + bpName + '</businessProcess>\n';
       }
@@ -384,8 +386,15 @@ class SettingsGenerator {
         <values>
             <fullName>` +
           bpPicklistVal +
-          `</fullName>
-            <default>true</default>
+          '</fullName>';
+
+        // For Opportunity you don't have the option to set a default
+        if (name != 'Opportunity') {
+          res += `
+            <default>true</default>`;
+        }
+
+        res += `
         </values>
     </businessProcesses>
 `;

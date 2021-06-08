@@ -1,25 +1,23 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as BBPromise from 'bluebird';
 const replace = BBPromise.promisify(require('replace'));
 
-import MdapiPollIntervalStrategy = require('../mdapi/mdapiPollIntervalStrategy');
-import MdapiDeployApi = require('../mdapi/mdapiDeployApi');
-import SourceConvertApi = require('./sourceConvertApi');
-import srcDevUtil = require('../core/srcDevUtil');
-import StashApi = require('../core/stash');
-import { WorkspaceFileState } from './workspaceFileState';
-
-import { toArray } from './sourceUtil';
-
-import consts = require('../core/constants');
 import { AsyncCreatable } from '@salesforce/kit';
 import { Lifecycle, Logger, SfdxProject } from '@salesforce/core';
+import consts = require('../core/constants');
+import StashApi = require('../core/stash');
+import srcDevUtil = require('../core/srcDevUtil');
+import MdapiDeployApi = require('../mdapi/mdapiDeployApi');
+import MdapiPollIntervalStrategy = require('../mdapi/mdapiPollIntervalStrategy');
+import { toArray } from './parseManifestEntriesArray';
+import { WorkspaceFileState } from './workspaceFileState';
+import SourceConvertApi = require('./sourceConvertApi');
 import { DeployResult } from './sourceDeployApi';
 import { AggregateSourceElements } from './aggregateSourceElements';
 const { INSTANCE_URL_TOKEN } = consts;
@@ -46,6 +44,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
 
   /**
    * Set additional required MDAPI options config and deploy
+   *
    * @param options The flags on the context passed to the command.
    * @param {any} pollIntervalStrategy The strategy for how often to poll when doing a MD deploy
    * @returns {any}
@@ -62,23 +61,25 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
 
   /**
    * Set the state of the source elements that were deployed
+   *
    * @param aggregateSourceElements The map of source elements to deploy
    * @returns {any}
    */
-  getOutboundFiles(aggregateSourceElements: AggregateSourceElements, isDelete: boolean = false) {
+  getOutboundFiles(aggregateSourceElements: AggregateSourceElements, isDelete = false) {
     let deployedSourceElements = [];
-    aggregateSourceElements.getAllSourceElements().forEach(aggregateSourceElement => {
+    aggregateSourceElements.getAllSourceElements().forEach((aggregateSourceElement) => {
       deployedSourceElements = deployedSourceElements.concat(
         isDelete
-          ? aggregateSourceElement.getWorkspaceElements().filter(el => el.getState() === WorkspaceFileState.DELETED)
+          ? aggregateSourceElement.getWorkspaceElements().filter((el) => el.getState() === WorkspaceFileState.DELETED)
           : aggregateSourceElement.getWorkspaceElements()
       );
     });
-    return deployedSourceElements.map(workspaceElement => workspaceElement.toObject());
+    return deployedSourceElements.map((workspaceElement) => workspaceElement.toObject());
   }
 
   /**
    * Convert the SDFX-formatted source to MD-format and then deploy it to the org
+   *
    * @param options The flags on the context passed to the command.
    * @param sourceWorkspaceAdapter
    * @param aggregateSourceElements The map of source elements to deploy
@@ -134,18 +135,20 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
 
   /**
    * Remove source elements that failed to deploy
+   *
    * @param componentFailures
    * @param aggregateSourceElements
    */
   removeFailedAggregates(componentFailures: any, deployedSourceElements: AggregateSourceElements) {
     let failedSourcePaths = [];
     const failures = toArray(componentFailures);
-    failures.forEach(failure => {
+    failures.forEach((failure) => {
       const key = `${failure.componentType}__${failure.fullName}`;
       const packageName = SfdxProject.getInstance().getPackageNameFromPath(failure.fileName);
       const element = deployedSourceElements.getSourceElement(packageName, key);
       if (element) {
-        element.getWorkspaceElements().forEach(element => {
+        // eslint-disable-next-line @typescript-eslint/no-shadow
+        element.getWorkspaceElements().forEach((element) => {
           failedSourcePaths = failedSourcePaths.concat(element.getSourcePath());
         });
         deployedSourceElements.deleteSourceElement(packageName, key);
@@ -156,8 +159,10 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
   /**
    * Some metadata types, such as RemoteSiteSetting, contain values specific to an org and need to be replaced
    * when the source is deployed to a new org
+   *
    * @param dir The directory where the metadata resides
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async replaceTokens(dir: string) {
     const replaceConfigs = [
       {
@@ -166,12 +171,12 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
         paths: [dir],
         recursive: true,
         includes: ['*.remoteSite-meta.xml'],
-        silent: true
-      }
+        silent: true,
+      },
     ];
 
     const replaceFns = [];
-    replaceConfigs.forEach(replaceConfig => {
+    replaceConfigs.forEach((replaceConfig) => {
       replaceFns.push(
         () =>
           new BBPromise((resolve, reject) => {
@@ -189,6 +194,7 @@ export abstract class SourceDeployApiBase extends AsyncCreatable<SourceDeployApi
   }
 }
 
+// eslint-disable-next-line no-redeclare
 export namespace SourceDeployApiBase {
   export interface Options {
     org: any;

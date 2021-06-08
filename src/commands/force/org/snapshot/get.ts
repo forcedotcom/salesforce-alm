@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -29,12 +29,12 @@ export class OrgSnapshotGetCommand extends ToolbeltCommand {
       char: 's',
       description: messages.getMessage('getSnapshotCmdSnapshotDescription', [], 'orgSnapshot'),
       longDescription: messages.getMessage('getSnapshotCmdSnapshotDescriptionLong', [], 'orgSnapshot'),
-      required: true
-    })
+      required: true,
+    }),
   };
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const OrgSnapshotGetCommand = require('../../../../lib/org/snapshot/orgSnapshotGetCommand'); // eslint-disable-line global-require
-    return this.execLegacyCommand(new OrgSnapshotGetCommand(), context);
+    const OrgSnapshotGetCommandImpl = require('../../../../lib/org/snapshot/orgSnapshotGetCommand'); // eslint-disable-line global-require
+    return this.execLegacyCommand(new OrgSnapshotGetCommandImpl(), context);
   }
 }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -27,7 +27,7 @@ const DEFAULT_MAX_WAIT_IN_MINUTES = 0;
 //
 // Do not want '20px' to be accepted, parseInt would allow this.
 //
-const validateNumber = function(number, fieldName) {
+const validateNumber = function (number, fieldName) {
   const theNumber = Number(`${number}`);
 
   if (isNaN(theNumber)) {
@@ -37,7 +37,7 @@ const validateNumber = function(number, fieldName) {
   return theNumber;
 };
 
-const parseVersion = function(versionString) {
+const parseVersion = function (versionString) {
   let major = null;
   let minor = null;
 
@@ -53,11 +53,11 @@ const parseVersion = function(versionString) {
 
   return {
     major,
-    minor
+    minor,
   };
 };
 
-const requestFromContext = function(context) {
+const requestFromContext = function (context) {
   const version = parseVersion(context.flags.version);
 
   return {
@@ -69,11 +69,11 @@ const requestFromContext = function(context) {
     IsReleaseVersion: !!context.flags.managedreleased,
     ReleaseNotesUrl: context.flags.releasenotesurl,
     PostInstallUrl: context.flags.postinstallurl,
-    Password: context.flags.installationkey
+    Password: context.flags.installationkey,
   };
 };
 
-const Package1VersionCreateApi = function() {
+const Package1VersionCreateApi = function () {
   this.error = null;
   this.logger = logger.child('Package1VersionCreateApi');
   this.messages = messages;
@@ -90,12 +90,12 @@ const Package1VersionCreateApi = function() {
  *
  * @return promise
  */
-Package1VersionCreateApi.prototype.poll = function(context, id, retries) {
+Package1VersionCreateApi.prototype.poll = function (context, id, retries) {
   this.org = context.org;
   this.configApi = this.org.config;
   this.force = this.org.force;
 
-  return this.force.toolingRetrieve(this.org, 'PackageUploadRequest', id).then(request => {
+  return this.force.toolingRetrieve(this.org, 'PackageUploadRequest', id).then((request) => {
     switch (request.Status) {
       case 'SUCCESS':
         return request;
@@ -121,7 +121,7 @@ Package1VersionCreateApi.prototype.poll = function(context, id, retries) {
         if (request.Errors && request.Errors.errors && request.Errors.errors.length > 0) {
           const errorMessage = this.messages.getMessage(
             'package1VersionCreateCommandUploadFailure',
-            request.Errors.errors.map(e => e.message).join(os.EOL)
+            request.Errors.errors.map((e) => e.message).join(os.EOL)
           );
           throw new Error(errorMessage);
         } else {
@@ -135,10 +135,11 @@ Package1VersionCreateApi.prototype.poll = function(context, id, retries) {
 
 /**
  * Creates a new version of the Managed Package in the target org.
+ *
  * @param context
  * @returns {*|promise}
  */
-Package1VersionCreateApi.prototype.execute = function(context) {
+Package1VersionCreateApi.prototype.execute = function (context) {
   this.org = context.org;
   this.configApi = this.org.config;
   this.force = this.org.force;
@@ -154,14 +155,14 @@ Package1VersionCreateApi.prototype.execute = function(context) {
 
   const request = requestFromContext(context);
 
-  return this.force.toolingCreate(this.org, 'PackageUploadRequest', request).then(pkgUploadResult => {
+  return this.force.toolingCreate(this.org, 'PackageUploadRequest', request).then((pkgUploadResult) => {
     if (pkgUploadResult.success) {
       const id = pkgUploadResult.id;
-      return this.poll(context, id, this.maxPoll).then(uploadStatus => ({
+      return this.poll(context, id, this.maxPoll).then((uploadStatus) => ({
         Status: uploadStatus.Status,
         Id: uploadStatus.Id,
         MetadataPackageVersionId: uploadStatus.MetadataPackageVersionId,
-        MetadataPackageId: uploadStatus.MetadataPackageId
+        MetadataPackageId: uploadStatus.MetadataPackageId,
       }));
     } else {
       throw new Error(pkgUploadResult.errors);

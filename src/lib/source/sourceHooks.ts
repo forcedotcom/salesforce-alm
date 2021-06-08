@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as Config from '@oclif/config';
@@ -84,6 +84,7 @@ export type SourceHook<T> = (
   options: T extends keyof Config.Hooks ? SourceHooks[T] : T
 ) => any;
 
+// eslint-disable-next-line no-redeclare
 export declare namespace SourceHook {
   export type PreDeploy = Config.Hook<SourceHooks['predeploy']>;
   export type PostSrConvert = Config.Hook<SourceHooks['postsourceupdate']>;

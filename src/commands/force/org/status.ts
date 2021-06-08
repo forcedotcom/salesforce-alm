@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
 import { Config, Messages } from '@salesforce/core';
+import { Duration } from '@salesforce/kit';
 import { SandboxOrg } from '../../../lib/org/sandbox/sandboxOrg';
 import { SandboxProgressReporter } from '../../../lib/org/sandbox/sandboxProgressReporter';
 import consts = require('../../../lib/core/constants');
-import { Duration } from '@salesforce/kit';
 import { SandboxEventNames } from '../../../lib/org/sandbox/sandboxConstants';
 import Alias = require('../../../lib/core/alias');
 
@@ -33,19 +33,19 @@ export class OrgStatusCommand extends SfdxCommand {
       char: 'n',
       description: messages.getMessage('sandboxnameFlagDescription'),
       longDescription: messages.getMessage('sandboxnameFlagLongDescription'),
-      required: true
+      required: true,
     }),
     setdefaultusername: flags.boolean({
       char: 's',
       description: messages.getMessage('setdefaultusernameFlagDescription'),
       longDescription: messages.getMessage('setdefaultusernameFlagLongDescription'),
-      required: false
+      required: false,
     }),
     setalias: flags.string({
       char: 'a',
       description: messages.getMessage('setaliasFlagDescription'),
       longDescription: messages.getMessage('setaliasFlagLongDescription'),
-      required: false
+      required: false,
     }),
     wait: flags.minutes({
       char: 'w',
@@ -53,18 +53,18 @@ export class OrgStatusCommand extends SfdxCommand {
       longDescription: messages.getMessage('waitFlagLongDescription'),
       required: false,
       min: Duration.minutes(consts.MIN_STREAM_TIMEOUT_MINUTES),
-      default: Duration.minutes(consts.DEFAULT_STREAM_TIMEOUT_MINUTES)
-    })
+      default: Duration.minutes(consts.DEFAULT_STREAM_TIMEOUT_MINUTES),
+    }),
   };
 
   public async run(): Promise<unknown> {
     this.logger.debug('Status started with args %s ', this.flags);
 
     const masterProdOrg = this.org;
-    const sandboxOrg = await SandboxOrg.getInstance(masterProdOrg, this.flags.wait, this.logger, this.flags.clientid);
+    const sandboxOrg = SandboxOrg.getInstance(masterProdOrg, this.flags.wait, this.logger, this.flags.clientid);
 
     // Keep all console output in the command
-    sandboxOrg.on(SandboxEventNames.EVENT_STATUS, results => {
+    sandboxOrg.on(SandboxEventNames.EVENT_STATUS, (results) => {
       SandboxProgressReporter.logSandboxProgress(
         this.ux,
         results.sandboxProcessObj,
@@ -74,20 +74,20 @@ export class OrgStatusCommand extends SfdxCommand {
       );
     });
 
-    sandboxOrg.on(SandboxEventNames.EVENT_RESULT, results => {
+    sandboxOrg.on(SandboxEventNames.EVENT_RESULT, (results) => {
       SandboxProgressReporter.logSandboxProcessResult(this.ux, results.sandboxProcessObj, results.sandboxRes);
       if (results.sandboxRes && results.sandboxRes.authUserName) {
         if (this.flags.setalias) {
-          Alias.set(this.flags.setalias, results.sandboxRes.authUserName).then(result =>
+          Alias.set(this.flags.setalias, results.sandboxRes.authUserName).then((result) =>
             this.logger.debug('Set Alias: %s result: %s', this.flags.setalias, result)
           );
         }
         if (this.flags.setdefaultusername) {
-          let globalConfig: Config = this.configAggregator.getGlobalConfig();
+          const globalConfig: Config = this.configAggregator.getGlobalConfig();
           globalConfig.set(Config.DEFAULT_USERNAME, results.sandboxRes.authUserName);
           globalConfig
             .write()
-            .then(result =>
+            .then((result) =>
               this.logger.debug('Set defaultUsername: %s result: %s', this.flags.setdefaultusername, result)
             );
         }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -16,18 +16,18 @@
 
 // Node
 import * as os from 'os';
+import * as crypto from 'crypto';
 import * as _ from 'lodash';
 
 // Thirdparty
 import * as BBPromise from 'bluebird';
-import * as crypto from 'crypto';
 
 // Local
 import * as almError from './almError';
 import * as keyChainImpls from './keyChainImpl';
 import logApi = require('./logApi');
-const { Messages } = require('@salesforce/core');
 import srcDevUtil = require('./srcDevUtil');
+const { Messages } = require('@salesforce/core');
 const logger = logApi.child('crypto');
 
 const TAG_DELIMITER = ':';
@@ -40,11 +40,13 @@ const ACCOUNT = 'local';
 
 /**
  * osxKeyChain promise wrapper.
+ *
  * @type {{get: KeychainPromises.get, set: KeychainPromises.set}}
  */
 const KeychainPromises = {
   /**
    * Gets a password item
+   *
    * @param service - The keychain service name
    * @param account - The keychain account name
    */
@@ -61,13 +63,14 @@ const KeychainPromises = {
 
   /**
    * Sets a generic password item in OSX keychain
+   *
    * @param service - The keychain service name
    * @param account - The keychain account name
    * @param password - The password for the keychain item
    */
   set(_keychain, service, account, password) {
     return new BBPromise((resolve, reject) => {
-      _keychain.setPassword({ service, account, password }, err => {
+      _keychain.setPassword({ service, account, password }, (err) => {
         if (err) {
           return reject(err);
         }
@@ -78,20 +81,22 @@ const KeychainPromises = {
 
   /**
    * Move a keychain password from one keychain to another.
+   *
    * @param oldKeychain - The keychin with the password
    * @param newKeychain - The target keychain
    * @param service - service name
    * @param account - account name
    */
   migrate(oldKeychain, newKeychain, service, account) {
-    return KeychainPromises.get(oldKeychain, service, account).then(passwordResult =>
+    return KeychainPromises.get(oldKeychain, service, account).then((passwordResult) =>
       KeychainPromises.set(newKeychain, service, account, passwordResult.password)
     );
-  }
+  },
 };
 
 /**
  * Crypto class for SFDX.
+ *
  * @param packageDotJson - Override object for package.json properties. Used for unit testing.
  * @constructor
  */
@@ -109,6 +114,7 @@ class Crypto {
 
   /**
    * Initialize any crypto dependencies. In this case we need to generate an encryption key.
+   *
    * @param retryStatus - A string message to track retries
    * @returns {*}
    */
@@ -120,10 +126,10 @@ class Crypto {
 
     return this.keychainImpls
       .retrieveKeychainImpl(platform)
-      .then(keychainImpl => {
+      .then((keychainImpl) => {
         logger.debug('keychain retrieved');
         return KeychainPromises.get(keychainImpl, KEY_NAME, ACCOUNT)
-          .then(savedKey => {
+          .then((savedKey) => {
             logger.debug('password retrieved from keychain');
 
             _key = savedKey.password;
@@ -131,7 +137,7 @@ class Crypto {
             // Just want to have something returned. But I do not want to return the encryption key.
             return 'ENCRYPTION_KEY_FOUND';
           })
-          .catch(err => {
+          .catch((err) => {
             // No password found
             if (err.name === 'PasswordNotFound') {
               // If we already tried to create a new key then bail.
@@ -152,7 +158,7 @@ class Crypto {
             }
           });
       })
-      .catch(err => {
+      .catch((err) => {
         if (retryStatus === 'MIGRATED') {
           logger.debug('The key was successfully migrated but an error occured getting the keychain on retry');
           throw err;
@@ -170,6 +176,7 @@ class Crypto {
 
   /**
    * Encrypts text.
+   *
    * @param text - The text to encrypt.
    * @returns {undefined|String} - If enableTokenEncryption is set to false or not defined in package.json then the text
    * is simply returned unencrypted.
@@ -199,6 +206,7 @@ class Crypto {
 
   /**
    * Decrypts text.
+   *
    * @param text - The text to decrypt.
    * @returns {undefined|String} - If enableTokenEncryption is set to false or not defined in package.json then the text
    * is simply returned. The is then assumed to be unencrypted.

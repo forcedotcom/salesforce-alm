@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -16,6 +16,7 @@ const ERROR_LIMIT = 12;
 
 class PackageVersionCreateRequestReportCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -23,7 +24,7 @@ class PackageVersionCreateRequestReportCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // TODO
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       throw pkgUtils.applyErrorAction(err);
@@ -34,7 +35,7 @@ class PackageVersionCreateRequestReportCommand {
     pkgUtils.validateId(pkgUtils.BY_LABEL.PACKAGE_VERSION_CREATE_REQUEST_ID, context.flags.packagecreaterequestid);
 
     this.packageVersionCreateRequestApi = new PackageVersionCreateRequestApi(context.org.force, context.org);
-    return this.packageVersionCreateRequestApi.byId(context.flags.packagecreaterequestid).then(records => {
+    return this.packageVersionCreateRequestApi.byId(context.flags.packagecreaterequestid).then((records) => {
       if (context.flags.json) {
         return records;
       } else if (records && records.length > 0) {
@@ -46,50 +47,50 @@ class PackageVersionCreateRequestReportCommand {
         const data = [
           {
             key: messages.getMessage('id', [], 'package_version_create_list'),
-            value: record.Id
+            value: record.Id,
           },
           {
             key: messages.getMessage('status', [], 'package_version_create_list'),
-            value: pkgUtils.convertCamelCaseStringToSentence(record.Status)
+            value: pkgUtils.convertCamelCaseStringToSentence(record.Status),
           },
           {
             key: messages.getMessage('packageId', [], 'package_version_create_list'),
-            value: record.Package2Id
+            value: record.Package2Id,
           },
           {
             key: messages.getMessage('packageVersionId', [], 'package_version_create_list'),
-            value: record.Package2VersionId
+            value: record.Package2VersionId,
           },
           {
             key: messages.getMessage('subscriberPackageVersionId', [], 'package_version_create_list'),
-            value: record.SubscriberPackageVersionId
+            value: record.SubscriberPackageVersionId,
           },
           {
             key: messages.getMessage('tag', [], 'package_version_create_list'),
-            value: record.Tag
+            value: record.Tag,
           },
           {
             key: messages.getMessage('branch', [], 'package_version_create_list'),
-            value: record.Branch
+            value: record.Branch,
           },
           { key: 'Created Date', value: record.CreatedDate },
           {
             key: messages.getMessage('installUrl', [], 'package_version_create_list'),
-            value: installUrlValue
-          }
+            value: installUrlValue,
+          },
         ];
 
         this.logger.styledHeader(this.logger.color.blue('Package Version Create Request'));
         this.logger.table(data, {
           columns: [
             { key: 'key', label: 'Name' },
-            { key: 'value', label: 'Value' }
-          ]
+            { key: 'value', label: 'Value' },
+          ],
         });
 
         if (record.Error && record.Error.length > 0) {
           const errors = [];
-          record.Error.slice(0, ERROR_LIMIT).forEach(error => {
+          record.Error.slice(0, ERROR_LIMIT).forEach((error) => {
             errors.push(`(${errors.length + 1}) ${error}`);
           });
           this.logger.styledHeader(this.logger.color.red('Errors'));

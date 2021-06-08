@@ -1,13 +1,14 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { SharingRulesMetadataType } from './metadataTypeImpl/sharingRulesMetadataType';
-
 import * as path from 'path';
+import { SfdxError } from '@salesforce/core';
+import Messages = require('../../lib/messages');
+import { SharingRulesMetadataType } from './metadataTypeImpl/sharingRulesMetadataType';
 
 import { MetadataType } from './metadataType';
 import { TypeDefObj } from './typeDefObj';
@@ -37,11 +38,8 @@ import { ExperienceBundleMetadataType } from './metadataTypeImpl/experienceBundl
 import { BotMetadataType } from './metadataTypeImpl/botMetadataType';
 import { BotSubtypeMetadataType } from './metadataTypeImpl/botSubtypeMetadataType';
 import { WorkflowMetadataType } from './metadataTypeImpl/workflowMetadataType';
-import { SfdxError } from '@salesforce/core';
 
 import MetadataRegistry = require('./metadataRegistry');
-
-import Messages = require('../../lib/messages');
 
 const messages = Messages();
 
@@ -279,7 +277,7 @@ export class MetadataTypeFactory {
       if (possibleTypeDefs.length === 1) {
         typeDef = possibleTypeDefs[0];
       } else {
-        const inFolderType = possibleTypeDefs.find(_typeDef => _typeDef.inFolder);
+        const inFolderType = possibleTypeDefs.find((_typeDef) => _typeDef.inFolder);
         if (inFolderType) {
           isFolderType = inFolderType && pathElements.length === 2;
           if (isFolderType) {
@@ -295,7 +293,8 @@ export class MetadataTypeFactory {
           }
         } else {
           const extension = path.extname(packagePath).replace('.', '');
-          const matchingTypeDef = possibleTypeDefs.find(typeDef => typeDef.ext === extension);
+          // eslint-disable-next-line @typescript-eslint/no-shadow
+          const matchingTypeDef = possibleTypeDefs.find((typeDef) => typeDef.ext === extension);
           typeDef = matchingTypeDef || metadataRegistry.getTypeDefinitionByFileName(file);
         }
       }

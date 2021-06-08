@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -36,5 +36,5 @@ export = {
   USER_ID: { name: 'userId', required: false },
   TRIAL_EXPIRATION_DATE: { name: 'trialExpirationDate', required: false },
   SNAPSHOT: { name: 'snapshot', required: false },
-  EXPIRATION_DATE: { name: 'expirationDate', required: false }
+  EXPIRATION_DATE: { name: 'expirationDate', required: false },
 };

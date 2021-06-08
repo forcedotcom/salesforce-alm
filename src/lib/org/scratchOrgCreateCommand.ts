@@ -1,22 +1,27 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { fs } from '@salesforce/core';
 import { promisify } from 'util';
+import { fs } from '@salesforce/core';
 import * as _ from 'lodash';
 
 // Local
+import { Org as CoreOrg, StreamingClient, PollingClient, StatusResult, SfdxError, Lifecycle } from '@salesforce/core';
+import { JsonMap, ensureString, asJsonMap, getString } from '@salesforce/ts-types';
+import { Duration } from '@salesforce/kit';
+import { sfdc } from '@salesforce/core';
 import VarargsCommand from '../core/varargsCommand';
 import Org = require('../core/scratchOrgApi');
-import * as ScratchOrgInfoApi from './scratchOrgInfoApi';
 import Alias = require('../core/alias');
-
 import * as almError from '../core/almError';
+import * as ScratchOrgInfoApi from './scratchOrgInfoApi';
+
 import * as envTypes from './envTypes';
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 const fs_readFile = promisify(fs.readFile);
 import Messages = require('../messages');
 const messages = Messages();
@@ -26,10 +31,6 @@ import * as scratchOrgInfoGenerator from './scratchOrgInfoGenerator';
 import logApi = require('../core/logApi');
 import * as Url from 'url';
 
-import { Org as CoreOrg, StreamingClient, PollingClient, StatusResult, SfdxError, Lifecycle } from '@salesforce/core';
-
-import { JsonMap, ensureString, asJsonMap, getString } from '@salesforce/ts-types';
-import { Duration } from '@salesforce/kit';
 import { ScratchOrgFeatureDeprecation } from './scratchOrgFeatureDeprecation';
 import { OrgCreateResult } from './orgHooks';
 import { RemoteSourceTrackingService } from '../source/remoteSourceTrackingService';
@@ -39,13 +40,14 @@ const _ENV_TYPES = envTypes;
 const _DEFAULT_ENV_TYPE = '';
 const TOPIC = '/event/OrgLifecycleNotification';
 
-const _getClientSecretError = function() {
+const _getClientSecretError = function () {
   const error = new Error(messages.getMessage('ClientSecretRequired'));
   error['name'] = 'ClientSecretRequired';
   return error;
 };
 
-const _getClientSecret = async function(stdinValues, org) {
+// eslint-disable-next-line @typescript-eslint/require-await
+const _getClientSecret = async function (stdinValues, org) {
   if (!_.isNil(stdinValues)) {
     // If the user provided anything via stdin, it has to be a non-null, non-whitespace secret.
     const clientSecret = stdinValues.get('secret');
@@ -57,8 +59,8 @@ const _getClientSecret = async function(stdinValues, org) {
     // The user didn't provide a secret, so get it from the Hub config, if it exists.
     return org
       .getConfig()
-      .then(hubOrgConfig => {
-        let hubOrgConfigKey = hubOrgConfig.clientId;
+      .then((hubOrgConfig) => {
+        const hubOrgConfigKey = hubOrgConfig.clientId;
         let hubOrgClientSecret = hubOrgConfig.clientSecret;
         if (hubOrgConfigKey != null) {
           hubOrgClientSecret = hubOrgClientSecret && hubOrgClientSecret.trim();
@@ -76,7 +78,7 @@ const _getClientSecret = async function(stdinValues, org) {
           return null;
         }
       })
-      .catch(err => Promise.reject(err));
+      .catch((err) => Promise.reject(err));
   }
 };
 
@@ -91,7 +93,7 @@ const optionsValidator = (key, value, scratchOrgInfoPayload) => {
 
   if (key.toLowerCase() === 'snapshot') {
     const foundInvalidFields = [];
-    OrgCreateCommand.SNAPSHOT_UNSUPPORTED_OPTIONS.forEach(invalidField => {
+    OrgCreateCommand.SNAPSHOT_UNSUPPORTED_OPTIONS.forEach((invalidField) => {
       if (scratchOrgInfoPayload.hasOwnProperty(invalidField)) {
         foundInvalidFields.push(invalidField);
       }
@@ -110,6 +112,7 @@ const optionsValidator = (key, value, scratchOrgInfoPayload) => {
 
 /**
  * constructs a create command helper
+ *
  * @param force - the force api
  * @constructor
  */
@@ -121,7 +124,7 @@ class OrgCreateCommand extends VarargsCommand {
     'sourceOrg',
     'settingsPath',
     'releaseVersion',
-    'language'
+    'language',
   ];
 
   public static DEFAULT_POLLING_FREQ = Duration.seconds(30);
@@ -140,6 +143,7 @@ class OrgCreateCommand extends VarargsCommand {
   /**
    * secondary validation from the cli interface. this is a protocol style function intended to be represented by other
    * commands
+   *
    * @param context - this cli context
    * @returns {Promise}
    */
@@ -171,9 +175,9 @@ class OrgCreateCommand extends VarargsCommand {
     }
     return this.org
       .getConfig()
-      .then(config => {
+      .then((config) => {
         // If the env flag is not specified and the url is not an internal salesforce url.
-        if (_.isNil(fixedContext.env) && !srcDevUtil.isInternalUrl(config.instanceUrl)) {
+        if (_.isNil(fixedContext.env) && !sfdc.isInternalUrl(config.instanceUrl)) {
           fixedContext.env = _ENV_TYPES.sandbox;
         }
 
@@ -181,7 +185,7 @@ class OrgCreateCommand extends VarargsCommand {
 
         return fixedContext;
       })
-      .catch(e => {
+      .catch((e) => {
         if (e.name === 'InvalidProjectWorkspace' && !fixedContext.targetdevhubusername) {
           e.name = 'NoWorkspaceOrUser';
           e.message = messages.getMessage('NoWorkspaceOrUser');
@@ -197,7 +201,7 @@ class OrgCreateCommand extends VarargsCommand {
       if (status === 'Active') {
         return {
           payload: lifecycleRequestId,
-          completed: true
+          completed: true,
         };
       } else if (status === 'Error') {
         const errorMessage = messages.getMessage(
@@ -221,6 +225,7 @@ class OrgCreateCommand extends VarargsCommand {
    * 1) Setup a stream listener for a OrgLifecycleNotification
    * 2) Prepares the cli input for the scratchOrgInfo request
    * 3) Calls the server to create a scratchOrgInfo
+   *
    * @returns {Promise}
    * @private
    */
@@ -228,9 +233,6 @@ class OrgCreateCommand extends VarargsCommand {
     const appLogger = await this.getLogger();
     const scratchOrgInfo = await this._getScratchOrgInfo(this.org, cliContext);
     const coreOrg = await CoreOrg.create({ aliasOrUsername: this.org.name });
-    // Set the API version on the org connection so the streaming client uses the correct version.
-    coreOrg.getConnection().setApiVersion(this.force.config.getApiVersion());
-
     const options = new StreamingClient.DefaultOptions(coreOrg, TOPIC, this.streamProcessor.bind(this));
 
     if (cliContext.wait) {
@@ -270,7 +272,7 @@ class OrgCreateCommand extends VarargsCommand {
         // for the org status. Just in case the streaming world wasn't helpful.
         try {
           appLogger.debug(`Despite the error there is a scratchOrgInfoId: ${this.scratchOrgInfoId}.`);
-          appLogger.debug(`Attempting the determine the signup status one more time.`);
+          appLogger.debug('Attempting the determine the signup status one more time.');
           const orgInfo = await scratchOrgInfoApi.retrieveScratchOrgInfo(this.scratchOrgInfoId);
           if (orgInfo) {
             appLogger.debug(`The status of the org: ${orgInfo.Status}`);
@@ -296,36 +298,34 @@ class OrgCreateCommand extends VarargsCommand {
   private async signupOrgWithPolling(scratchOrgInfoApi: Org, cliContext: any, useCliWait: boolean): Promise<string> {
     const appLogger = await this.getLogger();
     appLogger.debug('Streaming failed. Polling for signup statues.');
-    const options: PollingClient.Options = new PollingClient.DefaultPollingOptions(
-      async (): Promise<StatusResult> => {
-        if (this.scratchOrgInfoId) {
-          appLogger.debug(`polling client this.org.name: ${this.org.name}`);
-          let result;
-          try {
-            result = await scratchOrgInfoApi.retrieveScratchOrgInfo(this.scratchOrgInfoId);
-          } catch (e) {
-            if (e.name === 'UnexpectedSignupStatus') {
-              appLogger.debug("Unexpected signup status encountered. Let's keep trying..");
-              return { completed: false };
-            } else {
-              appLogger.debug('Signup response contained an error. Re-throwing');
-              throw e;
-            }
-          }
-          appLogger.debug(`polling client result: ${JSON.stringify(result, null, 4)}`);
-          if (result.Status === 'Active') {
-            return {
-              completed: true,
-              payload: {
-                Status: result.Status,
-                Id: this.scratchOrgInfoId
-              }
-            };
+    const options: PollingClient.Options = new PollingClient.DefaultPollingOptions(async (): Promise<StatusResult> => {
+      if (this.scratchOrgInfoId) {
+        appLogger.debug(`polling client this.org.name: ${this.org.name}`);
+        let result;
+        try {
+          result = await scratchOrgInfoApi.retrieveScratchOrgInfo(this.scratchOrgInfoId);
+        } catch (e) {
+          if (e.name === 'UnexpectedSignupStatus') {
+            appLogger.debug("Unexpected signup status encountered. Let's keep trying..");
+            return { completed: false };
+          } else {
+            appLogger.debug('Signup response contained an error. Re-throwing');
+            throw e;
           }
         }
-        return { completed: false };
+        appLogger.debug(`polling client result: ${JSON.stringify(result, null, 4)}`);
+        if (result.Status === 'Active') {
+          return {
+            completed: true,
+            payload: {
+              Status: result.Status,
+              Id: this.scratchOrgInfoId,
+            },
+          };
+        }
       }
-    );
+      return { completed: false };
+    });
     options.timeoutErrorName = 'ScratchOrgCreatePollingTimout';
     if (useCliWait) {
       options.timeout = Duration.minutes(parseInt(cliContext.wait));
@@ -347,6 +347,7 @@ class OrgCreateCommand extends VarargsCommand {
 
   /**
    * executes the command. this is a protocol style function intended to be represented by other commands.
+   *
    * @param cliContext - the cli context
    * @param stdinValues - param values obtained from stdin
    * @returns {Promise}
@@ -382,7 +383,7 @@ class OrgCreateCommand extends VarargsCommand {
 
           if (this.scratchOrgInfoId) {
             throw almError('genericTimeoutMessage', [], 'genericTimeoutCommandWaitMessageAction', [
-              `sfdx force:data:soql:query -q "SELECT Status FROM ScratchOrgInfo WHERE Id='${this.scratchOrgInfoId}'"`
+              `sfdx force:data:soql:query -q "SELECT Status FROM ScratchOrgInfo WHERE Id='${this.scratchOrgInfoId}'"`,
             ]);
           } else {
             throw almError('genericTimeoutMessage', [], 'genericTimeoutWaitMessageAction');
@@ -421,7 +422,7 @@ class OrgCreateCommand extends VarargsCommand {
     }
 
     // emit postorgcreate event for hook
-    let postOrgCreateHookInfo: OrgCreateResult = [orgData].map(element => ({
+    const postOrgCreateHookInfo: OrgCreateResult = [orgData].map((element) => ({
       accessToken: element.accessToken,
       clientId: element.clientId,
       created: element.created,
@@ -431,7 +432,7 @@ class OrgCreateCommand extends VarargsCommand {
       instanceUrl: element.instanceUrl,
       loginUrl: element.loginUrl,
       orgId: element.orgId,
-      username: element.username
+      username: element.username,
     }))[0];
     await Lifecycle.getInstance().emit('postorgcreate', postOrgCreateHookInfo);
 
@@ -457,8 +458,8 @@ class OrgCreateCommand extends VarargsCommand {
           orgConfigInput
         );
       } catch (err) {
-        err = srcDevUtil.processReadAndParseJsonFileError(err, context.definitionfile);
-        throw err;
+        const thrownErr = srcDevUtil.processReadAndParseJsonFileError(err, context.definitionfile);
+        throw thrownErr;
       }
     }
 
@@ -482,11 +483,11 @@ class OrgCreateCommand extends VarargsCommand {
     }
 
     // Ignore ancestor ids only when 'nonamespace' or 'noancestors' options are specified
-    let ignoreAncestorIds = context.nonamespace || context.noancestors || false;
+    const ignoreAncestorIds = context.nonamespace || context.noancestors || false;
 
-    //Throw warnings for deprecated scratch org feautures.
+    // Throw warnings for deprecated scratch org feautures.
     const scratchOrgFeatureDeprecation = new ScratchOrgFeatureDeprecation();
-    scratchOrgFeatureDeprecation.getFeatureWarnings(scratchOrgInfoPayload.features).forEach(warning => {
+    scratchOrgFeatureDeprecation.getFeatureWarnings(scratchOrgInfoPayload.features).forEach((warning) => {
       logApi.warnUser(this.cliContext, warning);
     });
 
@@ -506,27 +507,27 @@ class OrgCreateCommand extends VarargsCommand {
 
   private async updateRevisionCounterToZero(scratchOrgApi: Org, orgData: any) {
     const queryResult = await this.force.toolingFind(scratchOrgApi, 'SourceMember', { RevisionCounter: { $gt: 0 } }, [
-      'Id'
+      'Id',
     ]);
     if (!_.isEmpty(queryResult)) {
-      let requestBody: any = [];
+      const requestBody: any = [];
       const TOOLING_UPDATE_URI = `services/data/v${this.org.force.config.getApiVersion()}/tooling/composite/batch`;
       const _url = Url.resolve(orgData.instanceUrl, TOOLING_UPDATE_URI);
-      queryResult.forEach(sourceMember => {
+      queryResult.forEach((sourceMember) => {
         requestBody.push(`{"method" : "PATCH",
         "url" : "v${this.org.force.config.getApiVersion()}/tooling/sobjects/SourceMember/${sourceMember.Id}",
         "richInput" : {"RevisionCounter" : "0"}}`);
       });
-      let bodyStr = `
+      const bodyStr = `
       {
       "batchRequests" : [ ${requestBody} ]}`;
       const headers = {
-        'content-type': 'application/json'
+        'content-type': 'application/json',
       };
       try {
         this.force.request(scratchOrgApi, 'POST', _url, headers, bodyStr);
       } catch (err) {
-        let message = messages.getMessage('SourceStatusResetFailure', [orgData.orgId, orgData.username]);
+        const message = messages.getMessage('SourceStatusResetFailure', [orgData.orgId, orgData.username]);
         throw new SfdxError(message, 'SourceStatusResetFailure');
       }
     }
@@ -534,6 +535,7 @@ class OrgCreateCommand extends VarargsCommand {
 
   /**
    * returns a human readable message for cli output
+   *
    * @param org - the result oif execute
    * @returns {string}
    */
@@ -543,6 +545,7 @@ class OrgCreateCommand extends VarargsCommand {
 
   /**
    * returns a human readable error message for cli output
+   *
    * @returns {string}
    */
   getHumanErrorMessage(err) {
@@ -567,7 +570,7 @@ class OrgCreateCommand extends VarargsCommand {
           [
             (err.data && err.data.orgId) || 'undefined',
             (err.data && err.data.username) || 'undefined',
-            (err.data && err.data.instanceUrl) || 'undefined'
+            (err.data && err.data.instanceUrl) || 'undefined',
           ],
           'signup'
         );

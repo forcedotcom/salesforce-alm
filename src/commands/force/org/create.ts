@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -11,12 +11,12 @@
 
 import { flags, FlagsConfig } from '@salesforce/command';
 import { Duration } from '@salesforce/kit';
-import consts = require('../../../lib/core/constants');
 import * as _ from 'lodash';
 
-import * as envTypes from '../../../lib/org/envTypes';
 import { AnyJson, Dictionary } from '@salesforce/ts-types';
 import { Config, fs, Messages, SfdxError, Org } from '@salesforce/core';
+import * as envTypes from '../../../lib/org/envTypes';
+import consts = require('../../../lib/core/constants');
 import { SandboxOrg } from '../../../lib/org/sandbox/sandboxOrg';
 import { SandboxRequest } from '../../../lib/org/sandbox/sandboxOrgApi';
 import { ToolbeltCommand } from '../../../ToolbeltCommand';
@@ -47,50 +47,50 @@ export class OrgCreateCommand extends ToolbeltCommand {
       longDescription: messages.getMessage('typeFlagLongDescription'),
       required: false,
       options: creatableOrgTypes(),
-      default: OrgTypes.Scratch
+      default: OrgTypes.Scratch,
     }),
     definitionfile: flags.filepath({
       char: 'f',
       description: messages.getMessage('definitionfileFlagDescription'),
       longDescription: messages.getMessage('definitionfileFlagLongDescription'),
-      required: false
+      required: false,
     }),
     definitionjson: flags.string({
       char: 'j',
       description: messages.getMessage('definitionjsonFlagDescription'),
       longDescription: messages.getMessage('definitionjsonFlagLongDescription'),
       hidden: true,
-      required: false
+      required: false,
     }),
     nonamespace: flags.boolean({
       char: 'n',
       description: messages.getMessage('nonamespaceFlagDescription'),
       longDescription: messages.getMessage('nonamespaceFlagLongDescription'),
-      required: false
+      required: false,
     }),
     noancestors: flags.boolean({
       char: 'c',
       description: messages.getMessage('noancestorsFlagDescription'),
       longDescription: messages.getMessage('noancestorsFlagLongDescription'),
-      required: false
+      required: false,
     }),
     clientid: flags.string({
       char: 'i',
       description: messages.getMessage('clientidFlagDescription'),
       longDescription: messages.getMessage('clientidFlagLongDescription'),
-      required: false
+      required: false,
     }),
     setdefaultusername: flags.boolean({
       char: 's',
       description: messages.getMessage('setdefaultusernameFlagDescription'),
       longDescription: messages.getMessage('setdefaultusernameFlagLongDescription'),
-      required: false
+      required: false,
     }),
     setalias: flags.string({
       char: 'a',
       description: messages.getMessage('setaliasFlagDescription'),
       longDescription: messages.getMessage('setaliasFlagLongDescription'),
-      required: false
+      required: false,
     }),
     env: flags.enum({
       char: 'e',
@@ -98,7 +98,7 @@ export class OrgCreateCommand extends ToolbeltCommand {
       longDescription: messages.getMessage('envFlagLongDescription', [envTypes.creatableTypes().toString()]),
       required: false,
       hidden: true,
-      options: envTypes.creatableTypes()
+      options: envTypes.creatableTypes(),
     }),
     wait: flags.minutes({
       char: 'w',
@@ -106,23 +106,23 @@ export class OrgCreateCommand extends ToolbeltCommand {
       longDescription: sfdxCommonMessages.getMessage('streamingWaitLong', []),
       required: false,
       min: Duration.minutes(consts.MIN_STREAM_TIMEOUT_MINUTES),
-      default: Duration.minutes(consts.DEFAULT_STREAM_TIMEOUT_MINUTES)
+      default: Duration.minutes(consts.DEFAULT_STREAM_TIMEOUT_MINUTES),
     }),
     durationdays: flags.number({
       char: 'd',
       description: messages.getMessage('durationdaysFlagDescription', []),
       longDescription: messages.getMessage('durationdaysFlagLongDescription', []),
-      required: false
-    })
+      required: false,
+    }),
   };
   protected readonly lifecycleEventNames = ['postorgcreate'];
 
   async resolveHubOrgContext(): Promise<Dictionary<any>> {
-    //I'd prefer not to do this, But supporting targetusername natively causes a bunch of problems for the existing dev hub
-    //implementation.  Specifically, the default org will override the default dev hub org.  This could fundamentally change the
-    //behavior if the scratch org create command was executed with no username args where both a default org and dev hub are setup
-    //so for the dev hub case, we first need to make sure that the dev Hub has been determined and then we need to make sure that
-    //we'll still default to it.
+    // I'd prefer not to do this, But supporting targetusername natively causes a bunch of problems for the existing dev hub
+    // implementation.  Specifically, the default org will override the default dev hub org.  This could fundamentally change the
+    // behavior if the scratch org create command was executed with no username args where both a default org and dev hub are setup
+    // so for the dev hub case, we first need to make sure that the dev Hub has been determined and then we need to make sure that
+    // we'll still default to it.
     if (_.isNil(this.hubOrg)) {
       const devHubUsername =
         this.flags.targetdevhubusername || this.configAggregator.getPropertyValue('defaultdevhubusername');
@@ -138,7 +138,7 @@ export class OrgCreateCommand extends ToolbeltCommand {
         throw SfdxError.create('salesforce-alm', 'org', 'DevhubNotAuthorized');
       }
     } else if (!_.isNil(this.org)) {
-      //unset the default org for the dev hub scenario
+      // unset the default org for the dev hub scenario
       this.org = undefined;
     }
     return await this.resolveLegacyContext();
@@ -149,7 +149,8 @@ export class OrgCreateCommand extends ToolbeltCommand {
     if (this.flags.definitionfile) {
       this.logger.debug('Reading JSON DefFile %s ', this.flags.definitionfile);
       return fs.readJson(this.flags.definitionfile);
-    } else return;
+    }
+    return;
   }
 
   public async run(): Promise<unknown> {
@@ -161,30 +162,30 @@ export class OrgCreateCommand extends ToolbeltCommand {
     if (this.flags.type === OrgTypes.Sandbox) {
       // the -f definitionFile option, both sandbox and scratch org use the flag but scratch org
       // will process it separately in the legacy command invocation
-      let sandboxDefFileContents: AnyJson = await this.readJsonDefFile();
+      const sandboxDefFileContents: AnyJson = await this.readJsonDefFile();
 
       //
-      //=====================specific to Sandbox org creation ===========
+      // =====================specific to Sandbox org creation ===========
       //
       if (_.isNil(this.org)) {
         throw SfdxError.create('salesforce-alm', 'org', 'RequiresUsernameError');
       }
 
-      const sandboxOrg = await SandboxOrg.getInstance(this.org, this.flags.wait, this.logger, this.flags.clientid);
+      const sandboxOrg = SandboxOrg.getInstance(this.org, this.flags.wait, this.logger, this.flags.clientid);
 
       if (this.flags.clientid) {
         this.ux.warn(messages.getMessage('commandClientIdNotSupported', [this.flags.clientid]));
       }
       // Keep all console output in the command
-      sandboxOrg.on(SandboxEventNames.EVENT_ASYNCRESULT, results => {
+      sandboxOrg.on(SandboxEventNames.EVENT_ASYNCRESULT, (results) => {
         this.ux.log(
           messages.getMessage('commandSandboxSuccess', [
             results.sandboxProcessObj.Id,
-            results.sandboxProcessObj.SandboxName
+            results.sandboxProcessObj.SandboxName,
           ])
         );
       });
-      sandboxOrg.on(SandboxEventNames.EVENT_STATUS, results => {
+      sandboxOrg.on(SandboxEventNames.EVENT_STATUS, (results) => {
         SandboxProgressReporter.logSandboxProgress(
           this.ux,
           results.sandboxProcessObj,
@@ -193,20 +194,20 @@ export class OrgCreateCommand extends ToolbeltCommand {
           results.waitingOnAuth
         );
       });
-      sandboxOrg.on(SandboxEventNames.EVENT_RESULT, results => {
+      sandboxOrg.on(SandboxEventNames.EVENT_RESULT, (results) => {
         SandboxProgressReporter.logSandboxProcessResult(this.ux, results.sandboxProcessObj, results.sandboxRes);
         if (results.sandboxRes && results.sandboxRes.authUserName) {
           if (this.flags.setalias) {
-            Alias.set(this.flags.setalias, results.sandboxRes.authUserName).then(result =>
+            Alias.set(this.flags.setalias, results.sandboxRes.authUserName).then((result) =>
               this.logger.debug('Set Alias: %s result: %s', this.flags.setalias, result)
             );
           }
           if (this.flags.setdefaultusername) {
-            let globalConfig: Config = this.configAggregator.getGlobalConfig();
+            const globalConfig: Config = this.configAggregator.getGlobalConfig();
             globalConfig.set(Config.DEFAULT_USERNAME, results.sandboxRes.authUserName);
             globalConfig
               .write()
-              .then(result =>
+              .then((result) =>
                 this.logger.debug('Set defaultUsername: %s result: %s', this.flags.setdefaultusername, result)
               );
           }
@@ -214,7 +215,7 @@ export class OrgCreateCommand extends ToolbeltCommand {
       });
 
       this.logger.debug('Create Varargs: %s ', this.varargs);
-      let sandboxReq: SandboxRequest = new SandboxRequest();
+      const sandboxReq: SandboxRequest = new SandboxRequest();
       // definitionjson and varargs override file input
       Object.assign(sandboxReq, sandboxDefFileContents, this.varargs);
 
@@ -222,7 +223,7 @@ export class OrgCreateCommand extends ToolbeltCommand {
       return await sandboxOrg.createSandbox(sandboxReq);
     } else {
       //
-      //=====================specific to Scratch org creation ===========
+      // =====================specific to Scratch org creation ===========
       //
       const context = await this.resolveHubOrgContext();
 
@@ -234,9 +235,9 @@ export class OrgCreateCommand extends ToolbeltCommand {
         // we'll need the client secret, so prompt the user for it.
         return heroku
           .prompt(sfdxCommonMessages.getMessage('stdin', [], 'auth_weblogin'), {
-            mask: true
+            mask: true,
           })
-          .then(secret => {
+          .then((secret) => {
             const map = new Map();
             map.set('secret', secret);
             return this.execLegacyCommand(createCommand, context, map);

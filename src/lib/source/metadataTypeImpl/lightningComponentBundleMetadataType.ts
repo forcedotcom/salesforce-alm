@@ -1,18 +1,18 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
-const glob = require('glob');
 import srcDevUtil = require('../../core/srcDevUtil');
 
-import { BundleMetadataType } from './bundleMetadataType';
 import { TypeDefObj } from '../typeDefObj';
 import * as PathUtil from '../sourcePathUtil';
 import { BundlePathHelper } from '../bundlePathHelper';
+import { BundleMetadataType } from './bundleMetadataType';
+const glob = require('glob');
 
 export class LightningComponentBundleMetadataType extends BundleMetadataType {
   constructor(typeDefObj: TypeDefObj) {
@@ -60,7 +60,7 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
     );
 
     // ensure LWC bundleFileProperties have a fileName with .js extension
-    const bundFileProps = bundleFileProperties.map(fileProp => {
+    const bundFileProps = bundleFileProperties.map((fileProp) => {
       if (fileProp.type === 'LightningComponentBundle' && fileProp.fileName.endsWith('.css')) {
         fileProp.fileName = fileProp.fileName.replace(/\.css$/, '.js');
       }
@@ -82,6 +82,7 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
     retrieveRoot: string,
     filePropertyFileName: string,
     lwcMetadataName: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     metadataRegistry
   ): any {
     let bundleDirPath = path.join(retrieveRoot, path.dirname(filePropertyFileName));
@@ -91,11 +92,11 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
     // for example: force-app/main/default/lwc/appHeader/__mocks__/appHeader.js
     if (path.dirname(bundleDirPath) !== 'lwc') {
       const pathParts = path.join(retrieveRoot, path.dirname(filePropertyFileName)).split(path.sep);
-      const lwcIndex = pathParts.findIndex(p => p === 'lwc');
+      const lwcIndex = pathParts.findIndex((p) => p === 'lwc');
       bundleDirPath = pathParts.slice(0, lwcIndex + 2).join(path.sep);
     }
     const bundlePaths = glob.sync(path.join(bundleDirPath, '*'));
-    const bundleDefinitionPath = bundlePaths.find(bundlePath => this.isDefinitionFile(bundlePath));
+    const bundleDefinitionPath = bundlePaths.find((bundlePath) => this.isDefinitionFile(bundlePath));
 
     // LWCs can have the .css or .js file as the main LWC file, but the definition fileName
     // MUST be the .js extension in order to properly resolve the meta.xml file in the same
@@ -108,7 +109,7 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
     const lwcDefinitionFileProperty = {
       type: lwcMetadataName,
       fileName: path.relative(retrieveRoot, fileName),
-      fullName: path.basename(fileName, path.extname(fileName))
+      fullName: path.basename(fileName, path.extname(fileName)),
     };
     return lwcDefinitionFileProperty;
   }
@@ -135,6 +136,7 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
     return false;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   shouldDeleteWorkspaceAggregate(metadataType: string): boolean {
     // Handle deletes of LightningComponentBundles at the subcomponent level because
     // SourceMembers are created for each subcomponent
@@ -149,7 +151,7 @@ export class LightningComponentBundleMetadataType extends BundleMetadataType {
   }
 
   onlyDisplayOneConflictPerAggregate(): boolean {
-    //we only want to report one conflict entry per bundle
+    // we only want to report one conflict entry per bundle
     return true;
   }
 

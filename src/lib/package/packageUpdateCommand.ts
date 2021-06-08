@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -13,6 +13,7 @@ import pkgUtils = require('./packageUtils');
 
 class PackageUpdateCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -20,7 +21,7 @@ class PackageUpdateCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // TODO:
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       err = pkgUtils.massageErrorMessage(err);
@@ -47,7 +48,7 @@ class PackageUpdateCommand {
       request.PackageErrorUsername = context.flags.errornotificationusername;
     }
 
-    return this.force.toolingUpdate(this.org, 'Package2', request).then(updateResult => {
+    return this.force.toolingUpdate(this.org, 'Package2', request).then((updateResult) => {
       if (!updateResult.success) {
         throw new Error(updateResult.errors);
       }

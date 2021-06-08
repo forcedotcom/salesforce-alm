@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as _ from 'lodash';
@@ -22,6 +22,7 @@ const EMPTY_STRING = '';
  */
 class OrgShapeListCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -30,7 +31,7 @@ class OrgShapeListCommand {
   }
 
   execute() {
-    const sortAndDecorateFunc = val => {
+    const sortAndDecorateFunc = (val) => {
       const sortVal = val.username;
       this.orgDecorator.decorateStatus(val);
       return [val.alias, sortVal];
@@ -38,13 +39,13 @@ class OrgShapeListCommand {
 
     return (
       Org.readAllUserFilenames()
-        .then(fileNames => Org.readLocallyValidatedMetaConfigsGroupedByOrgType(fileNames, 3, null))
+        .then((fileNames) => Org.readLocallyValidatedMetaConfigsGroupedByOrgType(fileNames, 3, null))
 
         // filter the non-scratch orgs that can be connected-to
-        .then(metaConfigs => {
+        .then((metaConfigs) => {
           const reachableOrgs = [];
 
-          metaConfigs.nonScratchOrgs.forEach(orgMeta => {
+          metaConfigs.nonScratchOrgs.forEach((orgMeta) => {
             this.logger.info(`Checking org: ${orgMeta.username} with status: ${orgMeta.connectedStatus}`);
             if (orgMeta.connectedStatus && orgMeta.connectedStatus === 'Connected') {
               reachableOrgs.push(orgMeta);
@@ -55,20 +56,20 @@ class OrgShapeListCommand {
         })
 
         // find Orgs with ShapeRepresentations
-        .then(reachableOrgs => {
+        .then((reachableOrgs) => {
           const shapes = [];
           const allOrgs = BBPromise.map(
             reachableOrgs,
-            orgMeta => {
+            (orgMeta) => {
               // need an Org to make sobject query
               this.logger.info(`Query org: ${orgMeta.username} for shapes`);
               const shapeOrg = Org.create(orgMeta.username);
-              return shapeOrg.then(org =>
+              return shapeOrg.then((org) =>
                 org.getConfig().then(() => {
                   // query all shape representations for an org
                   const shapeApi = new ShapeRepApi(null, org);
                   const query = shapeApi.findShapesOrNull();
-                  return query.then(queryResult => {
+                  return query.then((queryResult) => {
                     if (!_.isNil(queryResult)) {
                       return { shapeMeta: orgMeta, result: queryResult };
                     }
@@ -79,17 +80,17 @@ class OrgShapeListCommand {
             },
             { concurrency: 1 }
           )
-            .catch(err => {
+            .catch((err) => {
               this.logger.error(false, 'Error finding org shapes', err);
               throw err;
             })
 
             // accummulate shape representations, merge attributes from the shape org
-            .then(results => {
-              results.forEach(r => {
+            .then((results) => {
+              results.forEach((r) => {
                 if (!_.isNil(r)) {
                   // process all ShapeRepresentation records for this org
-                  _.forEach(r.result.records, shape => {
+                  _.forEach(r.result.records, (shape) => {
                     const meta = r.shapeMeta;
                     const orgShape = {
                       orgId: meta.orgId,
@@ -98,7 +99,7 @@ class OrgShapeListCommand {
                       shapeId: shape.Id,
                       status: shape.Status,
                       createdBy: shape.CreatedBy.Username,
-                      createdDate: shape.CreatedDate
+                      createdDate: shape.CreatedDate,
                     };
                     shapes.push(orgShape);
                   });
@@ -110,12 +111,12 @@ class OrgShapeListCommand {
           return BBPromise.join(allOrgs, () => shapes);
         })
 
-        .then(shapes => {
+        .then((shapes) => {
           this.logger.styledHeader(this.logger.color.blue('Org Shapes'));
           return shapes;
         })
 
-        .then(shapes => ({ orgShapes: _.sortBy(shapes, sortAndDecorateFunc) }))
+        .then((shapes) => ({ orgShapes: _.sortBy(shapes, sortAndDecorateFunc) }))
     );
   }
 
@@ -147,11 +148,11 @@ class OrgShapeListCommand {
       { key: 'orgId', label: 'ORG ID' },
       { key: 'status', label: 'SHAPE STATUS' },
       { key: 'createdBy', label: 'CREATED BY' },
-      { key: 'createdDate', label: 'CREATED DATE' }
+      { key: 'createdDate', label: 'CREATED DATE' },
     ];
 
     return {
-      orgShapes: orgShapeColumns
+      orgShapes: orgShapeColumns,
     };
   }
 }

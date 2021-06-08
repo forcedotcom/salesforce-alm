@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -26,6 +26,7 @@ import { Time } from './time';
 
 /**
  * The is the stream listener for a container async result status.
+ *
  * @param orgApi - The hubOrg.
  * @constructor
  */
@@ -49,7 +50,7 @@ class StreamClient {
     this.orgApi = orgApi;
     this.client = undefined;
     this.logger = logger.child('status', {
-      org: this.orgApi.getName()
+      org: this.orgApi.getName(),
     });
     this.isHandshakeComplete = false;
     this.shouldDisconnect = false;
@@ -58,13 +59,14 @@ class StreamClient {
 
     this.streamingImpl = _.isNil(streamingImpl) ? Faye : streamingImpl;
     this.env = new Env();
-    this.streamingImpl.logger = message => {
+    this.streamingImpl.logger = (message) => {
       this.logger.debug(message);
     };
   }
 
   /**
    * Returns the specified waitInMinutes or the default
+   *
    * @returns {*|*|number}
    */
   public getRuntimeWait() {
@@ -73,6 +75,7 @@ class StreamClient {
 
   /**
    * Return the "default" waitTimeout. This value is used if waitTimeout is not provided.
+   *
    * @returns {number}
    */
   get defaultWaitInMinutes() {
@@ -81,6 +84,7 @@ class StreamClient {
 
   /**
    * sets the "default" waitTimeOut to use if no waitTimeout is provided.
+   *
    * @param value {number} - value of the default timeout
    */
   set defaultWaitInMinutes(value) {
@@ -89,6 +93,7 @@ class StreamClient {
 
   /**
    * Specifies a wait timeout to use. This trumps whatever is set for the default wait timeout.
+   *
    * @returns {number}
    */
   get waitInMinutes() {
@@ -97,6 +102,7 @@ class StreamClient {
 
   /**
    * sets the waitTimeOut to use. Overrides the default
+   *
    * @param value {number} - value of the default timeout
    */
   set waitInMinutes(value) {
@@ -125,7 +131,7 @@ class StreamClient {
     return this.orgApi
       .refreshAuth()
       .then(() => this.orgApi.getConfig())
-      .then(orgData => {
+      .then((orgData) => {
         const apiVersion = topic.startsWith('/systemTopic') ? '36.0' : this.orgApi.force.config.getApiVersion();
 
         if (!(parseFloat(apiVersion) > 0)) {
@@ -162,7 +168,7 @@ class StreamClient {
           });
         }
 
-        let x = this.env.getString(StreamClient.SFDX_ENABLE_FAYE_COOKIES_ALLOW_ALL_PATHS);
+        const x = this.env.getString(StreamClient.SFDX_ENABLE_FAYE_COOKIES_ALLOW_ALL_PATHS);
 
         this.client = new this.streamingImpl.Client(streamUrl, {
           // This parameter ensures all cookies regardless of path are included in subsequent requests. Otherwise
@@ -172,7 +178,7 @@ class StreamClient {
             x === undefined ? true : this.env.getBoolean(StreamClient.SFDX_ENABLE_FAYE_COOKIES_ALLOW_ALL_PATHS),
           // WARNING - The allows request/response exchanges to be written to the log instance which includes
           // header and cookie information.
-          enableRequestResponseLogging: this.env.getBoolean(StreamClient.SFDX_ENABLE_FAYE_REQUEST_RESPONSE_LOGGING)
+          enableRequestResponseLogging: this.env.getBoolean(StreamClient.SFDX_ENABLE_FAYE_REQUEST_RESPONSE_LOGGING),
         });
 
         let _t = new Time(this.getRuntimeWait()).milliseconds;
@@ -234,7 +240,7 @@ class StreamClient {
               this.isHandshakeComplete = false;
             }
             cb(message);
-          }
+          },
         });
 
         return retVal;

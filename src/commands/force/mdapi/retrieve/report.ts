@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -29,30 +29,30 @@ export class MdapiRetrieveReportCommand extends ToolbeltCommand {
       char: 'w',
       description: messages.getMessage('waitFlagDescription', [consts.DEFAULT_MDAPI_RETRIEVE_WAIT_MINUTES]),
       longDescription: messages.getMessage('waitFlagLongDescription', [consts.DEFAULT_MDAPI_RETRIEVE_WAIT_MINUTES]),
-      required: false
+      required: false,
     }),
     retrievetargetdir: flags.directory({
       char: 'r',
       description: messages.getMessage('retrievetargetdirFlagDescription'),
       longDescription: messages.getMessage('retrievetargetdirFlagLongDescription'),
-      required: false
+      required: false,
     }),
     verbose: flags.builtin({
       description: messages.getMessage('verboseFlagDescription'),
-      longDescription: messages.getMessage('verboseFlagLongDescription')
+      longDescription: messages.getMessage('verboseFlagLongDescription'),
     }),
     jobid: flags.id({
       char: 'i',
       description: messages.getMessage('jobidDescription'),
       longDescription: messages.getMessage('jobidLongDescription'),
-      required: false
-    })
+      required: false,
+    }),
   };
 
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const MdapiRetrieveReportCommand = require('../../../../lib/mdapi/mdapiRetrieveReportCommand');
-    return this.execLegacyCommand(new MdapiRetrieveReportCommand(context), context);
+    const MdapiRetrieveReportCommandImpl = require('../../../../lib/mdapi/mdapiRetrieveReportCommand');
+    return this.execLegacyCommand(new MdapiRetrieveReportCommandImpl(context), context);
   }
   public resolveUsername(context) {
     return context.flags.jobid ? undefined : Stash.get('targetusername', Stash.Commands.MDAPI_RETRIEVE);

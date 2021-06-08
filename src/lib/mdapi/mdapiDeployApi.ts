@@ -1,41 +1,41 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
-import { DeployOptions, mdapiDeployRecentValidation, MetadataTransportInfo } from './mdApiUtil';
+import * as os from 'os';
 import { getObject, getString, isBoolean } from '@salesforce/ts-types';
 
 import { fs } from '@salesforce/core';
 import * as archiver from 'archiver';
-import * as os from 'os';
 
 // 3pp
 import * as BBPromise from 'bluebird';
 
 // Local
+import { set } from '@salesforce/kit';
 import logger = require('../core/logApi');
 import * as almError from '../core/almError';
-import DeployReport = require('./mdapiDeployReportApi');
 import consts = require('../core/constants');
 import StashApi = require('../core/stash');
-import { set } from '@salesforce/kit';
 import Stash = require('../core/stash');
+import DeployReport = require('./mdapiDeployReportApi');
+import { DeployOptions, mdapiDeployRecentValidation, MetadataTransportInfo } from './mdApiUtil';
 
 const DEPLOY_ERROR_EXIT_CODE = 1;
 
 // convert params (lowercase) to expected deploy options (camelcase)
-const convertParamsToDeployOptions = function({
+const convertParamsToDeployOptions = function ({
   rollbackonerror,
   testlevel,
   runtests,
   autoUpdatePackage,
   checkonly,
   ignorewarnings,
-  singlepackage
+  singlepackage,
 }) {
   const deployOptions: DeployOptions = {};
 
@@ -117,7 +117,7 @@ class MdDeployApi {
         this.logger.debug(`${archive.pointer()} bytes written to ${outFile} using ${this._getElapsedTime()}ms`);
         resolve(outFile);
       });
-      archive.on('error', err => {
+      archive.on('error', (err) => {
         this._logError(err);
         reject(err);
       });
@@ -168,7 +168,7 @@ class MdDeployApi {
 
   deploy(options) {
     // Logging is enabled if the output is not json and logging is not disabled
-    //set .logginEnabled = true? for source
+    // set .logginEnabled = true? for source
     this.loggingEnabled = options.source || options.verbose || (!options.json && !options.disableLogging);
     options.wait = +(options.wait || consts.DEFAULT_MDAPI_WAIT_MINUTES);
 
@@ -177,6 +177,7 @@ class MdDeployApi {
     if (options.ignoreerrors !== undefined) {
       options.rollbackonerror = !options.ignoreerrors;
     } else if (options.rollbackonerror !== undefined) {
+      // eslint-disable-next-line no-self-assign
       options.rollbackonerror = options.rollbackonerror;
     } else {
       options.rollbackonerror = true;
@@ -232,7 +233,7 @@ class MdDeployApi {
       validationPromises.push(
         this._validateFileStat(
           deploydir,
-          fileData => fileData.isDirectory(),
+          (fileData) => fileData.isDirectory(),
           BBPromise.resolve,
           almError('InvalidArgumentDirectoryPath', ['deploydir', deploydir])
         )
@@ -242,7 +243,7 @@ class MdDeployApi {
       validationPromises.push(
         this._validateFileStat(
           zipfile,
-          fileData => fileData.isFile(),
+          (fileData) => fileData.isFile(),
           BBPromise.resolve,
           almError('InvalidArgumentFilePath', ['zipfile', zipfile])
         )
@@ -263,14 +264,14 @@ class MdDeployApi {
   //                             error if the file read fails.
   _validateFileStat(pathToValidate, validationFunc, successFunc, error) {
     return this._fsStatAsync(pathToValidate)
-      .then(data => {
+      .then((data) => {
         if (validationFunc(data)) {
           return successFunc();
         } else {
           return BBPromise.reject(error);
         }
       })
-      .catch(err => {
+      .catch((err) => {
         err = err.code === 'ENOENT' ? almError('PathDoesNotExist', pathToValidate) : err;
         return BBPromise.reject(err);
       });
@@ -292,7 +293,7 @@ class MdDeployApi {
     await StashApi.setValues(
       {
         jobid: result.id,
-        targetusername: options.targetusername
+        targetusername: options.targetusername,
       },
       this.stashTarget
     );
@@ -330,14 +331,10 @@ class MdDeployApi {
     let result;
     try {
       if (!options.jobid) {
-        let body = await mdapiDeployRecentValidation(this.scratchOrg, options);
-        if (options.soapdeploy) {
-          result = body;
-        } else {
-          result = {};
-          result.id = body;
-          result.state = 'Queued';
-        }
+        const body = await mdapiDeployRecentValidation(this.scratchOrg, options);
+        result = {};
+        result.id = body;
+        result.state = 'Queued';
       }
 
       result = await this._setStashVars(result, options);

@@ -1,28 +1,28 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as os from 'os';
 import * as util from 'util';
 
-import { WorkspaceElementObj } from './workspaceElement';
-import { SourceDeployApi, DeployResult } from './sourceDeployApi';
-import { parseWaitParam, validateManifestPath } from './sourceUtil';
 import { Messages, SfdxError, SfdxErrorConfig, SfdxProject } from '@salesforce/core';
-
-import { MdapiPushApi } from './sourcePushApi';
+import { TelemetryGlobal } from '@salesforce/plugin-telemetry/lib/telemetryGlobal';
 import srcDevUtil = require('../core/srcDevUtil');
 import consts = require('../core/constants');
 import logger = require('../core/logApi');
 import * as almError from '../core/almError';
+import { WorkspaceElementObj } from './workspaceElement';
+import { SourceDeployApi, DeployResult } from './sourceDeployApi';
+import { parseWaitParam, validateManifestPath } from './sourceUtil';
+
+import { MdapiPushApi } from './sourcePushApi';
 import * as syncCommandHelper from './syncCommandHelper';
 import { SourceDeployApiBase } from './sourceDeployApiBase';
-import { AnalyticsGlobal } from '@salesforce/plugin-analytics/lib/analyticsGlobal';
 
-declare const global: AnalyticsGlobal;
+declare const global: TelemetryGlobal;
 
 Messages.importMessagesDirectory(__dirname);
 
@@ -60,6 +60,7 @@ export class SourceApiCommand {
 
   /**
    * Executes the source deploy or push command
+   *
    * @param context - the cli context
    * @returns {Promise}
    */
@@ -77,10 +78,10 @@ export class SourceApiCommand {
         context.delete = this.isSourceDelete; // SourceDeployApi is for source:deploy and MdapiPushApi is for source:push
         return deployApi.doDeploy(context);
       })
-      .catch(e => {
+      .catch((e) => {
         if (e.name === 'SourceConflict') {
           const error = almError('sourceConflictDetected');
-          e.sourceConflictElements.forEach(sourceElement =>
+          e.sourceConflictElements.forEach((sourceElement) =>
             syncCommandHelper.createConflictRows(rows, sourceElement, projectPath)
           );
           error['columns'] = syncCommandHelper.getColumnMetaInfo(this.commonMsgs);
@@ -88,7 +89,7 @@ export class SourceApiCommand {
           this.logger.error(this.pushMsgs.getMessage('pushCommandConflictMsg'));
           throw error;
         } else if (e.name === 'DeployFailed') {
-          e.failures.forEach(failure => syncCommandHelper.createDeployFailureRow(rows, failure, projectPath));
+          e.failures.forEach((failure) => syncCommandHelper.createDeployFailureRow(rows, failure, projectPath));
           const messageBundle = this.deploytype === 'deploy' ? this.deployMsgs : this.pushMsgs;
 
           const actions = SfdxProject.getInstance().hasMultiplePackages()
@@ -102,7 +103,7 @@ export class SourceApiCommand {
           );
           if (!util.isNullOrUndefined(e.outboundFiles)) {
             const successes = [];
-            e.outboundFiles.forEach(sourceElement =>
+            e.outboundFiles.forEach((sourceElement) =>
               syncCommandHelper.createDisplayRows(successes, sourceElement, projectPath)
             );
             error['partialSuccess'] = successes.length > 0 ? successes : undefined;
@@ -115,7 +116,7 @@ export class SourceApiCommand {
           }
           throw error;
         } else if (e.name === 'PollingTimeout') {
-          const errConfig = new SfdxErrorConfig('salesforce-alm', 'source', `DeployTimeout`);
+          const errConfig = new SfdxErrorConfig('salesforce-alm', 'source', 'DeployTimeout');
           errConfig.setErrorTokens([this.deploytype, context.wait]);
           throw SfdxError.create(errConfig);
         } else {
@@ -130,7 +131,7 @@ export class SourceApiCommand {
         }
 
         if (deployResult.userCanceled) {
-          //user canceled the delete by selecting 'n' when prompted.
+          // user canceled the delete by selecting 'n' when prompted.
           this.userCanceled = deployResult.userCanceled;
         } else {
           deployResult.outboundFiles.forEach((sourceElement: WorkspaceElementObj) => {
@@ -153,7 +154,7 @@ export class SourceApiCommand {
           const tableHeaderKey = this.isSourceDelete
             ? 'deleteCommandHumanSuccess'
             : `${this.deploytype}CommandHumanSuccess`;
-          let tableHeader = this.commonMsgs.getMessage(tableHeaderKey);
+          const tableHeader = this.commonMsgs.getMessage(tableHeaderKey);
           this.logger.styledHeader(this.logger.color.blue(tableHeader));
           SourceApiCommand.prototype['getColumnData'] = this._getColumnData;
         }
@@ -190,6 +191,7 @@ export class SourceApiCommand {
   }
   /**
    * Validates the source push or deploy command parameters
+   *
    * @param context - the cli context
    * @returns {Promise}
    */
@@ -213,7 +215,7 @@ export class SourceApiCommand {
 
     if (this.isDeploy()) {
       // verify that the user defined one of: manifest, metadata, sourcepath, validateddeployrequestid
-      if (!Object.keys(context.flags).some(flag => requiredFlags.includes(flag))) {
+      if (!Object.keys(context.flags).some((flag) => requiredFlags.includes(flag))) {
         throw SfdxError.create('salesforce-alm', 'source', 'MissingRequiredParam', requiredFlags);
       }
 
@@ -232,6 +234,7 @@ export class SourceApiCommand {
 
   /**
    * This indicates to index.js that this command should produce tabular output.
+   *
    * @returns {*[]}
    */
   _getColumnData() {
@@ -245,7 +248,7 @@ export class SourceApiCommand {
 
     let needNewLine = false;
     if (error.partialSuccess && error.partialSuccess.length > 0) {
-      let headerSuccess = this.commonMsgs.getMessage(`${this.deploytype}CommandHumanSuccess`);
+      const headerSuccess = this.commonMsgs.getMessage(`${this.deploytype}CommandHumanSuccess`);
       const columnsSuccess = syncCommandHelper.getColumnMetaInfo(this.commonMsgs);
       this.logger.styledHeader(this.logger.color.blue(headerSuccess));
       this.logger.table(error.partialSuccess, { columns: columnsSuccess });
@@ -256,7 +259,7 @@ export class SourceApiCommand {
       if (needNewLine) {
         this.logger.log(os.EOL);
       }
-      let headerErrors = this.commonMsgs.getMessage(`${this.deploytype}CommandHumanError`);
+      const headerErrors = this.commonMsgs.getMessage(`${this.deploytype}CommandHumanError`);
       this.logger.styledHeader(this.logger.color.red(headerErrors));
     }
 
@@ -268,37 +271,37 @@ export class SourceApiCommand {
       return [
         {
           key: 'fullName',
-          label: this.commonMsgs.getMessage('fullNameTableColumn')
+          label: this.commonMsgs.getMessage('fullNameTableColumn'),
         },
         { key: 'type', label: this.commonMsgs.getMessage('typeTableColumn') },
         {
           key: 'filePath',
-          label: this.commonMsgs.getMessage('workspacePathTableColumn')
+          label: this.commonMsgs.getMessage('workspacePathTableColumn'),
         },
         { key: 'error', label: this.commonMsgs.getMessage('errorColumn') },
         {
           key: 'lineNumber',
-          label: this.commonMsgs.getMessage('lineNumberColumn')
+          label: this.commonMsgs.getMessage('lineNumberColumn'),
         },
         {
           key: 'columnNumber',
-          label: this.commonMsgs.getMessage('columnNumberColumn')
-        }
+          label: this.commonMsgs.getMessage('columnNumberColumn'),
+        },
       ];
     } else {
       return [
         {
           key: 'problemType',
-          label: this.commonMsgs.getMessage('typeTableColumn')
+          label: this.commonMsgs.getMessage('typeTableColumn'),
         },
         {
           key: 'filePath',
-          label: this.commonMsgs.getMessage('workspacePathTableColumn')
+          label: this.commonMsgs.getMessage('workspacePathTableColumn'),
         },
         {
           key: 'error',
-          label: this.commonMsgs.getMessage('errorColumn')
-        }
+          label: this.commonMsgs.getMessage('errorColumn'),
+        },
       ];
     }
   }
@@ -319,12 +322,12 @@ export class SourceApiCommand {
     if (global.cliTelemetry && global.cliTelemetry.record) {
       global.cliTelemetry.record({
         eventName: 'SOURCE_OPERATION',
-        operation: operation,
+        operation,
         type: 'EVENT',
         totalNumberOfPackages: totalNumberOfPackagesInProject,
         numberOfPackagesDeployed: packagesDeployed,
         componentsDeployed: listOfMetadataTypesDeployed,
-        componentsDeployedTruncated: istruncated
+        componentsDeployedTruncated: istruncated,
       });
     }
   }

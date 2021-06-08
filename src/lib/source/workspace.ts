@@ -1,19 +1,19 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import path = require('path');
 import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 
 import { ConfigFile, ConfigContents, Logger, fs as fscore, SfdxProject } from '@salesforce/core';
 import { isEmpty } from '@salesforce/kit';
-import { SourcePathInfo, SourcePathStatusManager } from './sourcePathStatusManager';
-import path = require('path');
 import { Dictionary, Nullable } from '@salesforce/ts-types';
 import Org = require('../core/scratchOrgApi');
 import Messages = require('../messages');
+import { SourcePathInfo, SourcePathStatusManager } from './sourcePathStatusManager';
 const messages = Messages();
 
 const Package2ConfigFileNames = ['package2-descriptor.json', 'package2-manifest.json'];
@@ -33,6 +33,7 @@ export namespace Workspace {
   }
 }
 
+// eslint-disable-next-line no-redeclare
 export class Workspace extends ConfigFile<Workspace.Options> {
   private org: Org;
   private forceIgnore: ForceIgnore;
@@ -66,7 +67,7 @@ export class Workspace extends ConfigFile<Workspace.Options> {
         await this.initializeStateFull();
       }
     } else {
-      await this.initializeStateless();
+      this.initializeStateless();
     }
   }
 
@@ -120,17 +121,17 @@ export class Workspace extends ConfigFile<Workspace.Options> {
     this.logger.debug('Initializing statefull workspace');
     const packages = SfdxProject.getInstance()
       .getUniquePackageDirectories()
-      .map(p => stripTrailingSlash(p.fullPath));
+      .map((p) => stripTrailingSlash(p.fullPath));
     this.trackedPackages = packages;
     await this.walkDirectories(packages);
     await this.write();
   }
 
-  private async initializeStateless() {
+  private initializeStateless() {
     this.logger.debug('Initializing stateless workspace');
     this.trackedPackages = SfdxProject.getInstance()
       .getUniquePackageDirectories()
-      .map(p => stripTrailingSlash(p.fullPath));
+      .map((p) => stripTrailingSlash(p.fullPath));
     this.setContents({});
   }
 
@@ -138,9 +139,9 @@ export class Workspace extends ConfigFile<Workspace.Options> {
     return this['contents'] as Dictionary<SourcePathInfo.Json>;
   }
 
-  public entries(): [string, SourcePathInfo.Json][] {
+  public entries(): Array<[string, SourcePathInfo.Json]> {
     // override entries and cast here to avoid casting every entries() call
-    return super.entries() as [string, SourcePathInfo.Json][];
+    return super.entries() as Array<[string, SourcePathInfo.Json]>;
   }
 
   public static getFileName(): string {
@@ -171,7 +172,7 @@ export class Workspace extends ConfigFile<Workspace.Options> {
       await this.handleArtifact(directory, directory);
     }
     const files = await fscore.readdir(directory);
-    for (let filename of files) {
+    for (const filename of files) {
       const sourcePath = path.join(directory, filename);
       const sourcePathInfo = await this.handleArtifact(sourcePath, directory);
       if (sourcePathInfo.isDirectory) {
@@ -187,7 +188,7 @@ export class Workspace extends ConfigFile<Workspace.Options> {
       sourcePath,
       deferContentHash: false,
       isWorkspace,
-      isArtifactRoot
+      isArtifactRoot,
     });
     if (this.isValidSourcePath(sourcePathInfo)) {
       this.set(sourcePath, sourcePathInfo);
@@ -229,7 +230,7 @@ export class Workspace extends ConfigFile<Workspace.Options> {
         sourcePath: this.workspacePath,
         deferContentHash: false,
         isWorkspace: true,
-        isArtifactRoot: false
+        isArtifactRoot: false,
       });
       this.set(this.workspacePath, workspaceSourcePathInfo);
     }
@@ -237,7 +238,7 @@ export class Workspace extends ConfigFile<Workspace.Options> {
   }
 
   public get(key: string): Nullable<SourcePathInfo.Json> {
-    return this.getContents()[key] as SourcePathInfo.Json;
+    return this.getContents()[key];
   }
 
   public async getInitializedValue(key: string): Promise<SourcePathInfo> {
@@ -283,6 +284,7 @@ export class Workspace extends ConfigFile<Workspace.Options> {
   }
 
   public async backup() {
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     if (this.exists()) {
       await fscore.writeFile(this.backupPath, JSON.stringify(this.getContents()));
     }

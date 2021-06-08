@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as _ from 'lodash';
 import Command from './command';
 import almError = require('./almError');
-import * as _ from 'lodash';
 
 abstract class VarargsCommand extends Command {
   keyValuePairs;
@@ -35,7 +35,7 @@ abstract class VarargsCommand extends Command {
     // validate the format of the varargs
     if (_.get(context, 'args.length')) {
       this.keyValuePairs = {};
-      context.args.forEach(arg => {
+      context.args.forEach((arg) => {
         const split = arg.split('=');
 
         if (split.length !== 2) {
@@ -48,7 +48,7 @@ abstract class VarargsCommand extends Command {
         }
 
         if (_.get(this, 'validators.length')) {
-          this.validators.forEach(validator => validator(name, value));
+          this.validators.forEach((validator) => validator(name, value));
         }
 
         this.keyValuePairs[name] = value || undefined;

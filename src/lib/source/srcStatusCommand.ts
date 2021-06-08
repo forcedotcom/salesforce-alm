@@ -1,14 +1,14 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import messages = require('../messages');
 
-import * as syncCommandHelper from './syncCommandHelper';
 import logger = require('../core/logApi');
+import * as syncCommandHelper from './syncCommandHelper';
 import { SrcStatusApi } from './srcStatusApi';
 const { Messages } = require('@salesforce/core');
 
@@ -38,10 +38,12 @@ SrcStatusCommand.prototype.execute = function execute(options) {
     .then(() => {
       api
         .getLocalChanges()
-        .forEach(workspaceElement => syncCommandHelper.createStatusLocalRows(rows, workspaceElement, this.projectPath));
+        .forEach((workspaceElement) =>
+          syncCommandHelper.createStatusLocalRows(rows, workspaceElement, this.projectPath)
+        );
       api
         .getRemoteChanges()
-        .forEach(workspaceElement =>
+        .forEach((workspaceElement) =>
           syncCommandHelper.createStatusRemoteRows(rows, workspaceElement, this.projectPath)
         );
       this.logger.styledHeader(this.logger.color.blue(this.messages.getMessage('statusCommandHumanSuccess')));
@@ -51,9 +53,10 @@ SrcStatusCommand.prototype.execute = function execute(options) {
 
 /**
  * this indicated to index.js this command should produce tabular output.
+ *
  * @returns {*[]}
  */
-SrcStatusCommand.prototype.getColumnData = function() {
+SrcStatusCommand.prototype.getColumnData = function () {
   const commonMsgs = Messages.loadMessages('salesforce-alm', 'source');
   return syncCommandHelper.getColumnMetaInfo(commonMsgs);
 };

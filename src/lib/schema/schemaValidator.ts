@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -33,10 +33,10 @@ const SCHEMAS_DIR = path.join(__dirname, '..', '..', '..', 'schemas');
  * @param {string} uri The first segment of the $ref schema
  * @param {function} callback The callback when the external schema is loaded
  */
-const loadExternalSchemas = uri => {
+const loadExternalSchemas = (uri) => {
   const schemaPath = path.join(SCHEMAS_DIR, `${uri}.json`);
 
-  return readJSON(schemaPath).catch(err => {
+  return readJSON(schemaPath).catch((err) => {
     if (err.code === 'ENOENT') {
       // No need for messages, as this is a developer error and caught by a unit test
       throw new Error('SCHEMA NOT FOUND');
@@ -52,10 +52,10 @@ const loadExternalSchemas = uri => {
  */
 const errorsText = (errors, schema) =>
   errors
-    .map(error => {
+    .map((error) => {
       const property = error.path.match(/^([a-zA-Z0-9\.]+)\.([a-zA-Z0-9]+)$/);
 
-      const getPropValue = prop =>
+      const getPropValue = (prop) =>
         error.path
           .split('.')
           .reduce(
@@ -94,6 +94,7 @@ const errorsText = (errors, schema) =>
 
 class SchemaValidator {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor(logger, schemaPath?) {
@@ -108,7 +109,7 @@ class SchemaValidator {
    * @returns {BBPromise} The schema
    */
   loadSchema() {
-    return readJSON(this.schemaPath).then(data => {
+    return readJSON(this.schemaPath).then((data) => {
       this.logger.debug(`Schema loaded for ${this.schemaPath}`);
       return data;
     });
@@ -116,16 +117,16 @@ class SchemaValidator {
 
   validate(data) {
     return this.loadSchema()
-      .then(schema => {
+      .then((schema) => {
         // Load all external schemas
         let refs = JSON.stringify(schema).match(/"\$ref"\s*:\s*"([\w\.]+)#[\w/]*"/g);
 
         if (refs) {
-          refs = refs.map(ref => ref.match(/"([\w\.]+)#/)[1]);
+          refs = refs.map((ref) => ref.match(/"([\w\.]+)#/)[1]);
 
-          return BBPromise.all(refs.map(ref => loadExternalSchemas(ref))).then(externalSchemas => {
+          return BBPromise.all(refs.map((ref) => loadExternalSchemas(ref))).then((externalSchemas) => {
             const externalSchemasMap = {};
-            externalSchemas.forEach(externalSchema => {
+            externalSchemas.forEach((externalSchema) => {
               externalSchemasMap[externalSchema.id] = externalSchema;
             });
             return [schema, externalSchemasMap];
@@ -140,7 +141,7 @@ class SchemaValidator {
         // to specify "removeAdditional: false" in every object.
         const validate = validator(schema, {
           greedy: true,
-          schemas: externalSchemas
+          schemas: externalSchemas,
         });
 
         const valid = validate(data);

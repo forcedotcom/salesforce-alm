@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { ConnectResource } from './ConnectResource';
 import { Org } from '@salesforce/core/lib/org';
@@ -28,8 +28,8 @@ export class ConnectExecutor<T> {
     return this.org
       .getConnection()
       .request(await this.fetchRequestInfo())
-      .then(result => this.connectService.handleSuccess(result))
-      .catch(err => this.connectService.handleError(err));
+      .then((result) => this.connectService.handleSuccess(result))
+      .catch((err) => this.connectService.handleError(err));
   }
 
   public async fetchRequestInfo(): Promise<RequestInfo> {
@@ -39,13 +39,13 @@ export class ConnectExecutor<T> {
       return {
         url: connectUrl,
         method,
-        body: null
+        body: null,
       };
     } else if (method === 'POST') {
       return {
         url: connectUrl,
         method,
-        body: await this.connectService.fetchPostParams()
+        body: await this.connectService.fetchPostParams(),
       };
     } else {
       throw new SfdxError(`Unsupported method is given: ${method}`, 'UNSUPPORTED_OPERATION');

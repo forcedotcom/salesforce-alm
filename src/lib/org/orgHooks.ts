@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as Config from '@oclif/config';
@@ -39,6 +39,7 @@ export interface OrgHooks extends Config.Hooks {
 
 export type OrgHook<T> = (this: Config.Hook.Context, options: T extends keyof Config.Hooks ? OrgHooks[T] : T) => any;
 
+// eslint-disable-next-line no-redeclare
 export declare namespace OrgHook {
   export type PostOrgCreate = Config.Hook<OrgHooks['postorgcreate']>;
 }

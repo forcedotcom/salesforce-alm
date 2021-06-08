@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
@@ -34,13 +34,13 @@ export class SourceTrackingResetCommand extends SfdxCommand {
       char: 'r',
       description: messages.getMessage('revisionDescription'),
       required: false,
-      min: 0
+      min: 0,
     }),
     noprompt: flags.boolean({
       char: 'p',
       description: messages.getMessage('nopromptDescription'),
-      required: false
-    })
+      required: false,
+    }),
   };
   public async run(): Promise<SourceTrackingResetResult> {
     if (!this.flags.noprompt) {
@@ -49,7 +49,7 @@ export class SourceTrackingResetCommand extends SfdxCommand {
         // Nothing synced because it was canceled.
         return {
           sourceMembersSynced: 0,
-          localPathsSynced: 0
+          localPathsSynced: 0,
         };
       }
     }
@@ -70,6 +70,7 @@ export class SourceTrackingResetCommand extends SfdxCommand {
     await workspace.walkDirectories(workspace.trackedPackages);
 
     const workspaceElements = workspace.entries();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     workspaceElements.forEach(([_, pathInfo]) => (pathInfo.state = WorkspaceFileState.UNCHANGED));
     await workspace.write();
 
@@ -77,7 +78,7 @@ export class SourceTrackingResetCommand extends SfdxCommand {
 
     return {
       sourceMembersSynced: revision.getTrackedElements().length,
-      localPathsSynced: workspaceElements.length
+      localPathsSynced: workspaceElements.length,
     };
   }
 }

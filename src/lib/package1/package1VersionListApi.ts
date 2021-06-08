@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -12,7 +12,7 @@ import * as util from 'util';
 import logger = require('../core/logApi');
 import messages = require('../messages');
 
-const Package1VersionListApi = function(org) {
+const Package1VersionListApi = function (org) {
   this.releaseOrg = org;
   this.force = this.releaseOrg.force;
   this.messages = messages(this.force.config.getLocale());
@@ -22,10 +22,11 @@ const Package1VersionListApi = function(org) {
 /**
  * Lists package versions available in dev org. If package ID is supplied, only list versions of that package,
  *  otherwise, list all package versions
+ *
  * @param metadataPackageId: optional, if present ID of package to list versions for (starts with 033)
  * @returns Array of package version results
  */
-Package1VersionListApi.prototype.list = function(metadataPackageId) {
+Package1VersionListApi.prototype.list = function (metadataPackageId) {
   const selectClause =
     'SELECT Id,MetadataPackageId,Name,ReleaseState,MajorVersion,MinorVersion,PatchVersion,BuildNumber FROM MetadataPackageVersion';
 
@@ -37,7 +38,7 @@ Package1VersionListApi.prototype.list = function(metadataPackageId) {
 
   const query = `${selectClause}${whereClause}${orderByClause}`;
 
-  return this.force.toolingQuery(this.releaseOrg, query).then(queryResult => {
+  return this.force.toolingQuery(this.releaseOrg, query).then((queryResult) => {
     const results = [];
     const records = queryResult.records;
     if (!util.isNullOrUndefined(records)) {
@@ -50,7 +51,7 @@ Package1VersionListApi.prototype.list = function(metadataPackageId) {
           Name: record.Name,
           ReleaseState: record.ReleaseState,
           Version: `${record.MajorVersion}.${record.MinorVersion}.${record.PatchVersion}`,
-          BuildNumber: record.BuildNumber
+          BuildNumber: record.BuildNumber,
         });
       }
     }

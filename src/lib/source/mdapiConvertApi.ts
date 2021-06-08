@@ -1,49 +1,49 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as path from 'path';
 import * as fsx from 'fs-extra';
 import * as klaw from 'klaw';
-import * as path from 'path';
 
 import * as BBPromise from 'bluebird';
 import * as optional from 'optional-js';
 import * as _ from 'lodash';
 
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
+import { fs as fsCore, SfdxError } from '@salesforce/core';
 import * as Force from '../core/force';
-import MetadataRegistry = require('./metadataRegistry');
 import * as almError from '../core/almError';
 import logger = require('../core/logApi');
 const glob = BBPromise.promisify(require('glob'));
 
-import { AuraDefinitionBundleMetadataType } from './metadataTypeImpl/auraDefinitionBundleMetadataType';
-import { WaveTemplateBundleMetadataType } from './metadataTypeImpl/waveTemplateBundleMetadataType';
-
 import Messages = require('../messages');
+import { WaveTemplateBundleMetadataType } from './metadataTypeImpl/waveTemplateBundleMetadataType';
+import { AuraDefinitionBundleMetadataType } from './metadataTypeImpl/auraDefinitionBundleMetadataType';
+import MetadataRegistry = require('./metadataRegistry');
 const messages = Messages();
 import { toReadableState } from './workspaceFileState';
-import * as SourceUtil from './sourceUtil';
+import { parseToManifestEntriesArray } from './parseManifestEntriesArray';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 import { LightningComponentBundleMetadataType } from './metadataTypeImpl/lightningComponentBundleMetadataType';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { ManifestEntry } from './types';
 import { getFileName } from './sourcePathUtil';
-import { fs as fsCore, SfdxError } from '@salesforce/core';
 import { AggregateSourceElements } from './aggregateSourceElements';
 
 const fsx_ensureDir = BBPromise.promisify(fsx.ensureDir);
 
 /**
  * Helper to normalize a path
+ *
  * @param {string} targetValue - the raw path
  * @returns {string} - a trimmed path without a trailing slash.
  * @private
  */
-const _normalizePath = function(targetValue) {
+const _normalizePath = function (targetValue) {
   let localTargetValue = targetValue.trim();
   if (localTargetValue.endsWith(path.sep)) {
     localTargetValue = localTargetValue.substr(0, localTargetValue.length - 1);
@@ -53,6 +53,7 @@ const _normalizePath = function(targetValue) {
 
 /**
  * Process a file from the metadata package.
+ *
  * @param {object} typeDef - object type from the metadata registry
  * @param {string} pathWithPackage - the filepath including the metadata package
  * @param {string} fullName - the computed full name  @see _getFullName
@@ -60,7 +61,7 @@ const _normalizePath = function(targetValue) {
  * @param {AggregateSourceElements} sourceElements - accumulator of created AggregateSourceElements
  * @private
  */
-const _processFile = function(
+const _processFile = function (
   metadataType,
   pathWithPackage,
   fullName,
@@ -70,7 +71,7 @@ const _processFile = function(
   const fileProperties = {
     type: metadataType.getMetadataName(),
     fileName: pathWithPackage,
-    fullName
+    fullName,
   };
 
   const retrieveRoot = path.join(this._package_root, '..');
@@ -107,7 +108,7 @@ const _processFile = function(
     const definitionFileProperty = {
       type: metadataType.getMetadataName(),
       fileName: fileProperties.fileName,
-      fullName
+      fullName,
     };
     bundleDefinitionProperty.push(definitionFileProperty);
   }
@@ -125,13 +126,19 @@ const _processFile = function(
 
 /**
  * Process one file path within a metadata package directory
+ *
  * @param {object} item - the path item
  * @param {object} metadataRegistry - describe metadata
  * @param {object} sourceWorkspaceAdapter - workspace adapter
  * @param {AggregateSourceElements} sourceElements - accumulator of created AggregateSourceElements
  * @private
  */
-const _processPath = function(item, metadataRegistry, sourceWorkspaceAdapter, sourceElements: AggregateSourceElements) {
+const _processPath = function (
+  item,
+  metadataRegistry,
+  sourceWorkspaceAdapter,
+  sourceElements: AggregateSourceElements
+) {
   const pkgRelativePath = path.relative(this._package_root, item.path);
   if (pkgRelativePath.length > 0) {
     // Ignore the package root itself
@@ -180,15 +187,16 @@ const _processPath = function(item, metadataRegistry, sourceWorkspaceAdapter, so
 
 /**
  * Converts an array of aggregateSourceElements into objects suitable for a return to the caller.
+ *
  * @returns {[{state, fullName, type, filePath}]}
  */
-const _mapToOutputElements = function(aggregateSourceElements: AggregateSourceElements) {
+const _mapToOutputElements = function (aggregateSourceElements: AggregateSourceElements) {
   let allWorkspaceElements = [];
-  aggregateSourceElements.getAllSourceElements().forEach(aggregateSourceElement => {
+  aggregateSourceElements.getAllSourceElements().forEach((aggregateSourceElement) => {
     allWorkspaceElements = allWorkspaceElements.concat(aggregateSourceElement.getWorkspaceElements());
   });
 
-  return allWorkspaceElements.map(workspaceElement => {
+  return allWorkspaceElements.map((workspaceElement) => {
     const fullFilePath = workspaceElement.getSourcePath();
     const paths = fullFilePath.split(this.projectPath);
     let filePath = paths[paths.length - 1];
@@ -202,18 +210,19 @@ const _mapToOutputElements = function(aggregateSourceElements: AggregateSourceEl
       fullName: workspaceElement.getFullName(),
       type: workspaceElement.getMetadataName(),
       filePath,
-      state: toReadableState(workspaceElement.getState())
+      state: toReadableState(workspaceElement.getState()),
     };
   });
 };
 
 /**
  * Finds the filepath root containing the package.xml
+ *
  * @private
  */
-const _setPackageRoot = function() {
+const _setPackageRoot = function () {
   const packageDotXmlPath = `${this.root}${path.sep}package.xml`;
-  return glob(packageDotXmlPath).then(outerfiles => {
+  return glob(packageDotXmlPath).then((outerfiles) => {
     if (outerfiles.length > 0) {
       this._package_root = this.root;
       return BBPromise.resolve();
@@ -223,7 +232,7 @@ const _setPackageRoot = function() {
       if (this.logger.isDebugEnabled()) {
         this.logger.debug(`Looking for package.xml here ${packageDotXmlGlobPath}`);
       }
-      return glob(packageDotXmlGlobPath).then(innerfiles => {
+      return glob(packageDotXmlGlobPath).then((innerfiles) => {
         if (innerfiles.length < 1) {
           const error = new Error();
           error['code'] = 'ENOENT';
@@ -241,6 +250,7 @@ const _setPackageRoot = function() {
  */
 class MdapiConvertApi {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor(force?) {
@@ -259,6 +269,7 @@ class MdapiConvertApi {
 
   /**
    * set the value of the output directory
+   *
    * @param {string} outputDirectory - the new value of the output directory.
    */
   set outputDirectory(outputDirectory) {
@@ -282,6 +293,7 @@ class MdapiConvertApi {
 
   /**
    * set the value of the root directory to convert
+   *
    * @param {string} sourceRootValue - a directory containing a package.xml file. Is should represents a valid mdapi
    * package.
    */
@@ -317,7 +329,7 @@ class MdapiConvertApi {
    */
   checkMetadataFromType(itemPath: string, validMetatdata: string[], metadataRegistry: MetadataRegistry) {
     const typDef = metadataRegistry.getTypeDefinitionByFileName(itemPath);
-    for (let md of validMetatdata) {
+    for (const md of validMetatdata) {
       const [mdType, mdName] = md.split(':');
       if (!mdName && typDef) {
         if (mdType === typDef.metadataName) {
@@ -337,7 +349,8 @@ class MdapiConvertApi {
    * @param validMetatdata a filter against which the paths would be checked to see if the file needs to be converted
    */
   checkMetadataFromPath(itemPath: string, validMetatdata: string[]): boolean {
-    for (let path of validMetatdata) {
+    // eslint-disable-next-line @typescript-eslint/no-shadow
+    for (const path of validMetatdata) {
       if (itemPath.includes(path)) {
         return true;
       }
@@ -373,6 +386,7 @@ class MdapiConvertApi {
 
   /**
    * Returns a promise to convert a metadata api directory package into SFDX compatible source.
+   *
    * @returns {BBPromise}
    */
   convertSource(org, context?) {
@@ -386,7 +400,7 @@ class MdapiConvertApi {
       .then(() => {
         if (context) {
           if (context.manifest) {
-            return SourceUtil.parseToManifestEntriesArray(context.manifest);
+            return parseToManifestEntriesArray(context.manifest);
           }
 
           if (context.metadata) {
@@ -396,21 +410,21 @@ class MdapiConvertApi {
           }
         }
       })
-      .then(result => {
+      .then((result) => {
         validMetatdata = result;
         return SourceWorkspaceAdapter.create({
-          org: org,
+          org,
           metadataRegistryImpl: MetadataRegistry,
           defaultPackagePath: path.relative(this.projectPath, this.outputDirectory),
-          fromConvert: true
+          fromConvert: true,
         });
       })
       .then((sourceWorkspaceAdapter: SourceWorkspaceAdapter) => {
         if (this.logger.isDebugEnabled()) {
           [
             { name: 'root', value: this.root },
-            { name: 'outputdir', value: this._outputDirectory }
-          ].forEach(attribute => {
+            { name: 'outputdir', value: this._outputDirectory },
+          ].forEach((attribute) => {
             this.logger.debug(`Processing mdapi convert with ${attribute.name}: ${attribute.value}`);
           });
         }
@@ -424,7 +438,7 @@ class MdapiConvertApi {
         return new BBPromise((resolve, reject) => {
           let errorFoundProcessingPath = false;
           klaw(this._package_root)
-            .on('data', item => {
+            .on('data', (item) => {
               try {
                 if (this.isValidSourcePath(item.path)) {
                   if (!validMetatdata) {
@@ -458,6 +472,7 @@ class MdapiConvertApi {
                 }
               }
             })
+            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             .on('end', async () => {
               if (!errorFoundProcessingPath && !aggregateSourceElements.isEmpty()) {
                 await sourceWorkspaceAdapter.updateSource(
@@ -468,9 +483,9 @@ class MdapiConvertApi {
                 );
                 if (this.logger.isDebugEnabled()) {
                   const allPaths = [];
-                  aggregateSourceElements.getAllSourceElements().forEach(sourceElement => {
+                  aggregateSourceElements.getAllSourceElements().forEach((sourceElement) => {
                     const workspaceElements = sourceElement.getWorkspaceElements();
-                    workspaceElements.forEach(workspaceElement => {
+                    workspaceElements.forEach((workspaceElement) => {
                       allPaths.push(workspaceElement.getSourcePath());
                     });
                   });
@@ -484,7 +499,7 @@ class MdapiConvertApi {
             });
         });
       })
-      .catch(err => {
+      .catch((err) => {
         // Catch invalid source package.
         if (err.code && err.code === 'ENOENT') {
           throw almError({ keyName: 'invalidPath', bundle: 'mdapiConvertApi' });

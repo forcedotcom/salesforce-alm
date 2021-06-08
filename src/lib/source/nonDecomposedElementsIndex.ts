@@ -1,6 +1,12 @@
+/*
+ * Copyright (c) 2020, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import { join } from 'path';
 import { ConfigFile, ConfigValue, fs, Logger, SfdxError, SfdxProject } from '@salesforce/core';
 import { AnyJson, Dictionary, get, Nullable } from '@salesforce/ts-types';
-import { join } from 'path';
 import { SourcePathInfo } from './sourcePathStatusManager';
 import { ChangeElement, RemoteSourceTrackingService } from './remoteSourceTrackingService';
 import MetadataRegistry = require('./metadataRegistry');
@@ -25,9 +31,9 @@ const NON_DECOMPOSED_CONFIGS = {
     {
       childType: 'CustomLabel',
       xmlTag: 'CustomLabels[0].labels',
-      namePath: 'fullName'
-    }
-  ]
+      namePath: 'fullName',
+    },
+  ],
 };
 
 /**
@@ -44,6 +50,7 @@ const NON_DECOMPOSED_CONFIGS = {
  *   - xmlTag tells us where to find the elements inside the xml
  *   - namePath tells us where to find the name of the element
  */
+// eslint-disable-next-line no-redeclare
 export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElementsIndex.Options> {
   logger!: Logger;
   private static _instances: Dictionary<NonDecomposedElementsIndex> = {};
@@ -69,22 +76,23 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
     this.logger = await Logger.child(this.constructor.name);
     this.metadataRegistry = this.options.metadataRegistry;
     this.remoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
-      username: this.options.username
+      username: this.options.username,
     });
     await super.init();
     this.populateIncludedFiles();
   }
 
   public populateIncludedFiles() {
-    this.values().forEach(v => this.includedFiles.add(v.metadataFilePath));
+    this.values().forEach((v) => this.includedFiles.add(v.metadataFilePath));
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   public async addElement(metadataName: string, fullName: string, sourcePath: string) {
     const key = MetadataRegistry.getMetadataKey(metadataName, fullName);
     const value = {
       fullName,
       type: metadataName,
-      metadataFilePath: sourcePath
+      metadataFilePath: sourcePath,
     };
     if (!this.has(key)) {
       this.set(key, value);
@@ -139,7 +147,9 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
    * Set the refresh flag to true if you want to force update the index
    */
   public async handleDecomposedElements(sourcePathInfo: SourcePathInfo, refresh = false) {
-    if (!refresh && this.shouldSkip(sourcePathInfo)) return;
+    if (!refresh && this.shouldSkip(sourcePathInfo)) {
+      return;
+    }
 
     const metadataType = this.metadataRegistry.getTypeDefinitionByFileName(sourcePathInfo.sourcePath);
     const configs = NON_DECOMPOSED_CONFIGS[metadataType.metadataName];
@@ -161,7 +171,7 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
    */
   public clearElements(sourcePath: string) {
     const matchingElements = this.getElementsByMetadataFilePath(sourcePath);
-    matchingElements.forEach(element => {
+    matchingElements.forEach((element) => {
       const key = MetadataRegistry.getMetadataKey(element.type, element.fullName);
       this.unset(key);
     });
@@ -231,7 +241,7 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
     const seen = new Set<string>();
     const contents = this.values();
 
-    const isRelatedElement = function(
+    const isRelatedElement = function (
       existingElement: NonDecomposedElement,
       comparisonElement: NonDecomposedElement
     ): boolean {
@@ -248,7 +258,7 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
         const key = MetadataRegistry.getMetadataKey(metadataType.metadataName, changeElement.name);
         const element = this.get(key);
 
-        contents.forEach(item => {
+        contents.forEach((item) => {
           const shouldAdd = this.has(key) ? isRelatedElement(element, item) : this.elementBelongsToDefaultPackage(item);
 
           if (shouldAdd) {
@@ -258,7 +268,7 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
             elements.push({
               type: changeElement.type,
               name: item.fullName,
-              deleted: isNameObsolete
+              deleted: isNameObsolete,
             });
           }
         });
@@ -275,9 +285,7 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
       return [];
     }
     const elements = [...this.values()];
-    return elements.filter(element => {
-      return element.metadataFilePath === metadataFilePath;
-    });
+    return elements.filter((element) => element.metadataFilePath === metadataFilePath);
   }
 
   /**
@@ -285,14 +293,14 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
    * been previously added to the index.
    */
   public async maybeRefreshIndex(inboundFiles: any[]): Promise<void> {
-    const results = inboundFiles.filter(c => !c.fullName.includes('xml'));
+    const results = inboundFiles.filter((c) => !c.fullName.includes('xml'));
 
-    const supportedTypes = results.filter(r => {
-      return NonDecomposedElementsIndex.isSupported(decodeURIComponent(r.fullName));
-    });
+    const supportedTypes = results.filter((r) =>
+      NonDecomposedElementsIndex.isSupported(decodeURIComponent(r.fullName))
+    );
 
     if (supportedTypes.length) {
-      const sourcePaths = supportedTypes.map(r => r.filePath);
+      const sourcePaths = supportedTypes.map((r) => r.filePath);
       return this.refreshIndex(sourcePaths);
     }
   }
@@ -326,7 +334,7 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
   public deleteEntryBySourcePath(path: string): void {
     try {
       const elements = this.getElementsByMetadataFilePath(path);
-      elements.forEach(element => {
+      elements.forEach((element) => {
         this.unset(`${element.type}__${element.fullName}`);
       });
     } catch (e) {
@@ -340,7 +348,9 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
   }
 
   public async write() {
-    if (!this.hasChanges) return;
+    if (!this.hasChanges) {
+      return;
+    }
     this.hasChanges = false;
     return super.write();
   }
@@ -357,6 +367,6 @@ export class NonDecomposedElementsIndex extends ConfigFile<NonDecomposedElements
   }
 
   public values(): NonDecomposedElement[] {
-    return (super.values() as unknown) as NonDecomposedElement[];
+    return super.values() as unknown as NonDecomposedElement[];
   }
 }

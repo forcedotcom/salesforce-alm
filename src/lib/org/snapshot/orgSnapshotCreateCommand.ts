@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as BBPromise from 'bluebird';
@@ -33,16 +33,16 @@ class OrgSnapshotCreateCommand {
       throw new Error(messages.getMessage('nameInvalid', [], 'orgSnapshot'));
     }
 
-    return this._getSourceOrgId(context).then(orgId => {
-      return OrgSnapshotApiImpl.create(context.org).then(orgSnapshotApi => {
+    return this._getSourceOrgId(context).then((orgId) =>
+      OrgSnapshotApiImpl.create(context.org).then((orgSnapshotApi) => {
         this.orgSnapshotApi = orgSnapshotApi;
         return this.orgSnapshotApi.create({
           SourceOrg: orgId,
           SnapshotName: context.flags.snapshotname,
-          Description: context.flags.description
+          Description: context.flags.description,
         });
-      });
-    });
+      })
+    );
   }
 
   // resolve sourceorg to orgId
@@ -51,13 +51,14 @@ class OrgSnapshotCreateCommand {
       return BBPromise.resolve(context.flags.sourceorg);
     } else {
       return Org.create(context.flags.sourceorg, Org.Defaults.USERNAME)
-        .then(org => org.getConfig())
-        .then(orgConfig => orgConfig.orgId);
+        .then((org) => org.getConfig())
+        .then((orgConfig) => orgConfig.orgId);
     }
   }
 
   /**
    * returns a human readable message for a cli output
+   *
    * @param result - the data representing the Org Snapshot
    * @returns {string}
    */
@@ -72,8 +73,8 @@ class OrgSnapshotCreateCommand {
     this.logger.table(data, {
       columns: [
         { key: 'name', label: 'Name' },
-        { key: 'value', label: 'Value' }
-      ]
+        { key: 'value', label: 'Value' },
+      ],
     });
 
     return '';

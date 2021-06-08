@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
 
 import { DOMParser, XMLSerializer } from 'xmldom-sfdx-encoding';
-import { MetadataDocument, MetadataDocumentAnnotation } from './metadataDocument';
 import { SfdxError } from '@salesforce/core';
+import { MetadataDocument, MetadataDocumentAnnotation } from './metadataDocument';
 import { checkForXmlParseError } from './sourceUtil';
 
 export type XmlLineError = { key: string; message: string };
@@ -175,7 +175,7 @@ export class XmlMetadataDocument implements MetadataDocument {
   private static getXmlAttributesString(xmlAttributes: XmlAttribute[]): string {
     if (xmlAttributes) {
       return xmlAttributes
-        .filter(attribute => attribute.nodeName && attribute.nodeValue)
+        .filter((attribute) => attribute.nodeName && attribute.nodeValue)
         .reduce(
           (accumulatedString, attribute) => `${accumulatedString} ${attribute.nodeName}="${attribute.nodeValue}"`,
           ''

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -33,14 +33,14 @@ export class SourceDeleteCommand extends ToolbeltCommand {
       char: 'c',
       description: messages.getMessage('deleteCommandCliCheckOnly'),
       longDescription: messages.getMessage('deleteCommandCliCheckOnlyLong'),
-      required: false
+      required: false,
     }),
     noprompt: flags.boolean({
       char: 'r',
       required: false,
       hidden: false,
       description: messages.getMessage('noPromptParamDescription'),
-      longDescription: messages.getMessage('noPromptParamLongDescription')
+      longDescription: messages.getMessage('noPromptParamLongDescription'),
     }),
     wait: flags.minutes({
       char: 'w',
@@ -49,7 +49,7 @@ export class SourceDeleteCommand extends ToolbeltCommand {
       default: Duration.minutes(DEFAULT_SRC_WAIT_MINUTES),
       min: Duration.minutes(MIN_SRC_WAIT_MINUTES),
       description: commonMsgs.getMessage('waitParamDescription', [DEFAULT_SRC_WAIT_MINUTES]),
-      longDescription: commonMsgs.getMessage('waitParamDescriptionLong')
+      longDescription: commonMsgs.getMessage('waitParamDescriptionLong'),
     }),
     sourcepath: flags.array({
       char: 'p',
@@ -57,14 +57,14 @@ export class SourceDeleteCommand extends ToolbeltCommand {
       hidden: false,
       description: messages.getMessage('sourcePathDescription'),
       longDescription: messages.getMessage('sourcePathLongDescription'),
-      exclusive: ['metadata']
+      exclusive: ['metadata'],
     }),
     metadata: flags.array({
       char: 'm',
       description: messages.getMessage('metadataParamDescription'),
       longDescription: messages.getMessage('metadataParamLongDescription'),
-      required: false
-    })
+      required: false,
+    }),
   };
   public async run(): Promise<unknown> {
     const { SourceApiCommand } = require('../../../lib/source/sourceApiCommand');

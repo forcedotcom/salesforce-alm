@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -15,27 +15,28 @@ import { fs, Lifecycle, SfdxProject } from '@salesforce/core';
 import { copy } from 'fs-extra';
 
 // Local
-import MetadataRegistry = require('./metadataRegistry');
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
+import { SfdxError } from '@salesforce/core';
 import srcDevUtil = require('../core/srcDevUtil');
-import { WorkspaceFileState } from './workspaceFileState';
-import * as sourceUtil from './sourceUtil';
 import Messages = require('../messages');
+import * as almError from '../core/almError';
+import MetadataRegistry = require('./metadataRegistry');
+import { WorkspaceFileState } from './workspaceFileState';
+import { getSourceElementsFromSourcePath, createOutputDir, cleanupOutputDir } from './sourceUtil';
 const messages = Messages();
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
-import * as almError from '../core/almError';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
-import * as SourceUtil from './sourceUtil';
-import { SfdxError } from '@salesforce/core';
 import { SourceElementsResolver } from './sourceElementsResolver';
 import { MetadataSourceResult } from './sourceHooks';
+import * as ManifestCreateApi from './manifestCreateApi';
 
 class SourceConvertApi {
   static revert?: boolean;
   static err?: Error;
 
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   public sourceWorkspaceAdapter: SourceWorkspaceAdapter;
@@ -52,8 +53,8 @@ class SourceConvertApi {
    *   Used for building a query condition. E.g., WHERE MemberName IN ('Foo','Bar')
    *   The server uses '/' file path separators, but on windows we could be passed 'Reports\ReportA' we need to change this
    */
-  static singleQuoteJoin(arr: Array<string>): string {
-    return arr.map(val => `'${val.replace('\\', '/')}'`).join();
+  static singleQuoteJoin(arr: string[]): string {
+    return arr.map((val) => `'${val.replace('\\', '/')}'`).join();
   }
 
   private async initWorkspaceAdapter(): Promise<void> {
@@ -62,7 +63,7 @@ class SourceConvertApi {
         org: this.scratchOrg,
         metadataRegistryImpl: MetadataRegistry,
         defaultPackagePath: this.scratchOrg.config.getAppConfig().defaultPackagePath,
-        fromConvert: true
+        fromConvert: true,
       };
       this.sourceWorkspaceAdapter = await SourceWorkspaceAdapter.create(options);
     }
@@ -90,7 +91,7 @@ class SourceConvertApi {
     if (manifest) {
       sourceElements = await sourceElementsResolver.getSourceElementsFromManifest(manifest);
     } else if (sourcepath) {
-      sourceElements = await SourceUtil.getSourceElementsFromSourcePath(sourcepath, this.sourceWorkspaceAdapter);
+      sourceElements = await getSourceElementsFromSourcePath(sourcepath, this.sourceWorkspaceAdapter);
     } else if (metadata) {
       sourceElements = await sourceElementsResolver.getSourceElementsFromMetadata(
         context,
@@ -119,7 +120,7 @@ class SourceConvertApi {
     let sourceElementsForMdDir;
     return this.initWorkspaceAdapter()
       .then(() => aggregateSourceElementsMap.getAllSourceElements())
-      .then(aggregateSourceElements => {
+      .then((aggregateSourceElements) => {
         [destructiveChangesTypeNamePairs, sourceElementsForMdDir] = SourceConvertApi.sortSourceElementsForMdDeploy(
           aggregateSourceElements,
           this.sourceWorkspaceAdapter.metadataRegistry
@@ -149,23 +150,23 @@ class SourceConvertApi {
           }
           return this.scratchOrg.force
             .toolingFind(this.scratchOrg, 'SourceMember', conditions, fields)
-            .then(sourceMembers => {
+            .then((sourceMembers) => {
               if (!sourceMembers.length) {
                 // No members exist on the server (i.e., empty scratch org) so don't try to delete anything.
                 destructiveChangesTypeNamePairs = [];
               } else {
                 // Filter destructive changes to only the members found on the server that haven't already been deleted.
-                destructiveChangesTypeNamePairs = _.filter(destructiveChangesTypeNamePairs, removal =>
+                destructiveChangesTypeNamePairs = _.filter(destructiveChangesTypeNamePairs, (removal) =>
                   _.some(sourceMembers, {
                     MemberType: removal.type,
                     MemberName: removal.name,
-                    IsNameObsolete: false
+                    IsNameObsolete: false,
                   })
                 );
               }
             })
             .then(() => {
-              destructiveChangesTypeNamePairs.forEach(destructive => {
+              destructiveChangesTypeNamePairs.forEach((destructive) => {
                 // On windows, the name could be 'Report\\ReportA', so we need to change to match what the server wants
                 destructive.name.replace('\\\\', '/');
               });
@@ -196,13 +197,14 @@ class SourceConvertApi {
   /**
    * Sorts the source elements into those that should be added to the destructiveChangesPost.xml
    * and those that should be added to the package.xml
+   *
    * @returns {[[],[]]} - the array of destructive changes and the array of elements to be added to the package.xml
    * @private
    */
   static sortSourceElementsForMdDeploy(aggregateSourceElements, metadataRegistry: MetadataRegistry) {
     const destructiveChangeTypeNamePairs = [];
     const updatedSourceElements = [];
-    aggregateSourceElements.forEach(aggregateSourceElement => {
+    aggregateSourceElements.forEach((aggregateSourceElement) => {
       if (aggregateSourceElement.isDeleted()) {
         if (!aggregateSourceElement.getMetadataType().deleteSupported(aggregateSourceElement.getAggregateFullName())) {
           return;
@@ -211,7 +213,7 @@ class SourceConvertApi {
         // if the whole source element should be deleted, then there's no need to process each pending workspace file
         destructiveChangeTypeNamePairs.push({
           type: aggregateSourceElement.getMetadataName(),
-          name: aggregateSourceElement.getAggregateFullName()
+          name: aggregateSourceElement.getAggregateFullName(),
         });
       } else {
         let aggregateSourceElementWasChanged = false;
@@ -223,7 +225,7 @@ class SourceConvertApi {
         if (!aggregateMetadataType.hasIndividuallyAddressableChildWorkspaceElements()) {
           aggregateSourceElementWasChanged = true;
         } else {
-          aggregateSourceElement.getWorkspaceElements().forEach(workspaceElement => {
+          aggregateSourceElement.getWorkspaceElements().forEach((workspaceElement) => {
             const workspaceElementMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
               workspaceElement.getMetadataName(),
               metadataRegistry
@@ -235,7 +237,7 @@ class SourceConvertApi {
             ) {
               destructiveChangeTypeNamePairs.push({
                 type: workspaceElement.getMetadataName(),
-                name: workspaceElement.getFullName()
+                name: workspaceElement.getFullName(),
               });
             } else {
               aggregateSourceElementWasChanged = true;
@@ -254,31 +256,31 @@ class SourceConvertApi {
   static async populateMdDir(targetPath, aggregateSourceElements, unsupportedMimeTypes?, forceIgnore?) {
     // Create the metadata deploy root directory
     srcDevUtil.ensureDirectoryExistsSync(targetPath);
-    const decompositionDir = await sourceUtil.createOutputDir('decomposition');
+    const decompositionDir = await createOutputDir('decomposition');
 
     const translationsMap = {};
     const preDeployHookInfo: MetadataSourceResult = {};
-    return BBPromise.map(aggregateSourceElements, element =>
+    return BBPromise.map(aggregateSourceElements, (element) =>
       element
         .getFilePathTranslations(targetPath, decompositionDir, unsupportedMimeTypes, forceIgnore)
-        .then(translations =>
-          BBPromise.map(translations, translation => {
+        .then((translations) =>
+          BBPromise.map(translations, (translation) => {
             // check for duplicates since fs.copyAsync will throw an EEXIST error on duplicate files/dirs
             if (util.isNullOrUndefined(translationsMap[translation.mdapiPath])) {
               translationsMap[translation.mdapiPath] = translation.sourcePath;
               preDeployHookInfo[element.aggregateFullName] = {
-                workspaceElements: element.workspaceElements.map(workspaceElement => ({
+                workspaceElements: element.workspaceElements.map((workspaceElement) => ({
                   fullName: workspaceElement.fullName,
                   metadataName: workspaceElement.metadataName,
                   sourcePath: workspaceElement.sourcePath,
                   state: workspaceElement.state,
-                  deleteSupported: workspaceElement.deleteSupported
+                  deleteSupported: workspaceElement.deleteSupported,
                 })),
-                mdapiFilePath: translation.mdapiPath
+                mdapiFilePath: translation.mdapiPath,
               };
               return BBPromise.resolve(translation.sourcePath)
-                .then(sourcePath => copy(sourcePath, translation.mdapiPath))
-                .catch(err => {
+                .then((sourcePath) => copy(sourcePath, translation.mdapiPath))
+                .catch((err) => {
                   if (err.code === 'ENOENT') {
                     throw almError('MissingContentOrMetadataFile', translation.sourcePath);
                   }
@@ -287,7 +289,7 @@ class SourceConvertApi {
             } else {
               return BBPromise.resolve();
             }
-          }).catch(err => {
+          }).catch((err) => {
             this.revert = true;
             this.err = err;
           })
@@ -309,7 +311,7 @@ class SourceConvertApi {
           if (srcDevUtil.getZipDirPath()) {
             srcDevUtil.deleteIfExistsSync(srcDevUtil.getZipDirPath());
           }
-          return sourceUtil.cleanupOutputDir(decompositionDir);
+          return cleanupOutputDir(decompositionDir);
         });
     });
   }
@@ -329,7 +331,6 @@ class SourceConvertApi {
 
     const configSourceApiVersion = scratchOrg.config.getAppConfig().sourceApiVersion;
     const sourceApiVersion = configSourceApiVersion || scratchOrg.config.getApiVersion();
-    const ManifestCreateApi = require('./manifestCreateApi'); // eslint-disable-line global-require
 
     // TODO: This should come from source tracking database
     const manifestCreateApi = new ManifestCreateApi(scratchOrg);
@@ -343,7 +344,7 @@ class SourceConvertApi {
             {
               outputdir,
               sourceApiVersion,
-              outputfile: 'destructiveChangesPost.xml'
+              outputfile: 'destructiveChangesPost.xml',
             },
             packageName,
             destructiveChangesTypeNamePairs
@@ -357,15 +358,15 @@ class SourceConvertApi {
   static getUpdatedSourceTypeNamePairs(updatedAggregateSourceElements, metadataRegistry) {
     const keys = new Set();
     return updatedAggregateSourceElements
-      .map(se => ({
+      .map((se) => ({
         type: se.getMetadataName(),
         name: se.getAggregateFullName(),
-        workspaceElements: se.getWorkspaceElements()
+        workspaceElements: se.getWorkspaceElements(),
       }))
       .reduce((typeNamePairs, typeNamePair) => {
         const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(typeNamePair.type, metadataRegistry);
         if (metadataType.hasIndividuallyAddressableChildWorkspaceElements()) {
-          typeNamePair.workspaceElements.forEach(workspaceElement => {
+          typeNamePair.workspaceElements.forEach((workspaceElement) => {
             const workspaceElementMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
               workspaceElement.getMetadataName(),
               metadataRegistry
@@ -379,7 +380,7 @@ class SourceConvertApi {
                 typeNamePairs,
                 {
                   type: workspaceElement.getMetadataName(),
-                  name: workspaceElement.getFullName()
+                  name: workspaceElement.getFullName(),
                 },
                 keys
               );
@@ -388,7 +389,7 @@ class SourceConvertApi {
         } else {
           SourceConvertApi.addNoDupes(typeNamePairs, typeNamePair, keys);
           if (metadataType.requiresIndividuallyAddressableMembersInPackage()) {
-            metadataType.getChildMetadataTypes().forEach(childMetadataType => {
+            metadataType.getChildMetadataTypes().forEach((childMetadataType) => {
               SourceConvertApi.addNoDupes(typeNamePairs, { type: childMetadataType, name: '*' }, keys);
             });
           }

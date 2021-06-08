@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { ConnectResource } from '../../connect/services/ConnectResource';
 import { UX } from '@salesforce/command';
-import { CommunityTemplatesListResponse } from '../defs/CommunityTemplatesListResponse';
 import { Messages } from '@salesforce/core';
+import { ConnectResource } from '../../connect/services/ConnectResource';
+import { CommunityTemplatesListResponse } from '../defs/CommunityTemplatesListResponse';
 
 Messages.importMessagesDirectory(__dirname);
 const community = Messages.loadMessages('salesforce-alm', 'community_commands');
@@ -22,9 +22,11 @@ export class CommunityTemplatesResource implements ConnectResource<CommunityTemp
     this.ux = ux;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchRelativeConnectUrl(): Promise<string> {
     return '/connect/communities/templates';
   }
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPostParams(): Promise<string> {
     return JSON.stringify({});
   }

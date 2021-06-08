@@ -1,9 +1,11 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+/* eslint-disable no-unused-vars */
 
 import { WorkspaceElement } from './workspaceElement';
 import { DecompositionConfig } from './decompositionStrategy/decompositionConfig';
@@ -40,6 +42,7 @@ export interface MetadataType {
    * Gets the fullname for the workspace element represented by the filePath
    * For a filePath to a decomposed workspace element such as CustomField, the fullName
    * would be 'CustomObjectName__c.CustomFieldName__c'
+   *
    * @param filePath - the path to the file in the workspace
    * @returns {string}
    */
@@ -49,6 +52,7 @@ export interface MetadataType {
    * Gets the fullName for the aggregateSourceElement related to the given filePath
    * For a path to a decomposed type such as Custom Field, this method would return the fullName of its
    * parent object: 'CustomObjectName__c'
+   *
    * @param filePath - the path to the file in the workspace
    * @returns {string}
    */
@@ -58,6 +62,7 @@ export interface MetadataType {
    * Gets the full nondecomposed metadata file path for the aggregate entity
    * For example, given a filePath to a decomposed CustomField workspace file, this method would return
    * the nondecomposed filePath to its parent CustomObject entity
+   *
    * @param filePath
    * @returns {any}
    */
@@ -65,6 +70,7 @@ export interface MetadataType {
 
   /**
    * Returns the full default aggregate (non-decomposed) metadata path for the given entity fullName
+   *
    * @param fullName
    * @param defaultSrcDir - the path to the directory containing the given metadata type: in most cases, this is:
    *          <full-path-to-default-package-name>/main/default
@@ -75,6 +81,7 @@ export interface MetadataType {
 
   /**
    * Returns the aggregate (non-decomposed) metadata path for the given entity fullName
+   *
    * @param {string} dirName - the path to the directory containing the given metadata type
    *      For example: for the path <workspace>/<defaultProjectPath>/main/default/classes...
    *      dirName would be: <workspace>/<defaultProjectPath>/main/default/
@@ -87,6 +94,7 @@ export interface MetadataType {
 
   /**
    * Returns the aggregate fullName for the given workspace fullName
+   *
    * @param {string} workspaceFullName - if a workspace element is decomposed or a child of a parent aggregate element
    * (i.e. CustomField or AuraDefinitionBundle sub-components, then the workspaceFullName will include the parent fullName
    *
@@ -103,6 +111,7 @@ export interface MetadataType {
    *      For example: For AuraDefinitionBundle, we get fileProperties for each bundle sub-component
    *          e.g. 'MyAuraBundle/MyAuraBundleController.js'
    *      The aggregate fullName for the above fileProperty is 'MyAuraBundle'
+   *
    * @param fileProperty
    * @param {string} namespace
    * @returns {string}
@@ -117,6 +126,7 @@ export interface MetadataType {
 
   /**
    * Returns the workspace elements for source to be deleted from the workspace
+   *
    * @param {string} aggregateMetadataPath
    * @returns {WorkspaceElement[]}
    */
@@ -124,6 +134,7 @@ export interface MetadataType {
 
   /**
    * Gets the full path to the retrieved metadata file
+   *
    * @param fileProperties
    * @param {string} retrieveRoot
    * @param bundleFileProperties
@@ -133,6 +144,7 @@ export interface MetadataType {
 
   /**
    * Gets the full path to the retrieved content file
+   *
    * @param fileProperties
    * @param {string} retrieveRoot
    * @returns {string}
@@ -152,6 +164,7 @@ export interface MetadataType {
 
   /**
    * Gets the full path to the location in the metadata api formatted directory where the source will be copied
+   *
    * @param {string} originContentPath - path to the content file in the sfdx project directory
    * @param {string} aggregateFullName
    * @param {string} mdDir
@@ -185,6 +198,7 @@ export interface MetadataType {
 
   /**
    * Returns the path to be displayed in the command output
+   *
    * @param {string} workspaceFilePath
    * @returns {string}
    */
@@ -206,6 +220,7 @@ export interface MetadataType {
 
   /**
    * Returns the metadata name for the given source member type
+   *
    * @param {string} sourceMemberType
    * @returns {string}
    */
@@ -213,6 +228,7 @@ export interface MetadataType {
 
   /**
    * Returns true if the entity can be deleted from the scratch org
+   *
    * @param {string} workspaceFullName
    * @returns {boolean}
    */
@@ -254,6 +270,7 @@ export interface MetadataType {
 
   /**
    * Check if the container file for a decomposed metadata type is valid
+   *
    * @param container
    * @returns {boolean}
    */

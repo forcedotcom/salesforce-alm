@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -26,13 +26,13 @@ export class PackageListCommand extends ToolbeltCommand {
   public static readonly flagsConfig: FlagsConfig = {
     verbose: flags.builtin({
       description: messages.getMessage('verboseDescription', [], 'package_list'),
-      longDescription: messages.getMessage('verboseLongDescription', [], 'package_list')
-    })
+      longDescription: messages.getMessage('verboseLongDescription', [], 'package_list'),
+    }),
   };
 
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const PackageListCommand = require('../../../lib/package/packageListCommand');
-    return this.execLegacyCommand(new PackageListCommand(), context);
+    const PackageListCommandImpl = require('../../../lib/package/packageListCommand');
+    return this.execLegacyCommand(new PackageListCommandImpl(), context);
   }
 }

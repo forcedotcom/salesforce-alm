@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, Salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root  or https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import { SfdxProject } from '@salesforce/core';
 
@@ -37,7 +37,7 @@ export class ExperienceBundleContentStrategy extends NonDecomposedContentStrateg
     forceoverwrite = false
   ): Promise<[string[], string[], string[], string[]]> {
     const existingFiles = ExperienceBundleMetadataType.getContentFilePaths(metadataFilePath, this.forceIgnore);
-    var [newPaths, updatedPaths, deletedPaths, dupPaths] = await super.saveContent(
+    let [newPaths, updatedPaths, deletedPaths, dupPaths] = await super.saveContent(
       metadataFilePath,
       retrievedContentFilePaths,
       retrievedMetadataFilePath,
@@ -45,10 +45,10 @@ export class ExperienceBundleContentStrategy extends NonDecomposedContentStrateg
       unsupportedMimeTypes,
       forceoverwrite
     );
-    const relativeRetrievedPaths = retrievedContentFilePaths.map(path =>
+    const relativeRetrievedPaths = retrievedContentFilePaths.map((path) =>
       this.metadataType.getRelativeContentPath(path)
     );
-    existingFiles.forEach(path => {
+    existingFiles.forEach((path) => {
       const relativePath = this.metadataType.getRelativeContentPath(path);
       if (!relativeRetrievedPaths.includes(relativePath)) {
         srcDevUtil.deleteIfExistsSync(path);

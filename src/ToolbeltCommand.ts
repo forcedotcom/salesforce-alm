@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+import * as path from 'path';
 
 import { SfdxCommand, flags } from '@salesforce/command';
 import {
@@ -16,19 +17,16 @@ import {
   getArray,
   isPlainObject,
   getString,
-  isObject
+  isObject,
 } from '@salesforce/ts-types';
 import { SfdxError, SfdxProject } from '@salesforce/core';
 import { set, isEmpty } from '@salesforce/kit';
 import { getProcessors } from './lib/indexErrorProcessor';
-import { requestPerfMetrics } from './lib/perfMetricsRequest';
 import logger = require('./lib/core/logApi');
 import Org = require('./lib/core/scratchOrgApi');
-import srcDevUtil = require('./lib/core/srcDevUtil');
 // This should use the new message framework, but it is an old legacy method so fine for now.
 import Messages = require('./lib/messages');
 import Output = flags.Output;
-import * as path from 'path';
 
 const messages = Messages();
 
@@ -100,17 +98,17 @@ export abstract class ToolbeltCommand extends SfdxCommand {
       // Should this be part of SfdxCommand?
       cmdFlags['perflog'] = flags.boolean({
         description: messages.getMessage('perfLogLevelOption'),
-        longDescription: messages.getMessage('perfLogLevelOptionLong')
+        longDescription: messages.getMessage('perfLogLevelOptionLong'),
       });
     }
     if (this.schema) {
       cmdFlags['confighelp'] = flags.boolean({
         description: messages.getMessage('schemaInfoOption', this.schema.flag),
-        longDescription: messages.getMessage('schemaInfoOptionLong')
+        longDescription: messages.getMessage('schemaInfoOptionLong'),
       });
     }
 
-    Object.keys(cmdFlags).forEach(flagName => {
+    Object.keys(cmdFlags).forEach((flagName) => {
       const flag = cmdFlags[flagName];
       if (flag.deprecated && !flag.description.startsWith('(deprecated)')) {
         flag.description = `(deprecated) ${flag.description}`;
@@ -126,9 +124,11 @@ export abstract class ToolbeltCommand extends SfdxCommand {
    * Don't invoke this if you wish to use new-style parsed flags.
    */
   protected stringifyFlags(): void {
-    Object.keys(this.flags).forEach(name => {
+    Object.keys(this.flags).forEach((name) => {
       const flag = this.flags[name];
-      if (flag == null) return;
+      if (flag == null) {
+        return;
+      }
       switch (typeof this.flags[name]) {
         case 'string':
         case 'number':
@@ -173,6 +173,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
    * * Remove getHumanSuccessMessage and just put it at the end of your run command
    * * Remove getHumanErrorMessage and throw an SfdxError
    * * ...
+   *
    * @param command
    */
   protected async execLegacyCommand(command, context, stdin?) {
@@ -231,6 +232,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
 
   /**
    * returns true if a wildcard like expansion or behavior is detected
+   *
    * @param param the next parameter passed into the cli
    */
   checkIfWildcardError(param: string): boolean {
@@ -238,7 +240,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
       return (
         this.argv.length > 2 &&
         (this.id.includes('source:deploy') || this.id.includes('source:retrieve')) &&
-        param.indexOf('-') != 0 && //if wildcard param will be path, can't start with '-', but flags have to start with '-'
+        param.indexOf('-') != 0 && // if wildcard param will be path, can't start with '-', but flags have to start with '-'
         param.indexOf('"') <= param.indexOf(', ') &&
         param.indexOf(path.sep) >= 0
       );
@@ -249,6 +251,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
 
   /**
    * SfdxError.wrap does not keep actions, so we need to convert ourselves if using almError
+   *
    * @param err
    */
   protected async catch(err: Error) {
@@ -262,6 +265,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
     try {
       project = await SfdxProject.resolve();
       appConfig = await project.resolveProjectConfig();
+      // eslint-disable-next-line no-empty
     } catch (noopError) {}
 
     // AuthInfo is a @salesforce/core centric thing. We should convert this message in core
@@ -272,6 +276,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
       try {
         const username = err.message.match(/No AuthInfo found for name (.*)/)[1];
         set(err, 'message', messages.getMessage('namedOrgNotFound', username));
+        // eslint-disable-next-line no-empty
       } catch (err) {} // In the offcase the match fails, don't throw a random error
 
       // If this is a parse error then this.flags.json may not be defined.
@@ -291,6 +296,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
       let context = {};
       try {
         context = await this.resolveLegacyContext();
+        // eslint-disable-next-line no-empty
       } catch (e) {}
       // TODO Processors should be moved to command??
       const processors = getProcessors(appConfig, context, err);
@@ -321,7 +327,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
       const index: number = this.argv.indexOf('-p') > 0 ? this.argv.indexOf('-p') : 0;
       const param: string = this.argv[index + 2]; // should be flag
       if (this.checkIfWildcardError(param)) {
-        //makes sure that the next arg is +2 from this and starts with - or exists
+        // makes sure that the next arg is +2 from this and starts with - or exists
         sfdxErr.message = messages.getMessage('WildCardError');
       }
       if (has(err, 'result')) {
@@ -331,10 +337,6 @@ export abstract class ToolbeltCommand extends SfdxCommand {
     }
 
     return super.catch(err);
-  }
-
-  protected getJsonResultObject(result, status) {
-    return ToolbeltCommand.logPerfMetrics(super.getJsonResultObject(result, status));
   }
 
   protected async resolveLegacyContext() {
@@ -348,7 +350,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
     this.stringifyFlags();
 
     const legacyArgs = [];
-    Object.keys(this.args || {}).forEach(argKey => {
+    Object.keys(this.args || {}).forEach((argKey) => {
       const val = this.args[argKey] || '';
       legacyArgs.push(`${argKey}=${val}`);
     });
@@ -359,17 +361,17 @@ export abstract class ToolbeltCommand extends SfdxCommand {
       const { args, argv } = this.parse({
         flags: this.statics.flags,
         args: this.statics.args,
-        strict
+        strict,
       });
       const argVals: string[] = Object.values(args);
-      const varargs = argv.filter(val => !argVals.includes(val));
+      const varargs = argv.filter((val) => !argVals.includes(val));
 
-      varargs.forEach(argKey => {
+      varargs.forEach((argKey) => {
         legacyArgs.push(argKey);
       });
     }
 
-    Object.keys(this.varargs || {}).forEach(argKey => {
+    Object.keys(this.varargs || {}).forEach((argKey) => {
       const val = this.varargs[argKey] || '';
       legacyArgs.push(`${argKey}=${val}`);
     });
@@ -378,7 +380,7 @@ export abstract class ToolbeltCommand extends SfdxCommand {
       flags: this.flags,
       args: legacyArgs,
       varargs: this.varargs,
-      ux: this.ux
+      ux: this.ux,
     };
     if (this.org || this.hubOrg) {
       const org = this.org || this.hubOrg;
@@ -444,13 +446,5 @@ export abstract class ToolbeltCommand extends SfdxCommand {
   // TypeScript does not yet have assertion-free polymorphic access to a class's static side from the instance side
   protected get statics(): typeof ToolbeltCommand {
     return this.constructor as typeof ToolbeltCommand;
-  }
-
-  protected static logPerfMetrics(obj) {
-    if (requestPerfMetrics.length > 0) {
-      obj.perfMetrics = requestPerfMetrics;
-      srcDevUtil.saveGlobalConfig('apiPerformanceLog.json', requestPerfMetrics);
-    }
-    return obj;
   }
 }

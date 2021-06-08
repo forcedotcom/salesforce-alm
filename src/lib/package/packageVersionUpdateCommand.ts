@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -12,6 +12,7 @@ import pkgUtils = require('./packageUtils');
 
 class PackageVersionUpdateCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -20,6 +21,7 @@ class PackageVersionUpdateCommand {
 
   /**
    * Convert the list of command line options to a JSON object that can be used to update an Package2Version entity.
+   *
    * @param context
    * @returns {{Id: (string|string|string), Name: (string|string), Description: (string|string), Branch: (string|string), Tag: (string|string), IsReleased: (boolean}}
    * @private
@@ -31,10 +33,10 @@ class PackageVersionUpdateCommand {
       package: 'Id',
       installationkey: 'InstallKey',
       versionname: 'Name',
-      versiondescription: 'Description'
+      versiondescription: 'Description',
     };
 
-    Object.keys(context.flagsConfig).forEach(flag => {
+    Object.keys(context.flagsConfig).forEach((flag) => {
       if (context.flags[flag]) {
         const apiName = mapping[flag] ? mapping[flag] : flag.charAt(0).toUpperCase() + flag.slice(1);
         values[apiName] = context.flags[flag];
@@ -45,7 +47,7 @@ class PackageVersionUpdateCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // TODO
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       err = pkgUtils.massageErrorMessage(err);
@@ -70,7 +72,7 @@ class PackageVersionUpdateCommand {
 
     const request = this._updatePackageVersionRequestFromContext(context);
 
-    return this.force.toolingUpdate(this.org, 'Package2Version', request).then(async updateResult => {
+    return this.force.toolingUpdate(this.org, 'Package2Version', request).then(async (updateResult) => {
       if (!updateResult.success) {
         throw new Error(updateResult.errors);
       }

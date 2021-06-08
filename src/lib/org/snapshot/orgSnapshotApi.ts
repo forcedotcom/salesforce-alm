@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
@@ -22,7 +22,7 @@ export const ORG_SNAPSHOT_FIELDS = [
   'ExpirationDate',
   'LastClonedDate',
   'LastClonedById',
-  'Error'
+  'Error',
 ];
 const DATETIME_FORMAT = 'YYYY-MM-DD HH:mm:ss';
 const DATE_FORMAT = 'YYYY-MM-DD';
@@ -34,24 +34,24 @@ export const ORG_SNAPSHOT_COLUMNS = [
   {
     key: 'CreatedDate',
     label: 'Created Date',
-    format: value => (value ? moment(value).format(DATETIME_FORMAT) : '')
+    format: (value) => (value ? moment(value).format(DATETIME_FORMAT) : ''),
   },
   {
     key: 'LastModifiedDate',
     label: 'Last Modified Date',
-    format: value => (value ? moment(value).format(DATETIME_FORMAT) : '')
+    format: (value) => (value ? moment(value).format(DATETIME_FORMAT) : ''),
   },
   {
     key: 'ExpirationDate',
     label: 'Expiration Date',
-    format: value => (value ? moment(value).format(DATE_FORMAT) : '')
+    format: (value) => (value ? moment(value).format(DATE_FORMAT) : ''),
   },
   {
     key: 'LastClonedDate',
     label: 'Last Cloned Date',
-    format: value => (value ? moment(value).format(DATETIME_FORMAT) : '')
+    format: (value) => (value ? moment(value).format(DATETIME_FORMAT) : ''),
   },
-  { key: 'LastClonedById', label: 'Last Cloned By Id' }
+  { key: 'LastClonedById', label: 'Last Cloned By Id' },
 ];
 const LIST_QUERY = `SELECT ${ORG_SNAPSHOT_FIELDS.join(',')} FROM OrgSnapshot ORDER BY CreatedDate`;
 const GET_QUERY_BY_ID = `SELECT ${ORG_SNAPSHOT_FIELDS.join(',')} FROM OrgSnapshot WHERE Id=\'%s\'`;
@@ -209,6 +209,7 @@ export class OrgSnapshotApiImpl implements OrgSnapshotApi {
 
   /**
    * Returns name-value pairs of column to data
+   *
    * @param result
    * @returns {ColumnData[]}
    */
@@ -221,21 +222,21 @@ export class OrgSnapshotApiImpl implements OrgSnapshotApi {
       { name: 'Source Org', value: result.SourceOrg },
       {
         name: 'Expiration Date',
-        value: result.ExpirationDate ? moment(result.ExpirationDate).format(DATE_FORMAT) : ''
+        value: result.ExpirationDate ? moment(result.ExpirationDate).format(DATE_FORMAT) : '',
       },
       {
         name: 'Last Cloned Date',
-        value: result.LastClonedDate ? moment(result.LastClonedDate).format(DATETIME_FORMAT) : ''
+        value: result.LastClonedDate ? moment(result.LastClonedDate).format(DATETIME_FORMAT) : '',
       },
       { name: 'Last Cloned By', value: result.LastClonedById },
       {
         name: 'Created Date',
-        value: moment(result.CreatedDate).format(DATETIME_FORMAT)
+        value: moment(result.CreatedDate).format(DATETIME_FORMAT),
       },
       {
         name: 'Last Modified Date',
-        value: moment(result.LastModifiedDate).format(DATETIME_FORMAT)
-      }
+        value: moment(result.LastModifiedDate).format(DATETIME_FORMAT),
+      },
     ];
   }
 

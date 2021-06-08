@@ -1,23 +1,23 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { fs as fscore, Logger, SfdxProject } from '@salesforce/core';
 import * as path from 'path';
+import { fs as fscore, Logger, SfdxProject } from '@salesforce/core';
 
-import { WorkspaceFileState, toReadableState, ReadableFileState } from './workspaceFileState';
-import MetadataRegistry = require('./metadataRegistry');
 import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
+import { JsonMap, Nullable } from '@salesforce/ts-types';
 import srcDevUtil = require('../core/srcDevUtil');
 import Messages = require('../messages');
+import { WorkspaceFileState, toReadableState, ReadableFileState } from './workspaceFileState';
+import MetadataRegistry = require('./metadataRegistry');
 const messages = Messages();
 
 import { AsyncCreatable } from '@salesforce/kit';
 import { Workspace } from './workspace';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { JsonMap, Nullable } from '@salesforce/ts-types';
 import { Stats } from 'fs';
 
 type Filter = {
@@ -30,7 +30,7 @@ type PartiallyRequired<T, U extends keyof T> = Required<Pick<T, U>> & Partial<Om
 
 export namespace SourcePathInfo {
   // We only require sourcePath because that's the bare minimum required to instaniate a SourcePathInfo.
-  export interface BaseEntry extends PartiallyRequired<Entry, 'sourcePath'> {}
+  export type BaseEntry = PartiallyRequired<Entry, 'sourcePath'>;
 
   export interface Entry {
     changeTime: number;
@@ -51,10 +51,11 @@ export namespace SourcePathInfo {
   export type Json = Entry & JsonMap;
 }
 
+// eslint-disable-next-line no-redeclare
 export class SourcePathInfo extends AsyncCreatable<SourcePathInfo.BaseEntry> implements SourcePathInfo.Entry {
   public changeTime: number;
   public contentHash: string;
-  public deferContentHash: boolean = false;
+  public deferContentHash = false;
   public isArtifactRoot: boolean;
   public isDirectory: boolean;
   public isMetadataFile: boolean;
@@ -82,6 +83,7 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfo.BaseEntry> imp
 
   /**
    * Return a clone of this SourcePathInfo, overriding specified properties.
+   *
    * @param overrides SourcePathInfo properties that should override the cloned properties
    */
   public async clone(overrides: Partial<SourcePathInfo.Entry> = {}): Promise<SourcePathInfo> {
@@ -118,7 +120,9 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfo.BaseEntry> imp
         sourcePath,
         SourcePathStatusManager.metadataRegistry
       );
-      if (metadataType) this.metadataType = metadataType.getMetadataName();
+      if (metadataType) {
+        this.metadataType = metadataType.getMetadataName();
+      }
     }
 
     this.size = filestat.size;
@@ -145,7 +149,7 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfo.BaseEntry> imp
       metadataType: this.metadataType,
       isWorkspace: this.isWorkspace,
       package: this.package,
-      deferContentHash: true // Defer computing content hash until we know we need to check it
+      deferContentHash: true, // Defer computing content hash until we know we need to check it
     });
 
     // See if the referenced path has been deleted
@@ -213,11 +217,11 @@ export class SourcePathInfo extends AsyncCreatable<SourcePathInfo.BaseEntry> imp
       isArtifactRoot: this.isArtifactRoot,
       package: this.package,
       metadataType: this.metadataType,
-      deferContentHash: this.deferContentHash
+      deferContentHash: this.deferContentHash,
     };
     // remove all properites with a null value
     return Object.keys(entry)
-      .filter(k => !!entry[k])
+      .filter((k) => !!entry[k])
       .reduce((a, k) => ({ ...a, [k]: entry[k] }), {} as SourcePathInfo.Json);
   }
 }
@@ -232,11 +236,12 @@ namespace SourcePathStatusManager {
 /**
  * Manages a data model for tracking changes to local workspace paths
  */
+// eslint-disable-next-line no-redeclare
 export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusManager.Options> {
   public logger!: Logger;
   public fileMoveLogger!: Logger;
   public org: any;
-  public isStateless: boolean = false;
+  public isStateless = false;
   public workspacePath: string;
   public forceIgnore: ForceIgnore;
   public workspace: Workspace;
@@ -260,7 +265,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
     const workspaceOpts = {
       org: this.org,
       forceIgnore: this.forceIgnore,
-      isStateless: this.isStateless
+      isStateless: this.isStateless,
     };
     this.workspace = await Workspace.create(workspaceOpts);
   }
@@ -272,11 +277,11 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
     // normalize packageDirectory (if defined) to end with a path separator
     filter.packageDirectory = normalizeDirectoryPath(filter.packageDirectory);
 
-    const trackedPackages = this.workspace.trackedPackages.map(p => normalizeDirectoryPath(p));
+    const trackedPackages = this.workspace.trackedPackages.map((p) => normalizeDirectoryPath(p));
     const allPackages = SfdxProject.getInstance()
       .getUniquePackageDirectories()
-      .map(p => normalizeDirectoryPath(p.fullPath));
-    const untrackedPackages = allPackages.filter(rootDir => !trackedPackages.includes(rootDir));
+      .map((p) => normalizeDirectoryPath(p.fullPath));
+    const untrackedPackages = allPackages.filter((rootDir) => !trackedPackages.includes(rootDir));
 
     // if a root directory is specified, make sure it is a project source directory
     if (rootDirectoryIsNotASourceDirectory(filter.packageDirectory, allPackages)) {
@@ -350,7 +355,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
       processedSourcePathInfos
     );
     this.logger.debug(`Found ${finalSourcePathInfos.length} sourcePathInfos`);
-    finalSourcePathInfos.forEach(key => this.logger.debug(key));
+    finalSourcePathInfos.forEach((key) => this.logger.debug(key));
     return finalSourcePathInfos;
   }
 
@@ -405,16 +410,13 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
         const pathAfterPackageDir = fullPath.replace(packagePath, '');
 
         this.logger.debug(`Looking for ${pathAfterPackageDir} in list of added files`);
-        const matchingAddedSpi = addedSourcePathInfos.find(addedSpi => {
+        const matchingAddedSpi = addedSourcePathInfos.find((addedSpi) => {
           let found = false;
           if (addedSpi.sourcePath.endsWith(pathAfterPackageDir)) {
             // it was moved to another package.
             found = true;
           } else {
-            const pathWithinPackage = pathAfterPackageDir
-              .split(path.sep)
-              .slice(2)
-              .join(path.sep);
+            const pathWithinPackage = pathAfterPackageDir.split(path.sep).slice(2).join(path.sep);
             if (addedSpi.sourcePath.endsWith(pathWithinPackage)) {
               // it was moved within the package (within 2 directories of the package dir)
               found = true;
@@ -439,7 +441,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
             const movedSpiBeforeChanges = await matchingAddedSpi.clone({
               size: deletedSpi.size,
               state: WorkspaceFileState.CHANGED,
-              contentHash: deletedSpi.contentHash
+              contentHash: deletedSpi.contentHash,
             });
             spiUpdates.push(movedSpiBeforeChanges);
           } else {
@@ -454,7 +456,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
 
       if (spiUpdates.length) {
         // Grab the directories for these changes too for the updated directory hashes.
-        spiUpdates.forEach(spi => {
+        spiUpdates.forEach((spi) => {
           const dirSpi = processedSourcePathInfos.get(path.dirname(spi.sourcePath));
           dirSpi && spiUpdates.push(dirSpi);
         });
@@ -494,7 +496,9 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
           sourcePath.pop();
           const parentPath = sourcePath.join(path.sep);
           updatedPaths.push(parentPath);
-          if (this.workspace.has(parentPath)) break;
+          if (this.workspace.has(parentPath)) {
+            break;
+          }
         }
       }
     }
@@ -503,7 +507,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
       this.workspace.unset(deletedPath);
     }
 
-    const promises = updatedPaths.map(async updatedPath => {
+    const promises = updatedPaths.map(async (updatedPath) => {
       let sourcePathInfo: SourcePathInfo;
       const existing = this.workspace.get(updatedPath);
       if (existing) {
@@ -512,7 +516,7 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
         sourcePathInfo = await SourcePathInfo.create({
           sourcePath: updatedPath,
           isWorkspace: existing.isWorkspace,
-          isArtifactRoot: existing.isArtifactRoot
+          isArtifactRoot: existing.isArtifactRoot,
         });
       } else {
         sourcePathInfo = await SourcePathInfo.create({ sourcePath: updatedPath });
@@ -544,7 +548,9 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
     for (const file of files) {
       const fullPath = path.join(directoryPath, file);
       // We only need to process additions to the directory, any existing ones will get dealt with on their own
-      if (this.workspace.has(fullPath)) continue;
+      if (this.workspace.has(fullPath)) {
+        continue;
+      }
       const pathInfos = await this.getNewPathInfos(fullPath);
       updatedPathInfos.push(...pathInfos);
     }
@@ -559,14 +565,14 @@ export class SourcePathStatusManager extends AsyncCreatable<SourcePathStatusMana
     let newPathInfos = [];
     const newPathInfo = await SourcePathInfo.create({
       sourcePath,
-      deferContentHash: false
+      deferContentHash: false,
     });
 
     if (this.workspace.isValidSourcePath(newPathInfo)) {
       newPathInfos.push(newPathInfo);
       if (newPathInfo.isDirectory) {
         const files = await fscore.readdir(sourcePath);
-        const promises = files.map(async file => await this.getNewPathInfos(path.join(sourcePath, file)));
+        const promises = files.map(async (file) => await this.getNewPathInfos(path.join(sourcePath, file)));
         const infos = await Promise.all(promises);
         newPathInfos = newPathInfos.concat(infos.reduce((x, y) => x.concat(y), []));
       }
@@ -586,5 +592,5 @@ function normalizeDirectoryPath(dirPath: string): string {
  * Determine if the provided directroy path has source files
  */
 function rootDirectoryIsNotASourceDirectory(packageDirPath: string, trackedPackages: string[]): boolean {
-  return !!packageDirPath && !trackedPackages.find(pkg => packageDirPath.startsWith(pkg));
+  return !!packageDirPath && !trackedPackages.find((pkg) => packageDirPath.startsWith(pkg));
 }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -20,20 +20,22 @@ import * as openBrowser from 'open';
 import Messages = require('../messages');
 const messages = Messages();
 import * as almError from '../core/almError';
+import { sfdc } from '@salesforce/core';
 import srcDevUtil = require('../core/srcDevUtil');
 
 const SETUP = '/setup/forcecomHomepage.apexp';
 
 /**
  * gets a url for the workspace or test org
+ *
  * @param context - the cli context
  * @param force - the force api
  * @param orgApi - an org.
  * @returns {BBPromise}
  * @private
  */
-const _getUrl = function(context, orgApi) {
-  return orgApi.force.getOrgFrontDoor(orgApi).then(url => {
+const _getUrl = function (context, orgApi) {
+  return orgApi.force.getOrgFrontDoor(orgApi).then((url) => {
     let newUrl = url;
 
     // if provided, redirect to url path post-login
@@ -59,13 +61,13 @@ const getDomainRetries = () =>
 const _checkLightningDomain = (myDomain, logger, retryCount = 0) =>
   dns
     .lookupAsync(`${myDomain}.lightning.force.com`)
-    .then(ip => {
+    .then((ip) => {
       if (retryCount !== 0) {
         logger.logRaw(logger.getEOL() + logger.getEOL());
       }
       return ip;
     })
-    .catch(err => {
+    .catch((err) => {
       if (retryCount >= getDomainRetries()) {
         logger.logRaw(logger.getEOL() + logger.getEOL());
         return BBPromise.reject(err);
@@ -81,17 +83,18 @@ const _checkLightningDomain = (myDomain, logger, retryCount = 0) =>
 
 /**
  * either open user's desktop browser or just print the url in console.
+ *
  * @param context - the cli context
  * @param force - the force api
  * @returns {BBPromise}
  * @private
  */
-const _open = function(context, orgApi) {
-  return _getUrl(context, orgApi).then(url => {
+const _open = function (context, orgApi) {
+  return _getUrl(context, orgApi).then((url) => {
     const orgData = orgApi.getConfig().then(({ orgId, username }) => BBPromise.resolve({ url, orgId, username }));
     const act = () => (context.urlonly ? orgData : openBrowser(url, { wait: false }).then(() => orgData));
 
-    if (getDomainRetries() === 0 || srcDevUtil.isInternalUrl(url)) {
+    if (getDomainRetries() === 0 || sfdc.isInternalUrl(url)) {
       return act();
     }
 
@@ -99,7 +102,7 @@ const _open = function(context, orgApi) {
       const myDomain = url.match(/https?\:\/\/([^.]*)/)[1];
       return _checkLightningDomain(myDomain, orgApi.logger)
         .then(() => act())
-        .catch(err =>
+        .catch(() =>
           orgData.then(() => {
             throw almError('openCommandDomainTimeoutError', null, 'openCommandDomainTimeoutAction');
           })
@@ -113,12 +116,13 @@ const _open = function(context, orgApi) {
 
 /**
  * recursive method to filter out the session id out of the log message/object/error
+ *
  * @param args - the params to log
  * @returns {Array}
  * @private
  */
-const _filter = function(...args) {
-  return args.map(arg => {
+const _filter = function (...args) {
+  return args.map((arg) => {
     if (util.isArray(arg)) {
       return _filter(...arg);
     } else if (util.isString(arg)) {
@@ -127,7 +131,7 @@ const _filter = function(...args) {
       arg.message = _filter(arg.message)[0];
       return arg;
     } else if (util.isObject(arg)) {
-      Object.keys(arg).forEach(key => {
+      Object.keys(arg).forEach((key) => {
         arg[key] = _filter(arg[key])[0];
       });
       return arg;
@@ -145,6 +149,7 @@ class OrgOpenCommand {
 
   /**
    * executes the open command
+   *
    * @param context - the cli context
    * @returns {BBPromise}
    */
@@ -154,6 +159,7 @@ class OrgOpenCommand {
 
   /**
    * secondary validation for the cli.
+   *
    * @param context - the cli context.
    * @returns {BBPromise}
    */
@@ -165,6 +171,7 @@ class OrgOpenCommand {
 
   /**
    * returns a success message that's human readable.
+   *
    * @param urlObject - the json object returned from execute.
    * @returns {string}
    */

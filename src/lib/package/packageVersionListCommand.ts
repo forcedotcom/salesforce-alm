@@ -1,14 +1,14 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
+import * as util from 'util';
 import * as moment from 'moment';
 import * as _ from 'lodash';
-import * as util from 'util';
 
 // Local
 import Messages = require('../messages');
@@ -38,6 +38,7 @@ class PackageVersionListCommand {
   static DEFAULT_ORDER_BY_FIELDS = DEFAULT_ORDER_BY_FIELDS;
 
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -48,7 +49,7 @@ class PackageVersionListCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // TODO
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       throw pkgUtils.applyErrorAction(err);
@@ -61,29 +62,25 @@ class PackageVersionListCommand {
     this.verbose = context.flags.verbose;
     this.concise = context.flags.concise;
 
-    return this.force.toolingQuery(this.org, this._constructQuery(context.flags)).then(async queryResult => {
+    return this.force.toolingQuery(this.org, this._constructQuery(context.flags)).then(async (queryResult) => {
       const records = queryResult.records;
       if (records && records.length > 0) {
         let ancestorVersionsMap;
         let containerOptionsMap;
         // lookup ancestorVersions if ancestorIds are present
-        const ancestorIds = records
-          .filter(record => {
-            return record.AncestorId;
-          })
-          .map(record => record.AncestorId);
+        const ancestorIds = records.filter((record) => record.AncestorId).map((record) => record.AncestorId);
         if (ancestorIds && ancestorIds.length > 0) {
           ancestorVersionsMap = await pkgUtils.getPackageVersionStrings(ancestorIds, this.force, this.org);
         }
 
         // Get the container options for each package version. We need this for determining if the version is OrgDependent
-        const recordIds = [...new Set(records.map(record => record.Package2Id))];
+        const recordIds = [...new Set(records.map((record) => record.Package2Id))];
         containerOptionsMap = await pkgUtils.getContainerOptions(recordIds, this.force, this.org);
 
-        records.forEach(record => {
+        records.forEach((record) => {
           const ids = [record.Id, record.SubscriberPackageVersionId];
           const aliases = [];
-          ids.forEach(id => {
+          ids.forEach((id) => {
             const matches = pkgUtils.getPackageAliasesFromId(id, this.force);
             if (matches.length > 0) {
               aliases.push(matches);
@@ -101,26 +98,26 @@ class PackageVersionListCommand {
             record.AncestorId = 'N/A';
           }
 
-          let codeCoverage =
+          const codeCoverage =
             record.CodeCoverage != null
               ? `${record.CodeCoverage['apexCodeCoveragePercentage']}%`
               : record.Package2.IsOrgDependent === true || record.ValidationSkipped === true
               ? 'N/A'
               : '';
 
-          let hasPassedCodeCoverageCheck =
+          const hasPassedCodeCoverageCheck =
             record.Package2.IsOrgDependent === true || record.ValidationSkipped === true
               ? 'N/A'
               : record.HasPassedCodeCoverageCheck;
 
-          let isOrgDependent =
+          const isOrgDependent =
             containerOptionsMap.get(record.Package2Id) === 'Managed'
               ? 'N/A'
               : record.Package2.IsOrgDependent === true
               ? 'Yes'
               : 'No';
 
-          let hasMetadataRemoved =
+          const hasMetadataRemoved =
             containerOptionsMap.get(record.Package2Id) !== 'Managed'
               ? 'N/A'
               : record.HasMetadataRemoved === true
@@ -160,7 +157,7 @@ class PackageVersionListCommand {
             IsOrgDependent: isOrgDependent,
             ReleaseVersion: record.ReleaseVersion == null ? '' : Number.parseFloat(record.ReleaseVersion).toFixed(1),
             BuildDurationInSeconds: record.BuildDurationInSeconds == null ? '' : record.BuildDurationInSeconds,
-            HasMetadataRemoved: hasMetadataRemoved
+            HasMetadataRemoved: hasMetadataRemoved,
           });
         });
       }
@@ -193,10 +190,10 @@ class PackageVersionListCommand {
       idsOrAliases = _.uniq(idsOrAliases);
 
       // resolve any aliases
-      const packageIds = idsOrAliases.map(idOrAlias => pkgUtils.getPackageIdFromAlias(idOrAlias, this.force));
+      const packageIds = idsOrAliases.map((idOrAlias) => pkgUtils.getPackageIdFromAlias(idOrAlias, this.force));
 
       // validate ids
-      packageIds.forEach(packageid => {
+      packageIds.forEach((packageid) => {
         pkgUtils.validateId(pkgUtils.BY_LABEL.PACKAGE_ID, packageid);
       });
 
@@ -253,6 +250,7 @@ class PackageVersionListCommand {
 
   /**
    * indicates that the human readable message should be tabular
+   *
    * @returns {[{}...]}
    */
   getColumnData() {
@@ -262,17 +260,17 @@ class PackageVersionListCommand {
       return [
         {
           key: 'Package2Id',
-          label: messages.getMessage('packageId', [], 'package_version_list')
+          label: messages.getMessage('packageId', [], 'package_version_list'),
         },
         {
           key: 'Version',
-          label: messages.getMessage('version', [], 'package_version_list')
+          label: messages.getMessage('version', [], 'package_version_list'),
         },
         {
           key: 'SubscriberPackageVersionId',
-          label: messages.getMessage('subscriberPackageVersionId', [], 'package_version_list')
+          label: messages.getMessage('subscriberPackageVersionId', [], 'package_version_list'),
         },
-        { key: 'IsReleased', label: 'Released' }
+        { key: 'IsReleased', label: 'Released' },
       ];
     }
 
@@ -282,83 +280,83 @@ class PackageVersionListCommand {
       { key: 'Name', label: 'Version Name' },
       {
         key: 'Version',
-        label: messages.getMessage('version', [], 'package_version_list')
+        label: messages.getMessage('version', [], 'package_version_list'),
       },
       {
         key: 'SubscriberPackageVersionId',
-        label: messages.getMessage('subscriberPackageVersionId', [], 'package_version_list')
+        label: messages.getMessage('subscriberPackageVersionId', [], 'package_version_list'),
       },
       {
         key: 'Alias',
-        label: messages.getMessage('alias', [], 'package_version_list')
+        label: messages.getMessage('alias', [], 'package_version_list'),
       },
       {
         key: 'IsPasswordProtected',
-        label: messages.getMessage('installKey', [], 'package_version_list')
+        label: messages.getMessage('installKey', [], 'package_version_list'),
       },
       { key: 'IsReleased', label: 'Released' },
       {
         key: 'ValidationSkipped',
-        label: messages.getMessage('validationSkipped', [], 'package_version_list')
+        label: messages.getMessage('validationSkipped', [], 'package_version_list'),
       },
       { key: 'AncestorId', label: 'Ancestor' },
       { key: 'AncestorVersion', label: 'Ancestor Version' },
       {
         key: 'Branch',
-        label: messages.getMessage('packageBranch', [], 'package_version_list')
-      }
+        label: messages.getMessage('packageBranch', [], 'package_version_list'),
+      },
     ];
 
     if (this.verbose) {
       columns.push({
         key: 'Package2Id',
-        label: messages.getMessage('packageId', [], 'package_version_list')
+        label: messages.getMessage('packageId', [], 'package_version_list'),
       });
       columns.push({
         key: 'InstallUrl',
-        label: messages.getMessage('installUrl', [], 'package_version_list')
+        label: messages.getMessage('installUrl', [], 'package_version_list'),
       });
       columns.push({
         key: 'Id',
-        label: messages.getMessage('id', [], 'package_version_list')
+        label: messages.getMessage('id', [], 'package_version_list'),
       });
       columns.push({ key: 'CreatedDate', label: 'Created Date' });
       columns.push({ key: 'LastModifiedDate', label: 'Last Modified Date' });
       columns.push({
         key: 'Tag',
-        label: messages.getMessage('packageTag', [], 'package_version_list')
+        label: messages.getMessage('packageTag', [], 'package_version_list'),
       });
       columns.push({
         key: 'Description',
-        label: messages.getMessage('description', [], 'package_version_list')
+        label: messages.getMessage('description', [], 'package_version_list'),
       });
       columns.push({
         key: 'CodeCoverage',
-        label: messages.getMessage('codeCoverage', [], 'package_version_list')
+        label: messages.getMessage('codeCoverage', [], 'package_version_list'),
       });
       columns.push({
         key: 'HasPassedCodeCoverageCheck',
-        label: messages.getMessage('hasPassedCodeCoverageCheck', [], 'package_version_list')
+        label: messages.getMessage('hasPassedCodeCoverageCheck', [], 'package_version_list'),
       });
       columns.push({
         key: 'ConvertedFromVersionId',
-        label: messages.getMessage('convertedFromVersionId', [], 'package_version_list')
+        label: messages.getMessage('convertedFromVersionId', [], 'package_version_list'),
       });
       columns.push({
         key: 'IsOrgDependent',
-        label: messages.getMessage('isOrgDependent', [], 'package_list')
+        label: messages.getMessage('isOrgDependent', [], 'package_list'),
       });
       columns.push({
         key: 'ReleaseVersion',
-        label: messages.getMessage('releaseVersion', [], 'package_version_list')
+        label: messages.getMessage('releaseVersion', [], 'package_version_list'),
       });
       columns.push({
         key: 'BuildDurationInSeconds',
-        label: messages.getMessage('buildDurationInSeconds', [], 'package_version_list')
+        label: messages.getMessage('buildDurationInSeconds', [], 'package_version_list'),
       });
       columns.push({
         key: 'HasMetadataRemoved',
-        label: messages.getMessage('hasMetadataRemoved', [], 'package_version_list')
+        label: messages.getMessage('hasMetadataRemoved', [], 'package_version_list'),
       });
     }
 

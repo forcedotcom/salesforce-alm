@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -34,7 +34,7 @@ function _mergeFolderMembersUnderFolderChildAndUpdateSharingRules(inputManifestE
   const folderManifestElements = {};
   const folderChildManifestElements = {};
 
-  inputManifestElements.forEach(element => {
+  inputManifestElements.forEach((element) => {
     if (folderMetadataTypes.includes(element.name)) {
       folderManifestElements[element.name] = element;
     } else if (folderChildMetadataTypes.includes(element.name)) {
@@ -44,7 +44,7 @@ function _mergeFolderMembersUnderFolderChildAndUpdateSharingRules(inputManifestE
 
   const newFolderChildManifestElements = [];
 
-  Object.keys(folderManifestElements).forEach(folderMetadataType => {
+  Object.keys(folderManifestElements).forEach((folderMetadataType) => {
     const folderManifestElement = folderManifestElements[folderMetadataType];
     const folderChildMetadataType = FOLDER_TO_CHILD_METADATA_TYPE_MAP[folderMetadataType];
     const folderChildManifestElement = folderChildManifestElements[folderChildMetadataType];
@@ -53,7 +53,7 @@ function _mergeFolderMembersUnderFolderChildAndUpdateSharingRules(inputManifestE
     } else {
       newFolderChildManifestElements.push({
         members: folderManifestElement.members,
-        name: folderChildMetadataType
+        name: folderChildMetadataType,
       });
     }
   });
@@ -64,16 +64,16 @@ function _mergeFolderMembersUnderFolderChildAndUpdateSharingRules(inputManifestE
     sharingEntities = metadataRegistry.typeDefs.SharingRules.childXmlNames;
   }
 
-  inputManifestElements.forEach(element => {
+  inputManifestElements.forEach((element) => {
     if (folderMetadataTypes.indexOf(element.name) >= 0) {
       // Do nothing. We don't want folder types included in the list of types for manifest!
     } else if (folderChildMetadataTypes.indexOf(element.name) >= 0) {
       updatedManifestElements.push(folderChildManifestElements[element.name]);
     } else if (sharingEntities.indexOf(element.name) >= 0) {
-      sharingEntities.forEach(sharingEntity => {
+      sharingEntities.forEach((sharingEntity) => {
         updatedManifestElements.push({
           name: sharingEntity,
-          members: element.members
+          members: element.members,
         });
       });
     } else {
@@ -92,6 +92,7 @@ function _mergeFolderMembersUnderFolderChildAndUpdateSharingRules(inputManifestE
  */
 class MdapiPackage {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   /**
@@ -110,9 +111,9 @@ class MdapiPackage {
 
     this.Package = {
       $: {
-        xmlns: 'http://soap.sforce.com/2006/04/metadata'
+        xmlns: 'http://soap.sforce.com/2006/04/metadata',
       },
-      types: []
+      types: [],
     };
 
     this.setVersion(version);
@@ -120,6 +121,7 @@ class MdapiPackage {
 
   /**
    * Set the package version
+   *
    * @param version the version intended to be included in package.xml
    */
   setVersion(version) {
@@ -134,6 +136,7 @@ class MdapiPackage {
 
   /**
    * Set the package name
+   *
    * @param packageName name of the package to associate the metadata with, null == don't associate with package
    */
   setPackageName(packageName) {
@@ -147,6 +150,7 @@ class MdapiPackage {
   /**
    * Convert a Folder MD type from a manifest (package.xml) entry to the name used in
    * a client side representation such as a key in a map of AggregateSourceElements.
+   *
    * @param type {string} the name of the folder MD type from the package.xml.
    *      E.g., Document --> DocumentFolder
    */
@@ -157,6 +161,7 @@ class MdapiPackage {
 
   /**
    * Add a member with a type to the data structure. The type is created if it doesn't already exists
+   *
    * @param fullName - the fullname attribute from the source metadata member
    * @param type - the type also contained in the source metadata member fullname attribute
    */
@@ -173,12 +178,12 @@ class MdapiPackage {
     const types = this.Package.types;
 
     // find the type attribute
-    let localType = types.find(elementType => elementType.name === type);
+    let localType = types.find((elementType) => elementType.name === type);
 
     // If not found create one an poke the reference
     if (!localType) {
       localType = {
-        name: type.trim()
+        name: type.trim(),
       };
       types.push(localType);
     }
@@ -203,7 +208,7 @@ class MdapiPackage {
     }
 
     // don't support duplicates
-    const member = localType.members.find(memberElement => memberElement === fullNameTrimmed);
+    const member = localType.members.find((memberElement) => memberElement === fullNameTrimmed);
 
     // push a member
     if (!member) {
@@ -213,12 +218,13 @@ class MdapiPackage {
 
   /**
    * this function "fixes" up folder types and sorts all type members within.
+   *
    * @returns {MdapiPackage}
    */
   getPackage(metadataRegistry) {
     this.Package.types = _mergeFolderMembersUnderFolderChildAndUpdateSharingRules(this.Package.types, metadataRegistry);
 
-    this.Package.types.forEach(type => {
+    this.Package.types.forEach((type) => {
       type.members.sort();
     });
 

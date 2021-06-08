@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { StaticResourceContentStrategy } from './staticResourceContentStrategy';
@@ -34,7 +34,7 @@ export class DecompositionStrategyFactory {
     } else if (config.strategy === 'nonDecomposed') {
       return new NonDecomposedMetadataStrategy(config);
     }
-    return new NonDecomposedMetadataStrategy(config); //default
+    return new NonDecomposedMetadataStrategy(config); // default
   }
 
   static newDecompositionWorkspaceStrategy(config: DecompositionConfig): DecompositionWorkspaceStrategy {
@@ -47,7 +47,7 @@ export class DecompositionStrategyFactory {
     if (config.workspaceStrategy === 'nonDecomposed') {
       return new NonDecomposedWorkspaceStrategy();
     }
-    return new FolderPerSubtypeWorkspaceDecomposition(config); //default
+    return new FolderPerSubtypeWorkspaceDecomposition(config); // default
   }
 
   static newDecompositionCommitStrategy(config: DecompositionConfig): DecompositionCommitStrategy {
@@ -57,7 +57,7 @@ export class DecompositionStrategyFactory {
     if (config.commitStrategy === 'virtualDecomposition') {
       return new VirtualDecompositionCommitStrategy(config);
     }
-    return new FineGrainTrackingCommitStrategy(config); //default
+    return new FineGrainTrackingCommitStrategy(config); // default
   }
 
   static newContentStrategy(

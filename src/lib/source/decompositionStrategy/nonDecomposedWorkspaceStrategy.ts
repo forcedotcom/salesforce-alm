@@ -1,14 +1,15 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { Nullable } from '@salesforce/ts-types';
+import { MetadataDocumentAnnotation } from '../metadataDocument';
 import { DecompositionWorkspaceStrategy } from './decompositionWorkspaceStrategy';
 import { DecomposedSubtypeConfig } from './decompositionConfig';
-import { MetadataDocumentAnnotation } from '../metadataDocument';
-import { Nullable } from '@salesforce/ts-types';
 
 /**
  * Workspace decomposition strategy where metadata files do not require decomposition
@@ -17,6 +18,7 @@ import { Nullable } from '@salesforce/ts-types';
 export class NonDecomposedWorkspaceStrategy implements DecompositionWorkspaceStrategy {
   /**
    * Returns null because this strategy has no decompositions
+   *
    * @param annotation
    * @param decomposedSubtypeConfig
    * @returns {null}
@@ -27,6 +29,7 @@ export class NonDecomposedWorkspaceStrategy implements DecompositionWorkspaceStr
 
   /**
    * For non-decomposed source, the metadata file path is also the container path
+   *
    * @param metadataFilePath
    * @param ext
    * @returns {any}
@@ -37,6 +40,7 @@ export class NonDecomposedWorkspaceStrategy implements DecompositionWorkspaceStr
 
   /**
    * Returns an empty map because this strategy has no decompositions
+   *
    * @param metadataFilePath
    * @param ext
    * @returns {Map<DecomposedSubtypeConfig, string[]>}
@@ -47,6 +51,7 @@ export class NonDecomposedWorkspaceStrategy implements DecompositionWorkspaceStr
 
   /**
    * Returns null because this strategy has no decompositions
+   *
    * @param metadataFilePath
    * @param ext
    * @param decomposedSubtypeConfig

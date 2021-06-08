@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
 // THIS SHOULD BE REMOVED WHEN CONVERTED TO EXTEND SfdxCommand
 /* istanbul ignore file */
 
+import * as fs from 'fs';
 import { flags, FlagsConfig } from '@salesforce/command';
 import * as BBPromise from 'bluebird';
-import * as fs from 'fs';
 import Messages = require('../../../../lib/messages');
 import { ToolbeltCommand } from '../../../../ToolbeltCommand';
 
@@ -25,8 +25,8 @@ export class OrgShapeListCommand extends ToolbeltCommand {
   public static readonly flagsConfig: FlagsConfig = {
     verbose: flags.builtin({
       description: messages.getMessage('verbose', [], 'org_shape_list'),
-      longDescription: messages.getMessage('verboseLong', [], 'org_shape_list')
-    })
+      longDescription: messages.getMessage('verboseLong', [], 'org_shape_list'),
+    }),
   };
 
   public async run(): Promise<unknown> {
@@ -34,7 +34,7 @@ export class OrgShapeListCommand extends ToolbeltCommand {
 
     BBPromise.promisifyAll(fs);
 
-    const OrgShapeListCommand = require('../../../../lib/org/orgShapeListCommand'); // eslint-disable-line global-require
-    return this.execLegacyCommand(new OrgShapeListCommand(), context);
+    const OrgShapeListCommandImpl = require('../../../../lib/org/orgShapeListCommand'); // eslint-disable-line global-require
+    return this.execLegacyCommand(new OrgShapeListCommandImpl(), context);
   }
 }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as _ from 'lodash';
@@ -20,27 +20,29 @@ const BUNDLE_NAME = 'IndexErrorProcessor';
  * completed and no problems were found.
  */
 export enum CheckStatus {
-  OK
+  OK,
 }
 
 /**
  * Returns an array of processors used to determine if an error can be further refined. Instead of
  * adding more error handing logic to index.js add it here, as it's much easier to unit test.
+ *
  * @param appConfig - the sfdx configuration
  * @param context - the cli context
  * @param err - a potentially course grained error thrown by the cli.
  */
-export function getProcessors(appConfig, context, err): Array<_Promise> {
+export function getProcessors(appConfig, context, err): _Promise[] {
   return [
     checkVersionMisMatchAsync(context, err),
     checkServer500(err),
     checkOauthAnd404(appConfig, context, err),
-    checkInvalidLoginUrlWithAccessToken(context, err)
+    checkInvalidLoginUrlWithAccessToken(context, err),
   ];
 }
 
 /**
  * Check is there is an invalid grant with oauth or a 404 response from the server.
+ *
  * @param appConfig - sfdx configuration
  * @param context - cli context
  * @param err - an error from the cli
@@ -71,7 +73,7 @@ export function checkOauthAnd404(appConfig, context, err): CheckStatus {
           ? notFoundMessage
           : authConfig.clientId,
         _.isNil(authConfig.loginUrl) ? notFoundMessage : authConfig.loginUrl,
-        _.isNil(authConfig.privateKey) ? notFoundMessage : authConfig.privateKey
+        _.isNil(authConfig.privateKey) ? notFoundMessage : authConfig.privateKey,
       ],
       'oauthInvalidGrantAction'
     );
@@ -81,6 +83,7 @@ export function checkOauthAnd404(appConfig, context, err): CheckStatus {
 
 /**
  * Check that the servers api version is <= to the local config apiVersion.
+ *
  * @param context - the cli context that contains an org
  * @param _err  - an error thrown by the cli
  */
@@ -93,7 +96,7 @@ export async function checkVersionMisMatchAsync(context, _err): Promise<CheckSta
       if (_.toNumber(configVersion) > _.toNumber(maxApiVersionForOrg.version)) {
         throw almError({ bundle: BUNDLE_NAME, keyName: 'apiMisMatch' }, [configVersion, maxApiVersionForOrg.version], {
           keyName: 'apiMisMatchAction',
-          bundle: BUNDLE_NAME
+          bundle: BUNDLE_NAME,
         });
       }
     }
@@ -105,13 +108,14 @@ export async function checkVersionMisMatchAsync(context, _err): Promise<CheckSta
 /**
  * Check to see if the throw error is a server 500. THis error is critical. If a database is being update in production
  * This error is throw after a rest style connection. It's imperative that customer's get a link to http://trust.salesforce.com
+ *
  * @param _err - an error to process thrown by the cli.
  */
 export function checkServer500(_err): CheckStatus {
   if (_err && _err.name === 'ERROR_HTTP_500' && _.isEmpty(_.trim(_err.message))) {
     throw almError({ bundle: BUNDLE_NAME, keyName: 'server500' }, null, {
       bundle: BUNDLE_NAME,
-      keyName: 'server500Action'
+      keyName: 'server500Action',
     });
   }
   return CheckStatus.OK;

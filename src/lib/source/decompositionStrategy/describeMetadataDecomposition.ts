@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
@@ -13,7 +13,7 @@ import { MetadataDocument, MetadataDocumentAnnotation } from '../metadataDocumen
 import { XmlMetadataDocument, XmlAttribute } from '../xmlMetadataDocument';
 import {
   DescribeMetadataDecompositionConfig,
-  DescribeMetadataDecomposedSubtypeConfig
+  DescribeMetadataDecomposedSubtypeConfig,
 } from './describeMetadataDecompositionConfig';
 import { DecompositionConfig, DecomposedSubtypeConfig } from './decompositionConfig';
 import { DecompositionStrategy } from './decompositionStrategy';
@@ -35,7 +35,7 @@ export class DescribeMetadataDecomposition implements DecompositionStrategy {
   decompositionConfig: DescribeMetadataDecompositionConfig;
 
   constructor(decompositionConfig: DecompositionConfig) {
-    this.decompositionConfig = <DescribeMetadataDecompositionConfig>decompositionConfig;
+    this.decompositionConfig = decompositionConfig as DescribeMetadataDecompositionConfig;
   }
 
   newDocument(metadataName: string, xmlAttributes?: XmlAttribute[]): MetadataDocument {
@@ -75,7 +75,7 @@ export class DescribeMetadataDecomposition implements DecompositionStrategy {
         for (const decomposition of decompositions.get(decomposedSubtypeConfig)) {
           const fragmentDoc = decomposition.data;
           const fragmentElement = composed.data.createElement(
-            (<DescribeMetadataDecomposedSubtypeConfig>decomposedSubtypeConfig).xmlFragmentName
+            (decomposedSubtypeConfig as DescribeMetadataDecomposedSubtypeConfig).xmlFragmentName
           );
           composed.data.documentElement.appendChild(fragmentElement);
           let child = fragmentDoc.documentElement.firstChild;
@@ -98,13 +98,13 @@ export class DescribeMetadataDecomposition implements DecompositionStrategy {
     metadataType?
   ): [MetadataDocument, Map<DecomposedSubtypeConfig, MetadataDocument[]>] {
     const xmlAttributes = DescribeMetadataDecomposition.getXmlAttributes(composed);
-    let container = <XmlMetadataDocument>this.newDocument(this.decompositionConfig.metadataName, xmlAttributes);
+    let container = this.newDocument(this.decompositionConfig.metadataName, xmlAttributes) as XmlMetadataDocument;
     let decompositions = new Map<DecomposedSubtypeConfig, MetadataDocument[]>();
     let child = composed.data.documentElement.firstChild;
     while (child !== null) {
       if (child.nodeType === 1) {
         const decomposedSubtypeConfig = DescribeMetadataDecomposition.findDecompositionSubtypeConfig(
-          <DescribeMetadataDecomposedSubtypeConfig[]>this.decompositionConfig.decompositions,
+          this.decompositionConfig.decompositions as DescribeMetadataDecomposedSubtypeConfig[],
           child.nodeName
         );
         if (!util.isNullOrUndefined(decomposedSubtypeConfig)) {
@@ -155,7 +155,7 @@ export class DescribeMetadataDecomposition implements DecompositionStrategy {
     const annotation = this.newAnnotation();
     annotation.name = DescribeMetadataDecomposition.getName(
       decomposition,
-      (<DescribeMetadataDecomposedSubtypeConfig>subtypeConfig).metadataEntityNameElement
+      (subtypeConfig as DescribeMetadataDecomposedSubtypeConfig).metadataEntityNameElement
     );
     return annotation;
   }
@@ -183,12 +183,10 @@ export class DescribeMetadataDecomposition implements DecompositionStrategy {
           }
         }, []);
 
-        const docs: MetadataDocument[] = value.filter(doc => {
+        const docs: MetadataDocument[] = value.filter((doc) => {
           const annotation = doc.getAnnotation();
           return (
-            subtypeMembers.filter(subtypeMember => {
-              return subtypeMember === `${parentName}.${annotation.name}`;
-            }).length > 0
+            subtypeMembers.filter((subtypeMember) => subtypeMember === `${parentName}.${annotation.name}`).length > 0
           );
         });
         pruned.set(key, docs);
@@ -215,7 +213,8 @@ export class DescribeMetadataDecomposition implements DecompositionStrategy {
     }
 
     const subtypeMembers: string[] = manifest.Package.types.reduce((members, type) => {
-      const _getCorrespondingManifestType = containerType => {
+      // eslint-disable-next-line @typescript-eslint/no-shadow
+      const _getCorrespondingManifestType = (containerType) => {
         if (containerType.endsWith('Folder')) {
           return containerType.replace('Folder', '');
         }
@@ -230,7 +229,7 @@ export class DescribeMetadataDecomposition implements DecompositionStrategy {
     }, []);
 
     // The package.xml is using forward slashes, so replace these with path separators so the matching works on Windows
-    return subtypeMembers.some(subTypeMember => subTypeMember.replace('/', path.sep) === name) ? container : null;
+    return subtypeMembers.some((subTypeMember) => subTypeMember.replace('/', path.sep) === name) ? container : null;
   }
 
   private static getName(decomposition: MetadataDocument, metadataEntityNameElement: string): string {
@@ -273,9 +272,9 @@ export class DescribeMetadataDecomposition implements DecompositionStrategy {
 
   private static getXmlAttributes(document: MetadataDocument): XmlAttribute[] {
     if (document) {
-      return _.values(document.data.documentElement.attributes).map(attribute => ({
+      return _.values(document.data.documentElement.attributes).map((attribute) => ({
         nodeName: attribute.nodeName,
-        nodeValue: attribute.nodeValue
+        nodeValue: attribute.nodeValue,
       }));
     }
     return [];

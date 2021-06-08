@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -25,6 +25,7 @@ const STATUSES = ['Queued', 'InProgress', 'Success', 'Error'];
 
 class PackageVersionCreateRequestApi {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor(force?, org?) {
@@ -59,10 +60,10 @@ class PackageVersionCreateRequestApi {
 
     // filter on errors
     if (flags.status) {
-      const foundStatus = STATUSES.find(status => status.toLowerCase() === flags.status.toLowerCase());
+      const foundStatus = STATUSES.find((status) => status.toLowerCase() === flags.status.toLowerCase());
       if (util.isNullOrUndefined(foundStatus)) {
         const args = [flags.status];
-        STATUSES.forEach(status => {
+        STATUSES.forEach((status) => {
           args.push(status);
         });
         throw new Error(messages.getMessage('invalidStatus', args, 'packaging'));
@@ -88,7 +89,7 @@ class PackageVersionCreateRequestApi {
     const queryResult = await this.force.toolingQuery(this.org, query);
     let results = [];
     if (queryResult.records) {
-      results = queryResult.records.map(record => ({
+      results = queryResult.records.map((record) => ({
         Id: record.Id,
         Status: record.Status,
         Package2Id: record.Package2Id,
@@ -99,7 +100,7 @@ class PackageVersionCreateRequestApi {
         Branch: record.Branch,
         Error: [],
         CreatedDate: moment(record.CreatedDate).format('YYYY-MM-DD HH:mm'),
-        HasMetadataRemoved: record.Package2Version != null ? record.Package2Version.HasMetadataRemoved : null
+        HasMetadataRemoved: record.Package2Version != null ? record.Package2Version.HasMetadataRemoved : null,
       }));
     }
 
@@ -114,7 +115,7 @@ class PackageVersionCreateRequestApi {
       util.format(ERROR_QUERY, package2VersionCreateRequestId)
     );
     if (queryResult.records) {
-      queryResult.records.forEach(record => {
+      queryResult.records.forEach((record) => {
         errorResults.push(record.Message);
       });
     }

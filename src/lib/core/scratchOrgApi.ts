@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -25,27 +25,26 @@ import * as _ from 'lodash';
 import * as mkdirp from 'mkdirp';
 
 // Local
+import { ConfigAggregator, Config as CoreConfig } from '@salesforce/core';
+import { set } from '@salesforce/kit';
+import { AuthInfo } from '@salesforce/core';
+import * as OrgInfo from '../org/scratchOrgInfoApi';
+import orgConfigAttributes = require('../org/orgConfigAttributes');
+import MdapiDeployApi = require('../mdapi/mdapiDeployApi');
+import Messages = require('../messages');
 import { Config } from './configApi';
 import Alias = require('./alias');
-import * as OrgInfo from '../org/scratchOrgInfoApi';
-import { ConfigAggregator, Config as CoreConfig } from '@salesforce/core';
 import * as almError from './almError';
 import configValidator = require('./configValidator');
 import logger = require('./logApi');
-import orgConfigAttributes = require('../org/orgConfigAttributes');
 import srcDevUtil = require('./srcDevUtil');
-import * as apphub from '../apphub/appHubApi';
-import MdapiDeployApi = require('../mdapi/mdapiDeployApi');
-import { set } from '@salesforce/kit';
-import { AuthInfo } from '@salesforce/core';
 
 const defaultConnectedAppInfo = require('./defaultConnectedApp');
-import Messages = require('../messages');
 const messages = Messages();
 const urls = require('../urls');
 const fs = BBPromise.promisifyAll(require('fs'));
 
-const _buildNoOrgError = org => {
+const _buildNoOrgError = (org) => {
   let message = messages.getMessage('defaultOrgNotFound', org.type);
   if (!_.isNil(org.name)) {
     message = messages.getMessage('namedOrgNotFound', org.name);
@@ -151,10 +150,11 @@ class StateFile {
 /**
  * reduce metaConfigs down to an object that contains a consolidated view of ScratchOrgInfo objects across all
  * locally configured dev hubs.
+ *
  * @param {object} metaConfigs
  * @private
  */
-const _localOrgMetaConfigsReduction = function(metaConfigs) {
+const _localOrgMetaConfigsReduction = function (metaConfigs) {
   return metaConfigs.reduce((accum, currentValue) => {
     // Initialize the map to store scratchOrgInfos across all locally configured devHubs
     accum.mergedScratchOrgInfosAcrossLocalDevHubs = accum.mergedScratchOrgInfosAcrossLocalDevHubs || new Map();
@@ -179,7 +179,7 @@ const _localOrgMetaConfigsReduction = function(metaConfigs) {
       currentValue[1].isDevHub = true;
       accum.mergedScratchOrgInfosAcrossLocalDevHubs = new Map([
         ...accum.mergedScratchOrgInfosAcrossLocalDevHubs,
-        ...currentValue[2]
+        ...currentValue[2],
       ]);
     }
     // nil - we know for a fact it's not a dev hub
@@ -196,11 +196,12 @@ const _localOrgMetaConfigsReduction = function(metaConfigs) {
 
 /**
  * Helper to match orgMeta usernames against the project configuration for defaultdevhubusername and defaultusername
+ *
  * @param {object} orgMeta - the metadata containing the username to check
  * @param {array} _defaultOrgs - an array containing the default username and devhub
  * @private
  */
-const _identifyDefaultOrgs = function(orgMeta, _defaultOrgs) {
+const _identifyDefaultOrgs = function (orgMeta, _defaultOrgs) {
   if (orgMeta.username === _defaultOrgs[0]) {
     orgMeta.isDefaultDevHubUsername = true;
   } else if (orgMeta.username === _defaultOrgs[1]) {
@@ -210,22 +211,24 @@ const _identifyDefaultOrgs = function(orgMeta, _defaultOrgs) {
 
 /**
  * Helper utility to remove sensitive information from a scratch org auth config. By default refreshTokens and client secrets are removed.
+ *
  * @param {*} config - scratch org auth object.
  * @param {string[]} properties - properties to exclude ex ['refreshToken', 'clientSecret']
  * @returns the config less the sensitive information.
  */
-const _removeRestrictedInfoFromConfig = function(config, properties = ['refreshToken', 'clientSecret']) {
+const _removeRestrictedInfoFromConfig = function (config, properties = ['refreshToken', 'clientSecret']) {
   return _.omit(config, properties);
 };
 
 /**
  * Helper to group orgs by {devHub, scratchOrg, nonScratchOrgs}
+ *
  * @param {object} configsAcrossDevHubs - The orgs and scratchOrgInfo map. See _localOrgMetaConfigsReduction
  * @param {object} orgClass - The scratchOrg prototype
  * @param {string[]} excludeProperties - properties to exclude from the grouped configs ex. ['refreshToken', 'clientSecret']
  * @private
  */
-const _groupOrgs = async function(configsAcrossDevHubs, orgClass, excludeProperties) {
+const _groupOrgs = async function (configsAcrossDevHubs, orgClass, excludeProperties) {
   const self = this;
   const _accum = {};
 
@@ -243,13 +246,13 @@ const _groupOrgs = async function(configsAcrossDevHubs, orgClass, excludePropert
   return BBPromise.all([
     orgClass
       .create(undefined, CoreConfig.DEFAULT_DEV_HUB_USERNAME)
-      .then(org => org.name)
+      .then((org) => org.name)
       .catch(() => null),
     orgClass
       .create(undefined, CoreConfig.DEFAULT_USERNAME)
-      .then(org => org.name)
-      .catch(() => null)
-  ]).then(defaultOrgs =>
+      .then((org) => org.name)
+      .catch(() => null),
+  ]).then((defaultOrgs) =>
     configsAcrossDevHubs.orgs.reduce((accum, _currentValue) => {
       const currentValue = _removeRestrictedInfoFromConfig(_currentValue, excludeProperties);
 
@@ -286,17 +289,18 @@ const _groupOrgs = async function(configsAcrossDevHubs, orgClass, excludePropert
 
 /**
  * helper that updates all the org auth files with indicators to reduce the number of queries to the server.
+ *
  * @param {Array} groupedOrgs - an array of scratchOrg, nonScratchOrgs, devHubs
  * @param {function} _orgUpdate - a function to perform the file update
  * @returns {BBPromise.<TResult>}
  */
-const _updateOrgIndicators = function(groupedOrgs, _orgUpdate) {
+const _updateOrgIndicators = function (groupedOrgs, _orgUpdate) {
   return BBPromise.map(
     groupedOrgs.scratchOrgs,
-    meta => _orgUpdate(meta[1], { devHubUsername: meta[1].devHubUsername }),
+    (meta) => _orgUpdate(meta[1], { devHubUsername: meta[1].devHubUsername }),
     { concurrency: 1 }
   )
-    .catch(err => {
+    .catch((err) => {
       // by some remote chance we cannot update the cache value for isDevHub it's not the end of the world. If
       // there is a large number of orgs the performance could be slower each time the command is invoked. Putting a
       // warning in the log is appropriate.
@@ -323,7 +327,7 @@ class Org {
 
     list() {
       return [CoreConfig.DEFAULT_DEV_HUB_USERNAME, CoreConfig.DEFAULT_USERNAME];
-    }
+    },
   };
 
   /**
@@ -351,7 +355,7 @@ class Org {
   retrieveMaxApiVersion() {
     // getting the max api version does not require auth. So if you think adding a call to refreshAuth here is the correct
     // thing to do. it's not!
-    return this.force.getApiVersions(this).then(versions => _.maxBy(versions, (_ver: any) => _ver.version));
+    return this.force.getApiVersions(this).then((versions) => _.maxBy(versions, (_ver: any) => _ver.version));
   }
   /**
    * Gets the name of this scratch org.
@@ -366,10 +370,10 @@ class Org {
       return BBPromise.resolve();
     }
 
-    return this.resolvedAggregator().then(sfdxConfig => {
+    return this.resolvedAggregator().then((sfdxConfig) => {
       const name = sfdxConfig.getPropertyValue(this.type);
 
-      return Alias.get(name).then(orgName => {
+      return Alias.get(name).then((orgName) => {
         this.setName(orgName || name);
       });
     });
@@ -378,6 +382,7 @@ class Org {
   /**
    * Sets the name of this scratch org. After setting the name any call to getConfig will result in the org associated
    * with $HOME/.sfdx/[name].json being returned.
+   *
    * @param name - the name of the org.
    */
   setName(name) {
@@ -430,7 +435,7 @@ class Org {
     }
 
     // Create a path like <project>/.sfdx/orgs/<username>/<filename>
-    return path.join(...['orgs', username, filename].filter(e => !!e));
+    return path.join(...['orgs', username, filename].filter((e) => !!e));
   }
 
   /**
@@ -455,14 +460,14 @@ class Org {
       throw err;
     }
 
-    const removeDir = dirPath => {
+    const removeDir = (dirPath) => {
       let stats;
 
       try {
         stats = fs
           .readdirSync(dirPath)
-          .map(file => path.join(dirPath, file))
-          .map(filePath => ({ filePath, stat: fs.statSync(filePath) }));
+          .map((file) => path.join(dirPath, file))
+          .map((filePath) => ({ filePath, stat: fs.statSync(filePath) }));
 
         stats.filter(({ stat }) => stat.isDirectory()).forEach(({ filePath }) => removeDir(filePath));
         stats.filter(({ stat }) => stat.isFile()).forEach(({ filePath }) => fs.unlinkSync(filePath));
@@ -478,6 +483,7 @@ class Org {
 
   /**
    * Get the full path to the file storing the maximum revision value from the last valid pull from workspace scratch org
+   *
    * @param wsPath - The root path of the workspace
    * @returns {*}
    */
@@ -487,6 +493,7 @@ class Org {
 
   /**
    * Get the full path to the file storing the workspace source path information
+   *
    * @param wsPath - The root path of the workspace
    * @returns {*}
    */
@@ -496,6 +503,7 @@ class Org {
 
   /**
    * Returns a promise to retrieve the ScratchOrg configuration for this workspace.
+   *
    * @returns {BBPromise}
    */
   getConfig() {
@@ -504,7 +512,7 @@ class Org {
     }
     return this.resolveDefaultName()
       .then(() => this.resolvedAggregator())
-      .then(sfdxConfig => {
+      .then((sfdxConfig) => {
         const username = this.getName();
         // The username of the org can be set by the username config var, env var, or command line.
         // If the username is not set, getName will resolve to the default username for the workspace.
@@ -529,20 +537,20 @@ class Org {
           return {
             accessToken: username,
             instanceUrl,
-            orgId
+            orgId,
           };
         } else {
           return srcDevUtil
             .getGlobalConfig(`${username}.json`)
-            .then(config => configValidator.getCleanObject(config, orgConfigAttributes, false))
-            .then(config => {
+            .then((config) => configValidator.getCleanObject(config, orgConfigAttributes, false))
+            .then((config) => {
               if (_.isNil(config.clientId)) {
                 config.clientId = defaultConnectedAppInfo.legacyClientId;
                 config.clientSecret = defaultConnectedAppInfo.legacyClientSecret;
               }
               return config;
             })
-            .catch(error => {
+            .catch((error) => {
               let returnError = error;
 
               if (error.code === 'ENOENT') {
@@ -553,7 +561,7 @@ class Org {
             });
         }
       })
-      .then(config => {
+      .then((config) => {
         this.authConfig = config;
         return config;
       });
@@ -563,6 +571,7 @@ class Org {
    * Removes the scratch org config file at $HOME/.sfdx/[name].json, any project level org
    * files, all user auth files for the org, matching default config settings, and any
    * matching aliases.
+   *
    * @deprecated See Org.ts in sfdx-core
    */
   deleteConfig() {
@@ -577,15 +586,15 @@ class Org {
 
     // If the org being deleted is the workspace org then we need to do this so that subsequent calls to the
     // cli won't fail when trying to retrieve scratch org info from ~/.sfdx
-    const cleanup = name => {
+    const cleanup = (name) => {
       let alias;
       return Alias.byValue(name)
-        .then(_alias => {
+        .then((_alias) => {
           alias = _alias;
           _alias && aliases.push(_alias);
         })
         .then(() => this.resolvedAggregator())
-        .then(async aggregator => {
+        .then(async (aggregator) => {
           // Get the aggregated config for this type of org
           const info = aggregator.getInfo(this.type);
 
@@ -606,7 +615,7 @@ class Org {
     };
 
     return this.getConfig()
-      .then(orgData => {
+      .then((orgData) => {
         orgFileName = `${orgData.orgId}.json`;
         return srcDevUtil.getGlobalConfig(orgFileName, {});
       })
@@ -617,9 +626,9 @@ class Org {
         }
         return usernames;
       })
-      .then(usernames => {
+      .then((usernames) => {
         this.logger.info(`Cleaning up usernames: ${usernames} in org: ${this.authConfig.orgId}`);
-        return BBPromise.all(usernames.map(username => cleanup(username)));
+        return BBPromise.all(usernames.map((username) => cleanup(username)));
       })
       .then(() => Alias.unset(aliases))
       .then(() => {
@@ -636,6 +645,7 @@ class Org {
 
   /**
    * Returns a promise to save a valid workspace scratch org configuration to disk.
+   *
    * @param configObject - The object to save. If the object isn't valid an error will be thrown.
    * { orgId:, redirectUri:, accessToken:, refreshToken:, instanceUrl:, clientId: }
    * @param saveAsDefault {boolean} - whether to save this org as the default for this workspace.
@@ -652,7 +662,7 @@ class Org {
     // For security reasons we don't want to arbitrarily write the configObject to disk.
     return configValidator
       .getCleanObject(configObject, orgConfigAttributes, true)
-      .then(dataToSave => {
+      .then((dataToSave) => {
         savedData = dataToSave;
         return srcDevUtil.saveGlobalConfig(this.getFileName(), savedData);
       })
@@ -671,59 +681,8 @@ class Org {
   }
 
   /**
-   *  Check that this org is a scratch org by asking the dev hub if it knows about this org.
-   *  @param devHubUsername - the username of the dev hub org
-   *  @returns {BBPromise<Config>}
-   *  @deprecated See Org.ts in sfdx-core
-   */
-  checkScratchOrg(devHubUsername) {
-    return this.getConfig().then(config => {
-      let hubOrgPromise;
-      // If we know the hub org from the auth, use that instead and ignore
-      // the flag and defaults.
-      if (config.devHubUsername) {
-        hubOrgPromise = Org.create(config.devHubUsername);
-      } else {
-        hubOrgPromise = Org.create(devHubUsername, CoreConfig.DEFAULT_DEV_HUB_USERNAME);
-      }
-
-      return hubOrgPromise
-        .catch(err => {
-          err['action'] = messages.getMessage('action', [], 'generatePassword');
-          throw err;
-        })
-        .then(hubOrg =>
-          srcDevUtil
-            .queryOrgInfoFromDevHub(hubOrg, config.orgId)
-            .then((results = {}) => {
-              // If no results, org is not associated with the devhub
-              if (_.get(results, 'records.length') !== 1) {
-                return hubOrg.getConfig().then(hubConfig => {
-                  throw almError({ keyName: 'notFoundOnDevHub', bundle: 'generatePassword' }, [hubConfig.username], {
-                    keyName: 'action',
-                    bundle: 'generatePassword'
-                  });
-                });
-              }
-              return BBPromise.resolve(config);
-            })
-            .catch(err => {
-              if (err.name === 'INVALID_TYPE') {
-                return hubOrg.getConfig().then(hubConfig => {
-                  throw almError({ keyName: 'notADevHub', bundle: 'generatePassword' }, [hubConfig.username], {
-                    keyName: 'action',
-                    bundle: 'generatePassword'
-                  });
-                });
-              }
-              throw err;
-            })
-        );
-    });
-  }
-
-  /**
    * Refresh a users access token.
+   *
    * @returns {*|BBPromise.<{}>}
    * @deprecated See Org.ts in sfdx-core
    */
@@ -732,6 +691,7 @@ class Org {
   }
 
   /** Use the settings to generate a package ZIP and deploy it to the scratch org.
+   *
    * @param settings the settings generator
    * @returns {*|BBPromise.<{}>}
    */
@@ -739,15 +699,15 @@ class Org {
     // Create our own options so we can control the MD deploy of the settings package.
     const options = {
       wait: -1,
-      disableLogging: true
+      disableLogging: true,
     };
 
     return (
       settings
         .createDeployDir(apiVersion)
         // Package it all up and send to the scratch org
-        .then(deploydir => this.mdDeploy.deploy(Object.assign(options, { deploydir })))
-        .catch(err => {
+        .then((deploydir) => this.mdDeploy.deploy(Object.assign(options, { deploydir })))
+        .catch((err) => {
           this.mdDeploy._reporter._printComponentFailures(err.result);
           return BBPromise.reject(almError('ProblemDeployingSettings'));
         })
@@ -756,63 +716,16 @@ class Org {
   /**
    *  Reads and returns the global, hidden org file in $HOME/.sfdx for this org.
    *    E.g., $HOME/.sfdx/00Dxx0000001gPFEAY.json
+   *
    *  @returns {Object} - The contents of the org file, or an empty object if not found.
    */
   readOrgFile() {
-    return this.getConfig().then(orgData => srcDevUtil.getGlobalConfig(`${orgData.orgId}.json`, {}));
-  }
-
-  /**
-   *  Reads and returns the content of all user auth files for this org.
-   *  @returns {Array} - An array of all user auth file content.
-   *  @deprecated - See AuthInfo.ts in sfdx-core
-   */
-  readUserAuthFiles() {
-    return this.readOrgFile()
-      .then(({ usernames }) => usernames || [this.name])
-      .map(username => srcDevUtil.getGlobalConfig(`${username}.json`));
-  }
-
-  /**
-   * Returns Org object representing this org's Dev Hub org.
-   *
-   *  @returns {Org} - Org object or null if org is not affiliated to a Dev Hub (according to local config).
-   *  @deprecated - See org.ts in sfdx-core
-   */
-  getDevHubOrg() {
-    return this.getConfig().then(orgData => {
-      let org = null;
-
-      if (orgData.isDevHub) {
-        org = this;
-      } else if (orgData.devHubUsername) {
-        org = Org.create(orgData.devHubUsername, CoreConfig.DEFAULT_DEV_HUB_USERNAME);
-      }
-
-      return org;
-    });
-  }
-
-  /**
-   * Returns true if org if a Dev Hub.
-   *
-   *  @returns Boolean
-   */
-  isDevHubOrg() {
-    return this.getConfig().then(orgData => orgData.isDevHub);
-  }
-
-  /**
-   * Returns Org object representing this org's Dev Hub org.
-   *
-   *  @returns {Org} - Org object or null if org is not affiliated to a Dev Hub (according to local config).
-   */
-  getAppHub() {
-    return this.getDevHubOrg().then(devHubOrg => apphub.getAppHub(devHubOrg));
+    return this.getConfig().then((orgData) => srcDevUtil.getGlobalConfig(`${orgData.orgId}.json`, {}));
   }
 
   /**
    * Returns the regular expression that filters files stored in $HOME/.sfdx
+   *
    * @returns {RegExp} - The auth file name filter regular expression
    */
   static getAuthFilenameFilterRegEx() {
@@ -826,8 +739,8 @@ class Org {
    */
   static hasAuthentications() {
     return Org.readAllUserFilenames()
-      .then(users => !_.isEmpty(users))
-      .catch(err => {
+      .then((users) => !_.isEmpty(users))
+      .catch((err) => {
         // ENOENT
         if (err.name === 'noOrgsFound' || err.code === 'ENOENT') {
           return false;
@@ -838,11 +751,12 @@ class Org {
 
   /**
    * returns a list of all username auth file's stored in $HOME/.sfdx
+   *
    * @deprecated See Org.js and Auth.js in sfdx-core
    */
   static readAllUserFilenames() {
-    return fs.readdirAsync(srcDevUtil.getGlobalHiddenFolder()).then(files => {
-      const sfdxFiles = files.filter(file => file.match(Org.getAuthFilenameFilterRegEx()));
+    return fs.readdirAsync(srcDevUtil.getGlobalHiddenFolder()).then((files) => {
+      const sfdxFiles = files.filter((file) => file.match(Org.getAuthFilenameFilterRegEx()));
       // Want to throw a clean error if no files are found.
       if (_.isEmpty(sfdxFiles)) {
         throw almError(
@@ -860,6 +774,7 @@ class Org {
 
   /**
    * Returns a data structure containing all devhubs and scratch orgs stored locally in $HOME/.sfdx
+   *
    * @param {array} userFilenames - use readAllUserFilenames() to get a list of everything configured locally. This also
    * supports providing a subset of filenames which is useful if one only wants status information on one org. We can
    * limit unnecessary calls to the server.
@@ -878,35 +793,35 @@ class Org {
     }
 
     const fileDoesntExistFilter = BBPromise.all(
-      _.map(userFilenames, fileName => {
+      _.map(userFilenames, (fileName) => {
         const filePath = path.join(srcDevUtil.getGlobalHiddenFolder(), fileName);
         return BBPromise.all([
           fs
             .statAsync(filePath)
-            .then(stat => stat)
+            .then((stat) => stat)
             .catch(() => null),
           srcDevUtil
             .readJSON(filePath)
-            .then(content => content)
-            .catch(err => {
+            .then((content) => content)
+            .catch((err) => {
               logger.warn(`Problem reading file: ${filePath} skipping`);
               logger.warn(err.message);
               return null;
-            })
+            }),
         ]);
       })
     )
       // also removes non-admin auth files; i.e., users created via user:create
       .filter(
-        statsAndContent =>
+        (statsAndContent) =>
           !_.isNil(statsAndContent[0]) &&
           !_.isNil(statsAndContent[1]) &&
           _.isNil(statsAndContent[1].scratchAdminUsername)
       );
 
     return fileDoesntExistFilter
-      .then(fileContentsAndMeta => {
-        const orgIds15 = _.map(fileContentsAndMeta, fileContentAndMeta => {
+      .then((fileContentsAndMeta) => {
+        const orgIds15 = _.map(fileContentsAndMeta, (fileContentAndMeta) => {
           if (fileContentAndMeta && fileContentAndMeta.length > 0) {
             return srcDevUtil.trimTo15(fileContentAndMeta[1].orgId);
           }
@@ -914,36 +829,37 @@ class Org {
         });
         return BBPromise.map(
           fileContentsAndMeta,
-          fileContentAndMeta => {
+          (fileContentAndMeta) => {
             /**
              * If the org represented by filename is a devhub it will have the ScratchOrgInfo metadata at the third
              * position in the promise array returned in this peer scope.
+             *
              * @returns {BBPromise.<array>}
              */
-            const promiseDevHubMetadata = username => {
+            const promiseDevHubMetadata = (username) => {
               const org = new Org();
               org.setName(username);
 
               return org
                 .getConfig()
-                .then(configData => {
+                .then((configData) => {
                   // Do the query for orgs without a devHubUsername attribute. In some cases scratch org auth
                   // files may not have a devHubUsername property; but that's ok. We will discover if it.
                   if (_.isNil(configData.devHubUsername)) {
                     return org
                       .refreshAuth()
-                      .catch(err => {
+                      .catch((err) => {
                         org.logger.trace(`error refreshing auth for org: ${configData.username}`);
                         org.logger.trace(err);
                         return err;
                       })
-                      .then(result => {
+                      .then((result) => {
                         if (_.isError(result)) {
                           return result;
                         }
                         return orgInfo.retrieveScratchOrgInfosWhereInOrgIds(org, orgIds15);
                       })
-                      .catch(err => {
+                      .catch((err) => {
                         org.logger.trace(
                           `error retrieving ScratchOrgInfo object for org: ${configData.username}. this is expected for non-devhubs`
                         );
@@ -955,7 +871,7 @@ class Org {
                     return null;
                   }
                 })
-                .catch(err => err);
+                .catch((err) => err);
             };
 
             // Get the file metadata attributes, content, also assume this org is devHub so attempt to get
@@ -963,19 +879,20 @@ class Org {
             return BBPromise.all([
               fileContentAndMeta[0],
               fileContentAndMeta[1],
-              promiseDevHubMetadata(fileContentAndMeta[1].username).catch(() => null)
+              promiseDevHubMetadata(fileContentAndMeta[1].username).catch(() => null),
             ]);
           },
 
           { concurrency }
         );
       })
-      .then(metaConfigs => _localOrgMetaConfigsReduction(metaConfigs));
+      .then((metaConfigs) => _localOrgMetaConfigsReduction(metaConfigs));
   }
 
   /**
    * this methods takes all locally configured orgs and organizes them into the following buckets:
    * { devHubs: [{}], nonScratchOrgs: [{}], scratchOrgs: [{}] }
+   *
    * @param [{string}] - an array of strings that are validated for devHubs against the server.
    * @param {number} concurrency - this is the max batch number of http requests that will be sent to the server for
    * the scratchOrgInfo query.
@@ -983,21 +900,21 @@ class Org {
    */
   static readLocallyValidatedMetaConfigsGroupedByOrgType(userFilenames, concurrency = 3, excludeProperties?) {
     return Org.readMapOfLocallyValidatedMetaConfig(userFilenames, concurrency)
-      .then(configsAcrossDevHubs =>
-        Alias.list().then(aliases => {
-          _.forEach(configsAcrossDevHubs.orgs, org => {
-            org.alias = _.findKey(aliases, alias => alias === org.username);
+      .then((configsAcrossDevHubs) =>
+        Alias.list().then((aliases) => {
+          _.forEach(configsAcrossDevHubs.orgs, (org) => {
+            org.alias = _.findKey(aliases, (alias) => alias === org.username);
           });
           return configsAcrossDevHubs;
         })
       )
-      .then(configsAcrossDevHubsWithAlias =>
+      .then((configsAcrossDevHubsWithAlias) =>
         _groupOrgs.call(new Config(), configsAcrossDevHubsWithAlias, Org, excludeProperties)
       )
-      .then(groupedOrgs =>
+      .then((groupedOrgs) =>
         _updateOrgIndicators.call(
           {
-            logger: logger.child('readLocallyValidatedMetaConfigGroupdByOrgType')
+            logger: logger.child('readLocallyValidatedMetaConfigGroupdByOrgType'),
           },
           groupedOrgs,
           (meta, attributesToMerge) => {
@@ -1005,7 +922,7 @@ class Org {
             org.setName(meta.username);
             return org
               .getConfig()
-              .then(configData => {
+              .then((configData) => {
                 // we want to merge the attributes and save the config only if the attributes to merge are
                 // different.
                 if (!_.isNil(attributesToMerge)) {
@@ -1020,27 +937,6 @@ class Org {
           }
         )
       );
-  }
-
-  /**
-   * Determines the value of the status field that is reported to the user
-   * @param {object} val - the scratchOrg
-   * @param {map} devHubs - a map of devhubs found locally.
-   */
-  static computeAndUpdateStatusForMetaConfig(val, devHubs) {
-    if (val) {
-      if (val.isExpired) {
-        val.status = 'Expired';
-      }
-
-      const devHub = !_.isNil(val.devHubUsername) ? devHubs.get(val.devHubUsername) : null;
-      // this means we know we have a scratch org, but no dev hub is providing ownership.
-      // the org is likely gone. this could also mean the dev hub this auth file is
-      // associated with hasn't been locally authorized.
-      if (val.isMissing) {
-        val.status = _.isNil(val.devHubUsername) || _.isNil(devHub) ? 'Unknown' : 'Missing';
-      }
-    }
   }
 
   /**
