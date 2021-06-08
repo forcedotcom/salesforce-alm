@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -67,7 +67,7 @@ export class FolderPerSubtypeWorkspaceDecomposition implements DecompositionWork
     const decomposedPaths = new Map<DecomposedSubtypeConfig, string[]>();
     const project = SfdxProject.getInstance();
     const metaPkgName = project.getPackageNameFromPath(metadataFilePath);
-    project.getUniquePackageNames().forEach(pkg => {
+    project.getUniquePackageNames().forEach((pkg) => {
       // We have to make the metadataFilePath relative to each package in order to get
       // any decompositions that might live in a different package from the meta file
       const pkgMetadataFilePath = metadataFilePath.replace(metaPkgName, pkg);
@@ -171,8 +171,8 @@ export class FolderPerSubtypeWorkspaceDecomposition implements DecompositionWork
     const fragmentFiles = [];
     const files = fs.readdirSync(dir);
     files
-      .map(file => path.join(dir, file))
-      .forEach(file => {
+      .map((file) => path.join(dir, file))
+      .forEach((file) => {
         if (file.toLowerCase().endsWith(ext.toLowerCase())) {
           fragmentFiles.push(file);
         }

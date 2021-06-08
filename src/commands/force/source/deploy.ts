@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -34,7 +34,7 @@ export class SourceDeployCommand extends ToolbeltCommand {
       char: 'c',
       description: mdapiMessages.getMessage('mdDeployCommandCliCheckOnly'),
       longDescription: mdapiMessages.getMessage('mdDeployCommandCliCheckOnlyLong'),
-      required: false
+      required: false,
     }),
     wait: flags.minutes({
       char: 'w',
@@ -43,32 +43,32 @@ export class SourceDeployCommand extends ToolbeltCommand {
       default: Duration.minutes(DEFAULT_SRC_WAIT_MINUTES),
       min: Duration.minutes(MIN_SRC_DEPLOY_WAIT_MINUTES),
       description: commonMsgs.getMessage('waitParamDescription'),
-      longDescription: commonMsgs.getMessage('waitParamDescriptionLong')
+      longDescription: commonMsgs.getMessage('waitParamDescriptionLong'),
     }),
     testlevel: flags.enum({
       char: 'l',
       description: mdapiMessages.getMessage('mdDeployCommandCliTestLevel'),
       longDescription: mdapiMessages.getMessage('mdDeployCommandCliTestLevelLong'),
       required: false,
-      options: ['NoTestRun', 'RunSpecifiedTests', 'RunLocalTests', 'RunAllTestsInOrg']
+      options: ['NoTestRun', 'RunSpecifiedTests', 'RunLocalTests', 'RunAllTestsInOrg'],
     }),
     runtests: flags.array({
       char: 'r',
       description: mdapiMessages.getMessage('mdDeployCommandCliRunTests'),
       longDescription: mdapiMessages.getMessage('mdDeployCommandCliRunTestsLong'),
-      required: false
+      required: false,
     }),
     ignoreerrors: flags.boolean({
       char: 'o',
       description: mdapiMessages.getMessage('mdDeployCommandCliIgnoreErrors'),
       longDescription: mdapiMessages.getMessage('mdDeployCommandCliIgnoreErrorsLong'),
-      required: false
+      required: false,
     }),
     ignorewarnings: flags.boolean({
       char: 'g',
       description: mdapiMessages.getMessage('mdDeployCommandCliIgnoreWarnings'),
       longDescription: mdapiMessages.getMessage('mdDeployCommandCliIgnoreWarningsLong'),
-      required: false
+      required: false,
     }),
     validateddeployrequestid: flags.id({
       char: 'q',
@@ -83,19 +83,19 @@ export class SourceDeployCommand extends ToolbeltCommand {
         'testlevel',
         'runtests',
         'ignoreerrors',
-        'ignorewarnings'
-      ]
+        'ignorewarnings',
+      ],
     }),
     verbose: flags.builtin({
       description: mdapiMessages.getMessage('mdDeployCommandCliVerbose'),
-      longDescription: mdapiMessages.getMessage('mdDeployCommandCliVerboseLong')
+      longDescription: mdapiMessages.getMessage('mdDeployCommandCliVerboseLong'),
     }),
     metadata: flags.array({
       char: 'm',
       description: messages.getMessage('metadataParamDescription'),
       longDescription: messages.getMessage('metadataParamLongDescription'),
       required: false,
-      exclusive: ['manifest', 'sourcepath']
+      exclusive: ['manifest', 'sourcepath'],
     }),
     sourcepath: flags.array({
       char: 'p',
@@ -103,7 +103,7 @@ export class SourceDeployCommand extends ToolbeltCommand {
       hidden: false,
       description: messages.getMessage('sourcePathDescription'),
       longDescription: messages.getMessage('sourcePathLongDescription'),
-      exclusive: ['manifest', 'metadata']
+      exclusive: ['manifest', 'metadata'],
     }),
     manifest: flags.filepath({
       char: 'x',
@@ -111,8 +111,8 @@ export class SourceDeployCommand extends ToolbeltCommand {
       hidden: false,
       description: messages.getMessage('manifestDescription'),
       longDescription: messages.getMessage('manifestLongDescription'),
-      exclusive: ['metadata', 'sourcepath']
-    })
+      exclusive: ['metadata', 'sourcepath'],
+    }),
   };
   protected readonly lifecycleEventNames = ['predeploy', 'postdeploy'];
 

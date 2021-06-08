@@ -1,18 +1,19 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import MetadataRegistry = require('./metadataRegistry');
 import Messages = require('../messages');
+import MetadataRegistry = require('./metadataRegistry');
 const messages = Messages();
 import * as syncCommandHelper from './syncCommandHelper';
 import logger = require('../core/logApi');
 
 import { SourceDeployApiBase } from './sourceDeployApiBase';
-import * as SourceUtil from './sourceUtil';
+import { createOutputDir, cleanupOutputDir, updateSourceTracking } from './sourceUtil';
+import { toArray } from './parseManifestEntriesArray';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { DeployResult } from './sourceDeployApi';
@@ -45,14 +46,14 @@ export class MdapiPushApi extends SourceDeployApiBase {
     const options: SourceWorkspaceAdapter.Options = {
       org: this.orgApi,
       metadataRegistryImpl: MetadataRegistry,
-      defaultPackagePath: this.force.getConfig().getAppConfig().defaultPackagePath
+      defaultPackagePath: this.force.getConfig().getAppConfig().defaultPackagePath,
     };
 
     this.swa = await SourceWorkspaceAdapter.create(options);
     await this.swa.backupSourcePathInfos();
     this.scratchOrg = options.org;
     this.remoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
-      username: this.scratchOrg.name
+      username: this.scratchOrg.name,
     });
   }
 
@@ -65,7 +66,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
         this.swa.changedSourceElementsCache.get(packageName)
       );
       // Create a temp directory
-      options.deploydir = options.deploydir || (await SourceUtil.createOutputDir('mdpkg'));
+      options.deploydir = options.deploydir || (await createOutputDir('mdpkg'));
       if (!changedAggregateSourceElements.isEmpty()) {
         const result = await this.convertAndDeploy(options, this.swa, changedAggregateSourceElements, true);
 
@@ -77,7 +78,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
       }
       throw err;
     } finally {
-      await SourceUtil.cleanupOutputDir(options.deploydir);
+      await cleanupOutputDir(options.deploydir);
     }
   }
 
@@ -161,7 +162,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
   }
 
   public commitChanges(packageName: string) {
-    if (!!this.swa.pendingSourcePathInfos.get(packageName)) {
+    if (this.swa.pendingSourcePathInfos.get(packageName)) {
       return this.swa.commitPendingChanges(packageName);
     }
     return false;
@@ -187,7 +188,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
       result.outboundFiles = this.getOutboundFiles(changedAggregateSourceElements);
       return result;
     } else {
-      let deployFailed = new Error() as DeployError;
+      const deployFailed = new Error() as DeployError;
 
       if (result.timedOut) {
         deployFailed.name = 'PollingTimeout';
@@ -221,7 +222,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
   }
 
   async _postProcess(pushSuccesses: any[]) {
-    await SourceUtil.updateSourceTracking(pushSuccesses, this.remoteSourceTrackingService, this.metadataRegistry);
+    await updateSourceTracking(pushSuccesses, this.remoteSourceTrackingService, this.metadataRegistry);
   }
 
   static _isDeleteFailureBecauseDoesNotExistOnServer(failure) {
@@ -249,7 +250,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
   }
 
   _recalculateResult(result, reinterpretedComponentSuccesses, reinterpretedComponentFailures) {
-    result.details.componentSuccesses = SourceUtil.toArray(result.details.componentSuccesses);
+    result.details.componentSuccesses = toArray(result.details.componentSuccesses);
     const originalSuccessCount = result.details.componentSuccesses.length - 1; // Ignore package.xml
 
     if (result.status === 'Failed') {
@@ -264,7 +265,7 @@ export class MdapiPushApi extends SourceDeployApiBase {
     result.success = result.status !== 'Failed';
 
     if (result.success) {
-      reinterpretedComponentSuccesses.forEach(failure => MdapiPushApi._convertFailureToSuccess(failure));
+      reinterpretedComponentSuccesses.forEach((failure) => MdapiPushApi._convertFailureToSuccess(failure));
 
       result.details.componentSuccesses = result.details.componentSuccesses.concat(reinterpretedComponentSuccesses);
       result.details.componentFailures = reinterpretedComponentFailures;
@@ -283,14 +284,16 @@ export class MdapiPushApi extends SourceDeployApiBase {
    * whether we are a success, partial success, or failure.
    */
   _reinterpretResults(result) {
-    result.details.componentSuccesses = SourceUtil.toArray(result.details.componentSuccesses);
+    result.details.componentSuccesses = toArray(result.details.componentSuccesses);
     if (result.status === 'Succeeded') {
       return result;
     }
 
-    const componentFailures = SourceUtil.toArray(result.details.componentFailures);
-    const reinterpretedComponentFailures = componentFailures.filter(failure => MdapiPushApi._isFailureToUs(failure));
-    const reinterpretedComponentSuccesses = componentFailures.filter(failure => !MdapiPushApi._isFailureToUs(failure));
+    const componentFailures = toArray(result.details.componentFailures);
+    const reinterpretedComponentFailures = componentFailures.filter((failure) => MdapiPushApi._isFailureToUs(failure));
+    const reinterpretedComponentSuccesses = componentFailures.filter(
+      (failure) => !MdapiPushApi._isFailureToUs(failure)
+    );
     if (reinterpretedComponentFailures.length !== componentFailures.length) {
       return this._recalculateResult(result, reinterpretedComponentSuccesses, reinterpretedComponentFailures);
     }

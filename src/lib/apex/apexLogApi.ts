@@ -1,24 +1,22 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as Error from '../force-cli/force-cli-error';
-
+import util = require('util');
 import * as _ from 'lodash';
+import * as moment from 'moment';
+import { Connection } from 'jsforce';
+import * as Error from '../force-cli/force-cli-error';
 
 import * as Config from '../force-cli/force-cli-config';
 import * as Display from '../force-cli/force-cli-display';
 import logApi = require('../core/logApi');
-import * as moment from 'moment';
-import { Connection } from 'jsforce';
 
 import StreamClient = require('../core/status');
 import consts = require('../core/constants');
-
-import util = require('util');
 
 const TOPIC = '/systemTopic/Logging';
 const TAIL_LISTEN_TIMEOUT_MIN = 30;
@@ -38,7 +36,7 @@ const DEFAULT_COLOR_MAP = {
   METHOD_: 'blue',
   SOQL_: 'yellow',
   USER_: 'green',
-  VARIABLE_: 'cyan'
+  VARIABLE_: 'cyan',
 };
 
 export interface DebugLog {
@@ -77,19 +75,19 @@ export class ApexLogApi {
     const stream = new StreamClient(this.org);
     stream.waitInMinutes = TAIL_LISTEN_TIMEOUT_MIN;
 
-    return new Promise((resolve, reject) => {
-      return stream.subscribe(TOPIC, this._streamingCallback.bind(this), true).catch(err => {
+    return new Promise((resolve, reject) =>
+      stream.subscribe(TOPIC, this._streamingCallback.bind(this), true).catch((err) => {
         stream.disconnect();
         reject(err);
-      });
-    });
+      })
+    );
   }
 
   // setup or update traceflag need to stream logs
   async prepareTraceFlag(debugLevel: string) {
     const username: string = this.org.getName();
     const userId = await this._getUserId(username);
-    let traceResult = await this._getTraceFlag(userId);
+    const traceResult = await this._getTraceFlag(userId);
 
     // if existing, inspect to ensure it meets logging needs
     if (this._hasRecords(traceResult)) {
@@ -116,7 +114,7 @@ export class ApexLogApi {
       }
 
       // adjust expiration date to coincide with stream timeout
-      let expirationDate = moment(traceFlag.ExpirationDate);
+      const expirationDate = moment(traceFlag.ExpirationDate);
       if (updatedExpirationDate.isAfter(expirationDate, 'minutes')) {
         traceFlag.ExpirationDate = updatedExpirationDate.format();
         doUpdate = true;
@@ -138,7 +136,7 @@ export class ApexLogApi {
   }
 
   async _getUserId(username: string): Promise<string> {
-    const userQuery: string = `SELECT Id FROM User WHERE Username = '${username}'`;
+    const userQuery = `SELECT Id FROM User WHERE Username = '${username}'`;
     const userResult = await this.force.toolingQuery(this.org, userQuery);
     if (!this._hasRecords(userResult)) {
       Error.exitWithMessage(`User ID not found for user ${username}`);
@@ -159,11 +157,8 @@ export class ApexLogApi {
       LogType: 'DEVELOPER_LOG',
       TracedEntityId: userId,
       StartDate: traceFlagDate.format(),
-      ExpirationDate: traceFlagDate
-        .clone()
-        .add(TAIL_LISTEN_TIMEOUT_MIN, 'minutes')
-        .format(),
-      DebugLevelId
+      ExpirationDate: traceFlagDate.clone().add(TAIL_LISTEN_TIMEOUT_MIN, 'minutes').format(),
+      DebugLevelId,
     };
 
     return this.force.toolingCreate(this.org, 'TraceFlag', traceFlag);
@@ -268,11 +263,12 @@ export class ApexLogApi {
   /**
    * fetch body of specific debug log
    * exposed for unit testing (mocked)
+   *
    * @param logId {string} logId - the debug log to retrieve
    */
   async getLogById(logId: string): Promise<any> {
-    let conn: Connection = await Config.getActiveConnection({ org: this.org });
-    let geturl: string = util.format(
+    const conn: Connection = await Config.getActiveConnection({ org: this.org });
+    const geturl: string = util.format(
       '%s/services/data/v%s/tooling/sobjects/ApexLog/%s/Body',
       conn.instanceUrl,
       conn.version,
@@ -289,14 +285,15 @@ export class ApexLogApi {
   /**
    * fetch most recent log records for given count
    * exposed for unit testing (mocked)
+   *
    * @param numOfRecentLogs {number} number of logs to retrieve
    */
   async getRecentLogRecords(numOfRecentLogs: number): Promise<any> {
-    let conn: Connection = await Config.getActiveConnection({ org: this.org });
-    let geturl = this._createLogListUrl(conn, numOfRecentLogs);
+    const conn: Connection = await Config.getActiveConnection({ org: this.org });
+    const geturl = this._createLogListUrl(conn, numOfRecentLogs);
     let logs: DebugLog[] = [];
-    await this._getReq(conn, geturl, function(response): void {
-      logs = <DebugLog[]>response.records;
+    await this._getReq(conn, geturl, function (response): void {
+      logs = response.records as DebugLog[];
     });
     return logs;
   }
@@ -317,7 +314,7 @@ export class ApexLogApi {
 
   async _getReq(conn: Connection, geturl: string, callback: (res) => void): Promise<void> {
     const logger = this.logger;
-    await conn.request(geturl, undefined, function(err: Error, response) {
+    await conn.request(geturl, undefined, function (err: Error, response) {
       if (err) {
         logger.error(err);
         Error.exitWithMessage(err.message);

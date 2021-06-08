@@ -1,21 +1,21 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
 
 // Local
+import { Lifecycle, SfdxError, fs } from '@salesforce/core';
 import * as ManifestCreateApi from '../source/manifestCreateApi';
 import * as almError from '../core/almError';
-import { MetadataTransportInfo } from './mdApiUtil';
-import RetrieveReportApi = require('./mdapiRetrieveReportApi');
 import consts = require('../core/constants');
 import logger = require('../core/logApi');
 import StashApi = require('../core/stash');
-import { Lifecycle, SfdxError, fs } from '@salesforce/core';
+import RetrieveReportApi = require('./mdapiRetrieveReportApi');
+import { MetadataTransportInfo } from './mdApiUtil';
 
 const Parser = require('fast-xml-parser');
 
@@ -78,18 +78,16 @@ export class MdRetrieveApi {
     }
 
     return retrievePromise
-      .then(unpackagedJson => this._formatRetrieveOptions(options, unpackagedJson))
-      .then(retrieveOptions => {
+      .then((unpackagedJson) => this._formatRetrieveOptions(options, unpackagedJson))
+      .then((retrieveOptions) => {
         // call mdapi to retrieve source
         this._log('Retrieving source...');
         return options.jobid
           ? { id: options.jobid, deprecatedStatusRequest: 'true' }
           : this.force.mdapiRetrieve(orgApi, retrieveOptions);
       })
-      .then(result => {
-        return this._setStashVars(result, options);
-      })
-      .then(result => {
+      .then((result) => this._setStashVars(result, options))
+      .then((result) => {
         options.jobid = result.id;
         options['deprecatedStatusRequest'] = result.deprecatedStatusRequest;
         options['result'] = result;
@@ -97,7 +95,7 @@ export class MdRetrieveApi {
         options['result'].status = result.state;
         return this._reportStatus(options);
       })
-      .catch(err => {
+      .catch((err) => {
         if (err.message.toLowerCase().includes('polling time out')) {
           const waitTime = options.wait ? options.wait : consts.DEFAULT_MDAPI_RETRIEVE_WAIT_MINUTES;
           throw almError('mdapiCliWaitTimeExceededError', ['retrieve', waitTime]);
@@ -122,7 +120,7 @@ export class MdRetrieveApi {
       runTest: false,
       unzip: true,
       disableLogging: true,
-      json: true
+      json: true,
     };
   }
 
@@ -140,15 +138,15 @@ export class MdRetrieveApi {
       promise = new ManifestCreateApi(mdApi.org)
         .execute({
           outputdir: mdApi.retrieveTargetPath,
-          sourcedir: options.sourcedir
+          sourcedir: options.sourcedir,
         })
-        .then(fileInfo => {
+        .then((fileInfo) => {
           packageXmlPath = fileInfo.file;
         });
     }
     return promise
       .then(() => fs.readFile(packageXmlPath, 'utf8'))
-      .then(unpackagedXml => {
+      .then((unpackagedXml) => {
         try {
           // convert to json
           return Parser.parse(unpackagedXml, { explicitArray: false });
@@ -157,7 +155,7 @@ export class MdRetrieveApi {
           throw SfdxError.create('salesforce-alm', 'source', 'IllFormattedManifest', [`; ${err.message}`]);
         }
       })
-      .then(unpackagedJson => {
+      .then((unpackagedJson) => {
         const packageData = unpackagedJson.Package;
         delete packageData.$;
         return packageData;
@@ -200,7 +198,7 @@ export class MdRetrieveApi {
       {
         jobid: result.id,
         retrievetargetdir: options.retrievetargetdir,
-        targetusername: options.targetusername
+        targetusername: options.targetusername,
       },
       StashApi.Commands.MDAPI_RETRIEVE
     );
@@ -261,7 +259,7 @@ export class MdRetrieveApi {
       validationPromises.push(
         this._validatePath(
           options.sourcedir,
-          data => data.isDirectory(),
+          (data) => data.isDirectory(),
           () => Promise.resolve(),
           almError('InvalidArgumentDirectoryPath', ['sourcedir', options.sourcedir])
         )
@@ -270,7 +268,7 @@ export class MdRetrieveApi {
       validationPromises.push(
         this._validatePath(
           options.unpackaged,
-          data => data.isFile(),
+          (data) => data.isFile(),
           () => Promise.resolve(),
           almError('InvalidArgumentFilePath', ['unpackaged', options.unpackaged])
         )
@@ -281,10 +279,10 @@ export class MdRetrieveApi {
     validationPromises.push(
       this._validatePath(
         retrieveTargetPath,
-        data => data.isDirectory(),
+        (data) => data.isDirectory(),
         () => Promise.resolve(),
         almError('InvalidArgumentDirectoryPath', ['retrievetargetdir', retrieveTargetPath])
-      ).catch(err => {
+      ).catch((err) => {
         // ignore PathDoesNotExist, it will create a directory if it doesn't already exist.
         if (err.name !== 'PathDoesNotExist') {
           return Promise.reject(err);
@@ -307,14 +305,14 @@ export class MdRetrieveApi {
   //                             error if the file read fails.
   _validatePath(pathToValidate, validationFunc, successFunc, error) {
     return this._fsStatAsync(pathToValidate)
-      .then(data => {
+      .then((data) => {
         if (validationFunc(data)) {
           return successFunc();
         } else {
           return Promise.reject(error);
         }
       })
-      .catch(err => {
+      .catch((err) => {
         err = err.code === 'ENOENT' ? almError('PathDoesNotExist', pathToValidate) : err;
         return Promise.reject(err);
       });

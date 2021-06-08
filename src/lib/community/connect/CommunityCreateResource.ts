@@ -1,32 +1,34 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { ConnectResource } from '../../connect/services/ConnectResource';
 import { OutputFlags } from '@oclif/parser';
-import { JsonCollection } from '@salesforce/ts-types';
+import { JsonCollection, AnyJson } from '@salesforce/ts-types';
 import { UX } from '@salesforce/command';
+import { Messages } from '@salesforce/core';
 import { CommunityCreateResponse } from '../defs/CommunityCreateResponse';
 import { CommunityCreateParams } from '../defs/CommunityCreateParams';
-import { Messages } from '@salesforce/core';
+import { ConnectResource } from '../../connect/services/ConnectResource';
 
 Messages.importMessagesDirectory(__dirname);
 const communityMessages = Messages.loadMessages('salesforce-alm', 'community_commands');
 
-const MESSAGE_KEY: string = 'message';
-const NAME_KEY: string = 'name';
-const ACTION_KEY: string = 'action';
+const MESSAGE_KEY = 'message';
+const NAME_KEY = 'name';
+const ACTION_KEY = 'action';
 /**
  * A connect api resource for creating a community
  */
 export class CommunityCreateResource implements ConnectResource<CommunityCreateResponse> {
   private flags: OutputFlags<any>;
+  private params: AnyJson;
   private ux: UX;
 
-  constructor(flags: OutputFlags<any>, ux: UX) {
+  constructor(flags: OutputFlags<any>, params: AnyJson, ux: UX) {
     this.flags = flags;
+    this.params = params;
     this.ux = ux;
   }
 
@@ -34,7 +36,7 @@ export class CommunityCreateResource implements ConnectResource<CommunityCreateR
     const response: CommunityCreateResponse = {
       message: communityMessages.getMessage('create.response.createMessage'),
       name: result[NAME_KEY],
-      action: communityMessages.getMessage('create.response.action')
+      action: communityMessages.getMessage('create.response.action'),
     };
     const columns = [NAME_KEY, MESSAGE_KEY, ACTION_KEY];
     this.ux.styledHeader(communityMessages.getMessage('create.response.styleHeader'));
@@ -46,6 +48,7 @@ export class CommunityCreateResource implements ConnectResource<CommunityCreateR
     throw error;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchRelativeConnectUrl(): Promise<string> {
     return '/connect/communities';
   }
@@ -54,13 +57,16 @@ export class CommunityCreateResource implements ConnectResource<CommunityCreateR
     return 'POST';
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPostParams(): Promise<string> {
     const params: CommunityCreateParams = {
       name: this.flags.name,
       urlPathPrefix: this.flags.urlpathprefix,
       templateName: this.flags.templatename,
-      description: this.flags.description
+      description: this.flags.description,
+      templateParams: this.params['templateParams'],
     };
+
     return JSON.stringify(params);
   }
 }

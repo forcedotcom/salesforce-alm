@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
 
-import { DefaultMetadataType } from './defaultMetadataType';
 import * as PathUtil from '../sourcePathUtil';
 import MetadataRegistry = require('../metadataRegistry');
+import { DefaultMetadataType } from './defaultMetadataType';
 
 export class InFolderMetadataType extends DefaultMetadataType {
   getFullNameFromFilePath(filePath: string): string {
@@ -17,6 +17,7 @@ export class InFolderMetadataType extends DefaultMetadataType {
   }
 
   /** Returns the relative path of the metadata file starting after the metatadata type folder
+   *
    * @param filePath
    */
   getAggregateFullNameFromFilePath(filePath: string): string {
@@ -29,15 +30,18 @@ export class InFolderMetadataType extends DefaultMetadataType {
   }
 
   /** Returns the complete path of the file including the workspace path
+   *
    * @param fullName
    * @param defaultSourceDir
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getDefaultAggregateMetadataPath(fullName: string, defaultSourceDir: string, bundleFileProperties): string {
     const fullFileNameWithExtension = `${fullName}.${this.typeDefObj.ext}${MetadataRegistry.getMetadataFileExt()}`;
     return path.join(defaultSourceDir, this.typeDefObj.defaultDirectory, fullFileNameWithExtension);
   }
 
   /** Returns the source directory path till the folder of the metatdata file
+   *
    * @param aggregateFullName
    * @param mdDir
    */
@@ -47,7 +51,8 @@ export class InFolderMetadataType extends DefaultMetadataType {
     return path.join(mdDir, this.typeDefObj.defaultDirectory, parentFolder);
   }
 
-  /**Returns the path of the metadata file starting from the metadata type folder.
+  /** Returns the path of the metadata file starting from the metadata type folder.
+   *
    * @param mdapiPackagePath
    */
   getAggregateFullNameFromMdapiPackagePath(mdapiPackagePath: string): string {

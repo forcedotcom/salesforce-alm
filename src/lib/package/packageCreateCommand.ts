@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -10,11 +10,12 @@ import * as path from 'path';
 import logger = require('../core/logApi');
 import Messages = require('../messages');
 const messages = Messages();
-import pkgUtils = require('./packageUtils');
 import srcDevUtil = require('../core/srcDevUtil');
+import pkgUtils = require('./packageUtils');
 
 class PackageCreateCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -25,6 +26,7 @@ class PackageCreateCommand {
 
   /**
    * Convert the list of command line options to a JSON object that can be used to create a Package2 entity.
+   *
    * @param context
    * @returns {{Name: (string|string|*), Description: (boolean|string|string|*), NamespacePrefix: (string|s)}}
    * @private
@@ -38,12 +40,12 @@ class PackageCreateCommand {
       NamespacePrefix: namespace,
       ContainerOptions: context.flags.packagetype,
       IsOrgDependent: context.flags.orgdependent,
-      PackageErrorUsername: context.flags.errornotificationusername
+      PackageErrorUsername: context.flags.errornotificationusername,
     };
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       err = pkgUtils.massageErrorMessage(err);
       throw pkgUtils.applyErrorAction(err);
@@ -64,14 +66,14 @@ class PackageCreateCommand {
 
     return this.force
       .toolingCreate(this.org, 'Package2', request)
-      .then(createResult => {
+      .then((createResult) => {
         if (!createResult.success) {
           throw new Error(createResult.errors);
         }
         packageId = createResult.id;
         return this.force.toolingQuery(this.org, `SELECT Id FROM Package2 WHERE Id='${packageId}'`);
       })
-      .then(async queryResult => {
+      .then(async (queryResult) => {
         if (!queryResult.records || !queryResult.records[0]) {
           throw Error(`Unable to find Package with Id: ${packageId}`);
         }
@@ -95,6 +97,7 @@ class PackageCreateCommand {
 
   /**
    * Generate packageDirectory json entry for this package that can be written to sfdx-project.json
+   *
    * @param context
    * @param packageId the 0Ho id of the package to create the entry for
    * @private
@@ -110,7 +113,7 @@ class PackageCreateCommand {
     let packageDir = pkgUtils.getConfigPackageDirectory(packageDirs, 'package', context.flags.name);
     if (!packageDir) {
       // no match for package, check for a matching path without id and package attribs
-      const index = packageDirs.findIndex(pd => pd.path === context.flags.path && !pd.id && !pd.package);
+      const index = packageDirs.findIndex((pd) => pd.path === context.flags.path && !pd.id && !pd.package);
       if (index > -1) {
         // update existing entry
         packageDirs[index].package = context.flags.name;
@@ -141,6 +144,7 @@ class PackageCreateCommand {
 
   /**
    * Generate package alias json entry for this package that can be written to sfdx-project.json
+   *
    * @param context
    * @param packageId the 0Ho id of the package to create the alias entry for
    * @private
@@ -152,11 +156,12 @@ class PackageCreateCommand {
     const packageName = context.flags.name;
     packageAliases[packageName] = packageId;
 
-    return { packageAliases: packageAliases };
+    return { packageAliases };
   }
 
   /**
    * returns a human readable message for a cli output
+   *
    * @param result - the data representing the Package Version
    * @returns {string}
    */
@@ -165,7 +170,7 @@ class PackageCreateCommand {
     this.logger.log(
       messages.getMessage(
         'humanSuccess',
-        data.map(d => d.value),
+        data.map((d) => d.value),
         'package_create'
       )
     );
@@ -173,8 +178,8 @@ class PackageCreateCommand {
     this.logger.table(data, {
       columns: [
         { key: 'name', label: 'Name' },
-        { key: 'value', label: 'Value' }
-      ]
+        { key: 'value', label: 'Value' },
+      ],
     });
     if (this.orgDependent) {
       this.logger.log('This package depends on unpackaged metadata in the installation org, and is a beta feature.');

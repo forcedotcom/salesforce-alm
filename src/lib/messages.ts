@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as os from 'os';
@@ -105,13 +105,6 @@ const messages = {
       cliForceCreateMessagePassword: 'Setting org password...',
       cliForceCreateMessagePasswordOk: 'Ok',
       cliForceCreateNoConfig: 'Please specify an org configuration via file and/or key=value pairs',
-      cliForceTestRunHelp: 'Invoke Apex tests in a given org.',
-      cliForceTestRunHelp_results:
-        'Wait for results. Display results when tests are complete. If false, use "getTestResults -i [runTestId]" command to get results.',
-      cliForceTestRunHelp_classIds: 'Apex Class Ids to test.',
-      cliForceTestRunHelp_suiteIds: 'Test Suite Ids to test (WIP).',
-      cliForceTestGetResultsHelp: 'Retrieve test results for given runTestId in a given org.',
-      cliForceTestGetResultsHelp_id: 'Id of test run.',
       oauthBrowserSuccess: 'Successfully updated the auth configuration for the org.',
       closeTheBrowser: 'You may now close the browser.',
       urlStateMismatch: 'The Oauth redirect listener encountered an http request that is not trusted. Ignoring.',
@@ -202,24 +195,6 @@ const messages = {
       createOrgCommandEnvLong: 'Environment where the scratch org is created: [%s].',
       createOrgCommandUnauthorized: 'You do not have access to the [%s] object',
       createOrgTimeoutHintNoIdAction: 'Retry creating the org but increase the wait timeout.',
-      apexReportCommandNoTestFound: 'No test found with the given names [%s]',
-      apexReportCommandNoJobId: 'No test run job ID found.',
-      apexReportCommandInvalidJobId: 'Invalid test run job ID: ',
-      apexReportCommandInvalidResponse: 'Invalid API response: %s',
-      apexReportCommandTestResultRetrievalFailed: 'Unable to get test results for job [%s]: [%s]',
-      apexReportCommandCodeCoverageRetrievalFailed: 'Unable to get code coverage for job [%s]: [%s]',
-      CoverageWithoutReporter: 'A result format is required when specifying codecoverage',
-      apexTestApiInvalidReporter: 'Unknown result format type. Must be one of the following values: %s',
-      apexTestApiInvalidTestRunId: 'Test run job ID not found: %s',
-      apexTestApiInvalidTestLevel: 'Unknown testlevel `%s`. Must be one of the following values: [%s]',
-      apexTestApiIncorrectTestLevel:
-        'When specifying classnames, suitenames, or tests, the provided testlevel must be RunSpecifiedTests',
-      apexTestApiInvalidParams: 'Specify either classnames, suitenames, or tests',
-      InvalidAsyncTestJob: 'Unable to invoke async test job: %s',
-      InvalidAsyncTestJobUnknownAction:
-        'Try running the tests in the Developer Console by using force:org:open, or create a new scratch org and try again.',
-      InvalidAsyncTestJobNoneFound:
-        'Unable to invoke any tests. Ensure the tests are loaded into the org or valid inputs are supplied.',
 
       unsupportedValueForEnv: 'Unsupported value for env: [%s]',
       unsupportedValueForDuration: 'Unsupported value for durationdays (must be 1-30): [%s]',
@@ -310,8 +285,8 @@ const messages = {
         '\n   $ sfdx force:mdapi:describemetadata -u me@example.com' +
         '\n   $ sfdx force:mdapi:describemetadata -f /path/to/outputfilename.txt' +
         '\n   $ sfdx force:mdapi:describemetadata -u me@example.com -f /path/to/outputfilename.txt',
-      mdDescribeMetadataCommandCliApiVersion: 'API version to use (the default is %s)',
-      mdDescribeMetadataCommandCliApiVersionLong: 'The API version to use. The default is the latest API version (%s).',
+      mdDescribeMetadataCommandCliApiVersion: 'API version to use',
+      mdDescribeMetadataCommandCliApiVersionLong: 'The API version to use. The default is the latest API version.',
       mdDescribeMetadataCommandCliResultFile: 'path to the file where results are stored',
       mdDescribeMetadataCommandCliResultFileLong:
         'The path to the file where the results of the command are stored. Directing the output to a file makes it easier to extract relevant information for your package.xml manifest file. The default output destination is the console.',
@@ -339,8 +314,8 @@ const messages = {
         '\n   $ sfdx force:mdapi:listmetadata -m Dashboard --folder foldername -u me@example.com' +
         '\n   $ sfdx force:mdapi:listmetadata -m Dashboard --folder foldername -f /path/to/outputfilename.txt' +
         '\n   $ sfdx force:mdapi:listmetadata -m CustomObject -u me@example.com -f /path/to/outputfilename.txt',
-      mdListmetadataCommandCliApiVersion: 'API version to use (the default is %s)',
-      mdListmetadataCommandCliApiVersionLong: 'The API version to use. The default is the latest API version (%s).',
+      mdListmetadataCommandCliApiVersion: 'API version to use',
+      mdListmetadataCommandCliApiVersionLong: 'The API version to use. The default is the latest API version',
       mdListmetadataCommandCliResultFile: 'path to the file where results are stored',
       mdListmetadataCommandCliResultFileLong:
         'The path to the file where the results of the command are stored. The default output destination is the console.',
@@ -515,25 +490,6 @@ const messages = {
       genericUnixKeychainServiceAccountMismatch:
         'The service and account specified in %s do not match the version of the toolbelt.',
       genericUnixKeychainServiceAccountMismatchAction: 'Check your toolbelt version and re-auth.',
-      dataExportInvalidSoql: 'Invalid SOQL query: %s',
-      dataExportSoqlFailed: 'Error invoking SOQL query: %s',
-      dataExportFailed: 'Export failed for soql query: %s. Error: %s.',
-      dataExportQueryMalformed: 'The provided SOQL is malformed: %s',
-      dataExportQueryMalformedAction: 'Check the SOQL syntax and try again.',
-      dataExportRecordCount: 'Processed %s records from query: %s',
-      dataExportRecordCountWarning:
-        'Query returned more than 200 records. Please run the command using the plan option instead.\n Record Count: %s \nQuery: %s',
-      dataExportSoqlNotProvided: 'Provide a SOQL query statement or file containing a SOQL statement.',
-      dataImportFileNotProvided: 'Provide a data plan or file(s).',
-      dataImportFileNotFound: 'Cannot find data file. Indicate a valid path: %s.',
-      dataImportFileUnknownContentType: 'Unable to determine content type for file: %s.',
-      dataImportFileUnsupported: 'Content type: %s not supported.',
-      dataImportTooManyFiles: 'Specify either sobjecttreefiles or a plan, but not both.',
-      dataImportFileEmpty: 'Data file is empty: %s.',
-      dataImportFileInvalidJson: 'data file is invalid JSON: %s',
-      dataImportFileNoRefId:
-        'Found references in file, but no reference-id content found (%s). Was parent SObjects saved first?',
-      dataImportFailed: 'Import failed from file: %s. Results: %s.',
 
       sourceConflictDetected: 'Source conflict(s) detected.',
       oauthInvalidGrant:
@@ -545,12 +501,11 @@ const messages = {
         `${os.EOL}Ensure the username is assigned to a profile or perm set associated with the connected app.` +
         `${os.EOL}Ensure the connected app is configured to pre-authorize admins.`,
       notSpecified: '<Not Specified>',
-      warnApiVersion: 'apiVersion configuration overridden at %s',
       metadataTypeNotSupported:
         'We can’t retrieve the specified metadata object: %s. Certain metadata types, like %s are not currently supported by the CLI.\n' +
         'File a bug here: https://github.com/forcedotcom/cli/issues and provide the name of the unsupported metadata type',
-      shapeCreateFailedMessage: 'Error creating scratch definition file. Please contact Salesforce support.'
-    }
+      shapeCreateFailedMessage: 'Error creating scratch definition file. Please contact Salesforce support.',
+    },
   },
   IndexErrorProcessor: {
     en_US: {
@@ -562,90 +517,8 @@ const messages = {
       server500:
         'The salesforce.com servers are temporarily unable to respond to your request. We apologize for the inconvenience.' +
         `${os.EOL}Thank you for your patience, and please try again in a few moments.`,
-      server500Action: 'Visit http://trust.salesforce.com for current system status and availability.'
-    }
-  },
-
-  apex: {
-    en_US: {
-      apexTestApiReportHint: 'Run "sfdx force:apex:test:report %s" to retrieve test results.',
-      apexTestApiReportForFormatHint:
-        'Run "sfdx force:apex:test:report %s --resultformat <format>" to retrieve test results in a different format.',
-      apexTestApiReportHintWithTimeoutAction:
-        'Run "sfdx force:apex:test:report -i %s" to retrieve the test results. Or increase the streaming timeout by specifying the wait parameter.',
-      description: 'work with Apex code',
-      longDescription:
-        'Use the apex commands to create Apex classes, execute anonymous blocks, view your logs, run Apex tests, and view Apex test results.',
-      apexCommandParamCodeCoverage: 'retrieve code coverage results',
-      apexCommandParamCodeCoverageLong: 'Retrieves code coverage results.',
-      apexCommandParamTestArtifactDir: 'directory to store test run files',
-      apexCommandParamTestArtifactDirLong: 'Directory to store test run files.',
-      apexTestCommandDescription: 'invoke Apex tests',
-      apexTestCommandDescriptionLong: 'Runs Apex tests.',
-      apexTestCommandHelp:
-        'By default, runs all Apex tests in the org’s namespace.' +
-        '\n\nTo run specific test classes, specify class names or suite names, or set a --testlevel value.' +
-        '\n\nTo run specific test methods, use --tests.' +
-        '\n\nExamples:' +
-        '\n   $ sfdx force:apex:test:run' +
-        '\n   $ sfdx force:apex:test:run -n "MyClassTest,MyOtherClassTest" -r human' +
-        '\n   $ sfdx force:apex:test:run -s "MySuite,MyOtherSuite" -c --json' +
-        '\n   $ sfdx force:apex:test:run -t "MyClassTest.testCoolFeature,MyClassTest.testAwesomeFeature,AnotherClassTest,namespace.TheirClassTest.testThis" -r human' +
-        '\n   $ sfdx force:apex:test:run -l RunLocalTests -d <path to outputdir> -u me@my.org',
-      apexTestCommandParamTestNames: 'comma-separated list of Apex test class names to run',
-      apexTestCommandParamTestNamesLong:
-        'Comma-separated list of Apex test class names to run. You can specify only one of ' +
-        'classnames, suitenames, or tests.',
-      apexTestCommandParamTestSuites: 'comma-separated list of Apex test suite names to run',
-      apexTestCommandParamTestSuitesLong:
-        'Comma-separated list of Apex test suite names to run. You can only specify one of ' +
-        'classnames, suitenames, or tests.',
-      apexTestCommandParamTests:
-        'comma-separated list of Apex test class names or IDs and, if applicable, test methods to run',
-      apexTestCommandParamTestsLong:
-        'Comma-separated list of Apex test class names or IDs and test methods, if applicable, ' +
-        'to run. You can only specify one of classnames, suitenames, or tests.',
-      apexTestCommandParamTestLevel: 'testlevel enum value',
-      apexTestCommandParamTestLevelLong:
-        'Specifies which tests to run, using one of these TestLevel enum values:' +
-        '\nRunSpecifiedTests—Only the tests that you specify are run.' +
-        '\nRunLocalTests—All tests in your org are run, except the ones that originate from installed managed packages.' +
-        '\nRunAllTestsInOrg—All tests are in your org and in installed managed packages are run.',
-      apexTestCommandParamReporter: 'test result format emitted to stdout; --json flag overrides this parameter',
-      apexTestCommandParamReporterLong:
-        'Format to use when displaying test results. If you also specify the --json flag, --json overrides this parameter.',
-      apexTestCommandParamSynchronous: 'run tests from a single class synchronously',
-      apexTestCommandParamSynchronousLong:
-        "Runs test methods from a single Apex class synchronously. If you don't specify this flag, tests are run asynchronously.",
-      apexTestCommandResultFormatDeprecation:
-        'In salesforcedx v41 and earlier, the --resultformat parameter caused the ' +
-        'apex:test:run command to wait for test results rather than finishing immediately and returning a test run ID. In salesforcedx v42 and later, the --resultformat parameter will no longer cause the command to wait. To wait for test results, include the --wait parameter.',
-      apexTestCommandInvalidTestlevel:
-        'To use the testlevel value RunSpecifiedTests, specify either classnames or suitenames.',
-      apexTestCommandInvalidSynchronousParams:
-        'Synchronous test runs can include test methods from only one Apex class. Omit the --synchronous flag or include tests from only one class.',
-      apexTestSynchronousRunFailed: 'Unable to run tests synchronously: [%s]',
-
-      apexReportCommandDescription: 'display test results',
-      apexReportCommandDescriptionLong: 'Displays the test results for a specific test run.',
-      apexReportCommandHelp:
-        'Displays test results for an enqueued or completed asynchronous Apex test run.' +
-        '\n\nExamples:' +
-        '\n   $ sfdx force:apex:test:report -i <test run id>' +
-        '\n   $ sfdx force:apex:test:report -i <test run id> -r junit' +
-        '\n   $ sfdx force:apex:test:report -i <test run id> -c --json',
-      apexReportCommandParamTestRunId: 'ID of test run',
-      apexReportCommandParamTestRunIdLong: 'The ID of test run.',
-      apexReportCommandParamReporter: 'test result format emitted to stdout; --json flag overrides this parameter',
-      apexReportCommandParamReporterLong:
-        'Format to use when displaying test results. If you also specify the --json flag, --json overrides this parameter.',
-      apexReportImprovedCoverageWarning:
-        "In Summer '20, the Apex test reporter will return more relevant and accurate code coverage results for test runs. To preview this change, set the environment variable SFDX_IMPROVED_CODE_COVERAGE='true'. Learn more at https://releasenotes.docs.salesforce.com/en-us/spring20/release-notes/rn_sf_cli_code_coverage_apextests.htm",
-      invalidValueForSocketTimeoutHandler: 'provide a valid function for the socket timeout handler.',
-      verboseDescription: 'display Apex test processing details',
-      verboseLongDescription:
-        'Displays Apex test processing details. If JSON format is specified, processing details aren’t displayed.'
-    }
+      server500Action: 'Visit http://trust.salesforce.com for current system status and availability.',
+    },
   },
 
   apexPreCompile: {
@@ -656,8 +529,8 @@ const messages = {
       precompileQueryError: 'An error occurred querying the state of the Apex cache - %s',
       precompileWarmerError: 'An error occurred running Apex pre-compilation - %s',
       invalidTimeout: 'Timeout value must be greater than zero.',
-      invalidPollInterval: 'Poll interval must be greater than zero.'
-    }
+      invalidPollInterval: 'Poll interval must be greater than zero.',
+    },
   },
 
   apexPreCompileCommand: {
@@ -665,8 +538,8 @@ const messages = {
       invalidTimeout: 'Invalid timeout value. Value must be greater than %s minutes.',
       precompileDescription: 'how long to wait (in minutes) for Apex pre-compilation',
       precompileLongDescription:
-        'Specifies how long to wait (in minutes) for Apex pre-compilation to complete before running the tests or timing out.'
-    }
+        'Specifies how long to wait (in minutes) for Apex pre-compilation to complete before running the tests or timing out.',
+    },
   },
 
   demoMode: {
@@ -684,8 +557,8 @@ const messages = {
       noPromptLong: 'Do not prompt for auth confirmation in demo mode.',
       demoModeCloseBrowser:
         "Your auth information wasn't stored by the Salesforce CLI. Please log out of your browser session" +
-        " when you're finished using this org."
-    }
+        " when you're finished using this org.",
+    },
   },
 
   auth: {
@@ -703,8 +576,8 @@ const messages = {
       instanceUrl: 'the login URL of the instance the org lives on',
       instanceUrlLong: 'The login URL of the Salesforce instance that the org lives on.',
       deviceWarning:
-        "force:auth:web:login doesn't work when authorizing to a headless environment. Use force:auth:device:login instead."
-    }
+        "force:auth:web:login doesn't work when authorizing to a headless environment. Use force:auth:device:login instead.",
+    },
   },
 
   auth_weblogin: {
@@ -719,8 +592,8 @@ const messages = {
       longDescription: 'Authorizes a Salesforce org by opening a browser so you can log in through salesforce.com.',
       stdin: 'OAuth client secret of personal connected app?',
       disableMasking: 'disable masking of user input (for use with problematic terminals)',
-      disableMaskingLong: 'Disables masking of user input (for use with problematic terminals).'
-    }
+      disableMaskingLong: 'Disables masking of user input (for use with problematic terminals).',
+    },
   },
 
   auth_logout: {
@@ -743,8 +616,8 @@ const messages = {
         'Important: You need a password to reauthorize scratch orgs. By default, scratch orgs have no password. If you still need your scratch orgs, run ' +
         '"sfdx force:user:password:generate" before logging out. If you don\'t need the scratch orgs anymore, run "sfdx force:org:delete" instead of logging out.' +
         `${os.EOL}${os.EOL}Log out (y/n)?`,
-      specifiedBothUserAndAllError: 'Specify either --targetusername or --all.'
-    }
+      specifiedBothUserAndAllError: 'Specify either --targetusername or --all.',
+    },
   },
 
   auth_jwt: {
@@ -763,8 +636,8 @@ const messages = {
       username: 'authentication username',
       usernameLong: 'The authentication username.',
       key: 'path to a file containing the private key',
-      keyLong: 'Path to a file containing the private key.'
-    }
+      keyLong: 'Path to a file containing the private key.',
+    },
   },
 
   auth_sfdxurl: {
@@ -786,8 +659,8 @@ const messages = {
         'Invalid or missing SFDX auth URL.' +
         '\nEnsure the file exists, and that it either a) contains only the URL, or ' +
         'b) is a JSON file with a top-level property named sfdxAuthUrl.' +
-        '\nEnsure the URL is in the correct format "%s" or "%s".'
-    }
+        '\nEnsure the URL is in the correct format "%s" or "%s".',
+    },
   },
 
   varargs_command: {
@@ -795,8 +668,8 @@ const messages = {
       ArgsRequired: 'Please provide required name=value pairs for the command, quoting any values containing spaces.',
       InvalidArgsFormat:
         'Setting variables must be in the format <key>=<value> or <key>="<value with spaces>" but found %s.',
-      DuplicateArgs: "Cannot set variable name '%s' twice for the same command."
-    }
+      DuplicateArgs: "Cannot set variable name '%s' twice for the same command.",
+    },
   },
 
   alias: {
@@ -804,8 +677,8 @@ const messages = {
       description: 'manage username aliases',
       longDescription: 'Use the alias commands to manage username aliases.',
       NoAliasesFound: 'Nothing to set',
-      InvalidFormat: 'Setting aliases must be in the format <key>=<value> but found: [%s]'
-    }
+      InvalidFormat: 'Setting aliases must be in the format <key>=<value> but found: [%s]',
+    },
   },
 
   sfdxConfig: {
@@ -814,86 +687,16 @@ const messages = {
       invalidApiVersion: 'Specify a valid Salesforce API version, for example, 42.0.',
       invalidInstanceUrl: 'Specify a valid Salesforce instance URL.',
       UnknownConfigKey: 'Unknown config key: %s',
-      sfdxProjectValidationFailure: 'sfdx-project.json file did not validate against the schema.'
-    }
-  },
-
-  data: {
-    en_US: {
-      description: 'manipulate records in your org',
-      longDescription:
-        'Use the data commands to manipulate records in your org. Commands are available to help you work with ' +
-        'various APIs. Import CSV files with the Bulk API. Export and import data that includes master-detail relationships with ' +
-        'the SObject Tree Save API. Perform simple CRUD operations on individual records with the REST API.',
-
-      dataImportCommandCliDescription: 'import data into an org using SObject Tree Save API',
-      dataImportCommandCliDescriptionLong:
-        'Imports data into an org using the SObject Tree Save API. This data can include ' +
-        'master-detail relationships.',
-      dataImportCommandCliHelp:
-        'To generate JSON files for use with force:data:tree:import, run "sfdx force:data:tree:export".' +
-        '\n\nExamples:\nTo import records as individual files, first run the export commands:' +
-        '\n   $ sfdx force:data:tree:export -q "SELECT Id, Name FROM Account"' +
-        '\n   $ sfdx force:data:tree:export -q "SELECT Id, LastName, FirstName FROM Contact"' +
-        '\nThen run the import command:' +
-        '\n   $ sfdx force:data:tree:import -f Contact.json,Account.json -u me@my.org' +
-        '\n\nTo import multiple data files as part of a plan, first run the export command with the -p | --plan flag:' +
-        '\n   $ sfdx force:data:tree:export -p -q "SELECT Id, Name, (SELECT Id, LastName, FirstName FROM Contacts) FROM Account"' +
-        '\nThen run the import command, supplying a filepath value for the -p | --plan parameter:' +
-        '\n   $ sfdx force:data:tree:import -p Account-Contact-plan.json -u me@my.org' +
-        '\n\nThe SObject Tree API supports requests that contain up to 200 records. For more information, see the REST API ' +
-        'Developer Guide: https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_sobject_tree.htm',
-      dataImportCommandCliFiles:
-        'comma-delimited, ordered paths of json files containing collection of record trees to insert',
-      dataImportCommandCliFilesLong:
-        'Comma-delimited, ordered paths of JSON files containing a collection of record trees to insert. ' +
-        'Either --sobjecttreefiles or --plan is required.',
-      dataImportCommandCliContentType:
-        'if data file extension is not .json, provide content type (applies to all files)',
-      dataImportCommandCliContentTypeLong:
-        'If the data file extension is not .json, provide the content type (applies to all files).',
-      dataImportCommandCliPlan: 'path to plan to insert multiple data files that have master-detail relationships',
-      dataImportCommandCliPlanLong:
-        'Path to plan to insert multiple data files that have master-detail relationships. ' +
-        'Either --sobjecttreefiles or --plan is required.',
-      dataImportCommandValidationFailure:
-        'Data plan file %s did not validate against the schema.' +
-        '\nDid you run the force:data:tree:export command with the --plan flag?' +
-        '\nMake sure you are importing a plan file.' +
-        '\nYou can get help with the import plan schema by running $ sfdx force:data:tree:import --confighelp' +
-        '\n\n%s',
-      dataExportCommandCliDescription:
-        'export data from an org into sObject tree format for force:data:tree:import consumption',
-      dataExportCommandCliDescriptionLong:
-        'Exports data from an org into sObject tree format for force:data:tree:import consumption.',
-      dataExportCommandCliHelp:
-        'Generates JSON files for use with the force:data:tree:import command.' +
-        '\n\nExamples:' +
-        '\n   $ sfdx force:data:tree:export -q "SELECT Id, Name, (SELECT Name, Address__c FROM Properties__r) FROM Broker__c"' +
-        '\n   $ sfdx force:data:tree:export -q <path to file containing soql query> -x export-demo -d /tmp/sfdx-out -p' +
-        '\n\nFor more information and examples, run "sfdx force:data:tree:import -h".' +
-        '\n\nThe query for export can return a maximum of 2,000 records. For more information, see the REST API ' +
-        'Developer Guide: https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/resources_composite_sobject_tree.htm',
-      dataExportCommandCliSoql: 'soql query, or filepath of file containing a soql query, to retrieve records',
-      dataExportCommandCliSoqlLong:
-        'A SOQL query statement or the path of a file containing a SOQL query statement ' +
-        'to retrieve the records to export.',
-      dataExportCommandCliPrefix: 'prefix of generated files',
-      dataExportCommandCliPrefixLong: 'Prefix of generated files.',
-      dataExportCommandCliDir: 'directory to store files',
-      dataExportCommandCliDirLong: 'Directory to store generated files.',
-      dataExportCommandCliPlan: 'generate mulitple sobject tree files and a plan definition file for aggregated import',
-      dataExportCommandCliPlanLong:
-        'Generates multiple sObject tree files and a plan definition file for aggregated import.'
-    }
+      sfdxProjectValidationFailure: 'sfdx-project.json file did not validate against the schema.',
+    },
   },
 
   versionCommand: {
     en_US: {
       versionDescription: 'display the Salesforce API version',
       MissingVersionAttribute: 'Missing version attribute from package.json',
-      UnexpectedVersionFormat: 'The version specified in package.json is unexpected: %s'
-    }
+      UnexpectedVersionFormat: 'The version specified in package.json is unexpected: %s',
+    },
   },
 
   mdapiConvertCommand: {
@@ -931,22 +734,22 @@ const messages = {
         '\nIf you specify this parameter, don’t specify --manifest or --metadata.' +
         'If the comma-separated list you’re supplying contains spaces, enclose the entire comma-separated list in one set of double quotes.',
       metadataParamDescription: 'comma-separated list of metadata component names to convert',
-      metadataParamLongDescription: 'A comma-separated list of metadata component names to convert.'
-    }
+      metadataParamLongDescription: 'A comma-separated list of metadata component names to convert.',
+    },
   },
 
   mdapiConvertApi: {
     en_US: {
       invalidPath: 'the path specified is not a directory or doesn’t contain a package.xml',
-      errorProcessingPath: 'An error was encountered processing path: %s'
-    }
+      errorProcessingPath: 'An error was encountered processing path: %s',
+    },
   },
 
   scratchOrgApi: {
     en_US: {
       noOrgsFound: 'No orgs can be found.',
-      noOrgsFoundAction: 'Use one of the commands in force:auth or force:org:create to add or create new scratch orgs.'
-    }
+      noOrgsFoundAction: 'Use one of the commands in force:auth or force:org:create to add or create new scratch orgs.',
+    },
   },
 
   org_shape_list: {
@@ -960,8 +763,8 @@ const messages = {
         'Examples:' +
         '\n   $ sfdx force:org:shape:list' +
         '\n   $ sfdx force:org:shape:list --json' +
-        '\n   $ sfdx force:org:shape:list --json > tmp/MyOrgShapeList.json'
-    }
+        '\n   $ sfdx force:org:shape:list --json > tmp/MyOrgShapeList.json',
+    },
   },
 
   org_shape_delete: {
@@ -985,16 +788,16 @@ const messages = {
         '\n   $ sfdx force:org:shape:delete -u me@my.org' +
         '\n   $ sfdx force:org:shape:delete -u MyOrgAlias -p' +
         '\n   $ sfdx force:org:shape:delete -u me@my.org --json' +
-        '\n   $ sfdx force:org:shape:delete -u me@my.org -p --json > tmp/MyOrgShapeDelete.json'
-    }
+        '\n   $ sfdx force:org:shape:delete -u me@my.org -p --json > tmp/MyOrgShapeDelete.json',
+    },
   },
 
   org_shape_get: {
     en_US: {
       description: 'retrieve an org shape',
       longDescription: 'Retrieves an org shape that you created from an org using Salesforce CLI.',
-      notAShapeId: 'the value passed in was not a shape id'
-    }
+      notAShapeId: 'the value passed in was not a shape id',
+    },
   },
 
   package_displayancestry: {
@@ -1030,8 +833,8 @@ const messages = {
       unlockedPackageError:
         'Can’t display package ancestry. Package ancestry is available only for second-generation managed packages. Retry this command and specify a second-generation managed package or package version.',
       noVersionsError:
-        'Can’t display package ancestry. The specified package has no associated released package versions. Retry this command after you create and promote at least one package version.'
-    }
+        'Can’t display package ancestry. The specified package has no associated released package versions. Retry this command after you create and promote at least one package version.',
+    },
   },
 
   package_install_get: {
@@ -1048,8 +851,8 @@ const messages = {
         'PackageInstallRequest is currently InProgress. You can continue to query the status using' +
         '\nsfdx force:package:install:get -i %s -u %s',
       UNKNOWN: this.InProgress,
-      SUCCESS: 'Successfully installed package [%s]'
-    }
+      SUCCESS: 'Successfully installed package [%s]',
+    },
   },
 
   package_uninstall_get: {
@@ -1066,8 +869,8 @@ const messages = {
         'PackageUninstallRequest is currently InProgress. You can continue to query the status using' +
         '\nsfdx force:package:uninstall:get -i %s -u %s',
       Unknown: this.InProgress,
-      Success: 'Successfully uninstalled package [%s]'
-    }
+      Success: 'Successfully uninstalled package [%s]',
+    },
   },
 
   package_install_report: {
@@ -1084,8 +887,8 @@ const messages = {
         'PackageInstallRequest is currently InProgress. You can continue to query the status using' +
         '\nsfdx force:package:install:report -i %s -u %s',
       UNKNOWN: this.InProgress,
-      SUCCESS: 'Successfully installed package [%s]'
-    }
+      SUCCESS: 'Successfully installed package [%s]',
+    },
   },
 
   package_uninstall_report: {
@@ -1102,8 +905,8 @@ const messages = {
         'PackageUninstallRequest is currently InProgress. You can continue to query the status using' +
         '\nsfdx force:package:uninstall:report -i %s -u %s',
       Unknown: this.InProgress,
-      Success: 'Successfully uninstalled package [%s]'
-    }
+      Success: 'Successfully uninstalled package [%s]',
+    },
   },
 
   package1_version_create_get: {
@@ -1122,8 +925,8 @@ const messages = {
       SUCCESS: 'Successfully uploaded package [%s]',
       QUEUED:
         'PackageUploadRequest has been enqueued. You can query the status using' +
-        '\nsfdx force:package1:version:create:get -i %s -u %s'
-    }
+        '\nsfdx force:package1:version:create:get -i %s -u %s',
+    },
   },
 
   package_install: {
@@ -1193,8 +996,8 @@ const messages = {
       invalidIdOrPackage:
         'Invalid alias or ID: %s. Either your alias is invalid or undefined, or the ID provided is invalid.',
       deprecateSecurityTypeDefault:
-        "[Deprecation notice: The --securitytype parameter's default value will change from AllUsers to AdminsOnly in an upcoming release (v47.0 or later).]"
-    }
+        "[Deprecation notice: The --securitytype parameter's default value will change from AllUsers to AdminsOnly in an upcoming release (v47.0 or later).]",
+    },
   },
   package_version_promote: {
     en_US: {
@@ -1220,8 +1023,8 @@ const messages = {
       previouslyReleasedAction:
         'Create a new package version with a different --versionumber, then promote the package version.\n' +
         'sfdx force:package:version:create -p <name> -n <versionnum> -k <key>\n' +
-        'sfdx force:package:version:promote -p 05ixxx'
-    }
+        'sfdx force:package:version:promote -p 05ixxx',
+    },
   },
   package_uninstall: {
     en_US: {
@@ -1252,8 +1055,8 @@ const messages = {
       packageLong: 'The ID (starts with 04t) or alias of the package version to uninstall.',
       errorRequiredFlags: 'Include either a %s value or a %s value.',
       invalidIdOrPackage:
-        'Invalid alias or ID: %s. Either your alias is invalid or undefined, or the ID provided is invalid.'
-    }
+        'Invalid alias or ID: %s. Either your alias is invalid or undefined, or the ID provided is invalid.',
+    },
   },
 
   packaging: {
@@ -1285,6 +1088,8 @@ const messages = {
         'VersionNumber must be in the format major.minor.patch.build but the value found is [%s].',
       errorInvalidBuildNumber:
         "The provided VersionNumber '%s' is invalid. Provide an integer value or use the keyword '%s' for the build number.",
+      errorInvalidBuildNumberForKeywords:
+        "The provided VersionNumber '%s' is invalid. Provide an integer value or use the keyword '%s' or '%s' for the build number.",
       errorInvalidPatchNumber: "The provided VersionNumber '%s' is not supported. Provide a patch number of 0.",
       errorInvalidMajorMinorNumber:
         "The provided VersionNumber '%s' is invalid. Provide an integer value for the %s number.",
@@ -1309,8 +1114,8 @@ const messages = {
       malformedPackageVersionIdAction: 'Use "sfdx force:package:version:list" to verify the 05i package version ID.',
       malformedPackageVersionIdMessage: 'We can’t find this package version ID for this Dev Hub.',
       malformedPackageIdAction: 'Use "sfdx force:package:list" to verify the 0Ho package version ID.',
-      malformedPackageIdMessage: 'We can’t find this package ID for this Dev Hub.'
-    }
+      malformedPackageIdMessage: 'We can’t find this package ID for this Dev Hub.',
+    },
   },
 
   // Is this used anywhere? It seems like a duplicate.
@@ -1328,8 +1133,8 @@ const messages = {
         'The package installation request is still In Progress or Unknown. You can query the status using ' +
         '\n $ sfdx force:package:install:get -i %s -u %s',
       UNKNOWN: this.InProgress,
-      SUCCESS: 'Successfully installed package [%s].'
-    }
+      SUCCESS: 'Successfully installed package [%s].',
+    },
   },
   package_convert: {
     en_US: {
@@ -1369,8 +1174,8 @@ const messages = {
       longInstance: 'The instance where the conversion package version will be created——for example, NA50.',
       errorMoreThanOnePackage2WithSeed:
         'Only one package in in a Dev Hub is allowed per converted from first-generation package, but the following were found: ',
-      errorNoSubscriberPackageRecord: 'No subscriber package was found for seed id: '
-    }
+      errorNoSubscriberPackageRecord: 'No subscriber package was found for seed id: ',
+    },
   },
   package_create: {
     en_US: {
@@ -1412,8 +1217,8 @@ const messages = {
       errorPathNotSpecified:
         'Add a valid path to packageDirectories in the sfdx-project.json file. ' +
         'When the --path parameter is specified, the path is automatically added to the sfdx-project.json file.\n%s\n',
-      humanSuccess: 'Successfully created a package.'
-    }
+      humanSuccess: 'Successfully created a package.',
+    },
   },
 
   package_update: {
@@ -1432,8 +1237,8 @@ const messages = {
       nameLong: 'New name of the package.',
       description: 'new package description',
       descriptionLong: 'New description of the package.',
-      humanSuccess: 'Successfully updated the package.'
-    }
+      humanSuccess: 'Successfully updated the package.',
+    },
   },
 
   package_list: {
@@ -1456,8 +1261,8 @@ const messages = {
       verboseLongDescription: 'Displays extended package details.',
       convertedFromPackageId: 'Converted From Package Id',
       isOrgDependent: 'Org-Dependent Unlocked Package',
-      errorNotificationUsername: 'Error Notification Username'
-    }
+      errorNotificationUsername: 'Error Notification Username',
+    },
   },
 
   package_version_create: {
@@ -1490,7 +1295,7 @@ const messages = {
       dir: 'path to directory that contains the contents of the package version',
       longDir: 'The path to the directory that contains the contents of the package version.',
       branch: 'the package version’s branch',
-      longBranch: 'The package version’s branch.',
+      longBranch: 'Name of the branch in your source control system that the package version is based on.',
       tag: 'the package version’s tag',
       longTag: 'The package version’s tag.',
       key:
@@ -1562,6 +1367,8 @@ const messages = {
         'package that is run in the installing org after uninstallations of this package.',
       defaultVersionName:
         'versionName is blank in sfdx-project.json, so it will be set to this default value based on the versionNumber: %s',
+      buildNumberResolvedForLatest: 'Dependency on package %s was resolved to version number %s, branch %s, %s.',
+      buildNumberResolvedForReleased: 'Dependency on package %s was resolved to the released version number %s, %s.',
       InProgress:
         'Package version creation request status is \'%s\'. Run "sfdx force:package:version:create:report -i %s" to query for status.',
       Success:
@@ -1598,8 +1405,8 @@ const messages = {
       unknownError: 'Package version creation failed with unknown error.',
       malformedUrl:
         'The %s value "%s" from the command line or sfdx-project.json is not in the correct format for a URL. It must be a valid URL in the ' +
-        'format "http://salesforce.com". More information: https://nodejs.org/api/url.html#url_url_strings_and_url_objects'
-    }
+        'format "http://salesforce.com". More information: https://nodejs.org/api/url.html#url_url_strings_and_url_objects',
+    },
   },
 
   package_version_create_list: {
@@ -1625,8 +1432,8 @@ const messages = {
       subscriberPackageVersionId: 'Subscriber Package Version Id',
       branch: 'Branch',
       tag: 'Tag',
-      installUrl: 'Installation URL'
-    }
+      installUrl: 'Installation URL',
+    },
   },
 
   package_version_create_report: {
@@ -1644,8 +1451,8 @@ const messages = {
       requestIdLong: 'The ID (starts with 08c) of the package version creation request you want to display.',
       error: 'Error',
       truncatedErrors:
-        '...\n\nTo see all errors, run: sfdx force:data:soql:query -t -q "SELECT Message FROM Package2VersionCreateRequestError WHERE ParentRequest.Id =\'%s\'"\n'
-    }
+        '...\n\nTo see all errors, run: sfdx force:data:soql:query -t -q "SELECT Message FROM Package2VersionCreateRequestError WHERE ParentRequest.Id =\'%s\'"\n',
+    },
   },
 
   package_version_update: {
@@ -1673,8 +1480,8 @@ const messages = {
       longKey: 'The new installation key for the key-protected package. The default is null.',
       humanSuccess: 'Successfully updated the package version.',
       previousReleased:
-        'To release the new package version, run "sfdx force:package:version:update -s <new package version ID>".'
-    }
+        'To release the new package version, run "sfdx force:package:version:update -s <new package version ID>".',
+    },
   },
 
   package_version_report: {
@@ -1689,8 +1496,9 @@ const messages = {
       package: 'ID (starts with 04t) or alias of the package to retrieve details for',
       packageLong: 'The ID (starts with 04t) or alias of the package to retrieve details for.',
       verboseDescription: 'displays extended package version details',
-      verboseLongDescription: 'Displays extended package version details.'
-    }
+      verboseLongDescription: 'Displays extended package version details.',
+      dependencies: 'Dependencies',
+    },
   },
 
   package_version_list: {
@@ -1735,8 +1543,8 @@ const messages = {
       validationSkipped: 'Validation Skipped',
       releaseVersion: 'Release Version',
       buildDurationInSeconds: 'Build Duration in Seconds',
-      hasMetadataRemoved: 'Managed Metadata Removed'
-    }
+      hasMetadataRemoved: 'Managed Metadata Removed',
+    },
   },
 
   package_installed_list: {
@@ -1754,8 +1562,8 @@ const messages = {
       subscriberPackageNamespace: 'Namespace',
       subscriberPackageVersionId: 'Package Version ID',
       subscriberPackageVersionName: 'Version Name',
-      subscriberPackageVersionNumber: 'Version'
-    }
+      subscriberPackageVersionNumber: 'Version',
+    },
   },
 
   package_version_delete: {
@@ -1779,8 +1587,8 @@ const messages = {
         '\n\nDo you want to continue? (y/n)',
       promptDeleteDeny: 'The request to delete this package version has been canceled.',
       humanSuccess: 'Successfully deleted the package version.',
-      humanSuccessUndelete: 'Successfully undeleted the package version.'
-    }
+      humanSuccessUndelete: 'Successfully undeleted the package version.',
+    },
   },
 
   package_delete: {
@@ -1805,8 +1613,8 @@ const messages = {
         '\n\nDo you want to continue? (y/n)',
       promptDeleteDeny: 'The request to delete this package was canceled',
       humanSuccess: 'Successfully deleted the package.',
-      humanSuccessUndelete: 'Successfully undeleted the package.'
-    }
+      humanSuccessUndelete: 'Successfully undeleted the package.',
+    },
   },
 
   // ******************************************* PACKAGE 2 LEGACY ********************************************
@@ -1847,8 +1655,8 @@ const messages = {
       errorAncestorIdVersionMismatch:
         'The ancestorVersion in sfdx-project.json is not the version expected for the ancestorId you supplied. ancestorVersion [%s]. ancestorID [%s].',
       errorpackage2AncestorIdsKeyNotSupported:
-        'The package2AncestorIds key is no longer supported in a scratch org definition. Ancestors defined in sfdx-project.json will be included in the scratch org.'
-    }
+        'The package2AncestorIds key is no longer supported in a scratch org definition. Ancestors defined in sfdx-project.json will be included in the scratch org.',
+    },
   },
 
   package2_create: {
@@ -1876,8 +1684,8 @@ const messages = {
         'Container options for the package2. ' +
         '\nManaged is default. Other options include Unlocked. (Managed=DeveloperManagedSubscriberManaged, Unlocked=DeveloperControlledSubscriberEditable). ' +
         '\nThese options determine the upgrade and editability rules.',
-      humanSuccess: 'Successfully created a second-generation package (package2).'
-    }
+      humanSuccess: 'Successfully created a second-generation package (package2).',
+    },
   },
 
   package2_update: {
@@ -1896,8 +1704,8 @@ const messages = {
       nameLong: 'Name of the package to update.',
       description: 'package description',
       descriptionLong: 'Description of the package.',
-      humanSuccess: 'Successfully updated the package. ID: %s.'
-    }
+      humanSuccess: 'Successfully updated the package. ID: %s.',
+    },
   },
 
   package2_list: {
@@ -1910,8 +1718,8 @@ const messages = {
       id: 'Id',
       package2Id: 'Subscriber Package2 Id',
       description: 'Description',
-      containerOptions: 'Options'
-    }
+      containerOptions: 'Options',
+    },
   },
 
   package2_version_create: {
@@ -1967,8 +1775,8 @@ const messages = {
       errorEmptyPackageDirs:
         'sfdx-project.json must contain a packageDirectories entry for a package. It has no entries, currently.',
       unknownError: 'Package2 version creation failed with unknown error.',
-      undefinedStatus: 'Package2 version creation returned with status: %s.'
-    }
+      undefinedStatus: 'Package2 version creation returned with status: %s.',
+    },
   },
 
   package2_version_create_list: {
@@ -1995,8 +1803,8 @@ const messages = {
       subscriberPackageVersionId: 'Subscriber Package2 Version Id',
       branch: 'Branch',
       tag: 'Tag',
-      installUrl: 'Installation URL'
-    }
+      installUrl: 'Installation URL',
+    },
   },
 
   package2_version_create_get: {
@@ -2013,8 +1821,8 @@ const messages = {
       requestIdLong: 'The ID of the package2 version creation request you want to display.',
       error: 'Error',
       truncatedErrors:
-        '...\n\nTo see all errors, run: sfdx force:data:soql:query -t -q "SELECT Message FROM Package2VersionCreateRequestError WHERE ParentRequest.Id =\'%s\'"\n'
-    }
+        '...\n\nTo see all errors, run: sfdx force:data:soql:query -t -q "SELECT Message FROM Package2VersionCreateRequestError WHERE ParentRequest.Id =\'%s\'"\n',
+    },
   },
 
   package2_version_update: {
@@ -2047,8 +1855,8 @@ const messages = {
       setasreleasedForceLong: 'No prompt to confirm setting the package version as released.',
       humanSuccess: 'Successfully updated the package version. ID: %s.',
       previousReleased:
-        'To release the new package2 version, run "sfdx force:package2:version:update -s <new package2 version ID>".'
-    }
+        'To release the new package2 version, run "sfdx force:package2:version:update -s <new package2 version ID>".',
+    },
   },
 
   package2_version_get: {
@@ -2058,8 +1866,8 @@ const messages = {
       help:
         'Examples:' +
         '\n   $ sfdx force:package2:version:get --package2versionid 05i...' +
-        '\n\nTo update package version values, run "sfdx force:package2:version:update".'
-    }
+        '\n\nTo update package version values, run "sfdx force:package2:version:update".',
+    },
   },
 
   package2_version_list: {
@@ -2094,8 +1902,8 @@ const messages = {
       package2Id: 'Package2 Id',
       package2Branch: 'Branch',
       package2Tag: 'Tag',
-      installUrl: 'Installation URL'
-    }
+      installUrl: 'Installation URL',
+    },
   },
 
   // ************************************ END OF PACKAGE2 LEGACY *****************************************
@@ -2146,8 +1954,8 @@ const messages = {
       MyDomainResolverTimeoutError:
         'Successfully created org with ID: %s and name: %s. However, the My Domain URL %s has not finished propagating. Some commands may not work as expected until the My Domain DNS propagation is complete.',
       SourceStatusResetFailure:
-        'Successfully created org with ID: %s and name: %s. Unfortunately, source tracking isn’t working as expected. If you run force:source:status, the results may be incorrect. Try again by creating another scratch org.'
-    }
+        'Successfully created org with ID: %s and name: %s. Unfortunately, source tracking isn’t working as expected. If you run force:source:status, the results may be incorrect. Try again by creating another scratch org.',
+    },
   },
 
   generatePassword: {
@@ -2178,8 +1986,8 @@ const messages = {
       successMultiple: `Successfully set passwords:${os.EOL}`,
       viewWithCommand: 'You can see the password again by running "sfdx force:user:display -u %s".',
       noSelfSetAction:
-        'Create a scratch org with the enableSetPasswordInApi org security setting set to TRUE and try again.'
-    }
+        'Create a scratch org with the enableSetPasswordInApi org security setting set to TRUE and try again.',
+    },
   },
 
   source: {
@@ -2189,8 +1997,8 @@ const messages = {
         'Use the source commands to push and pull source to and from your scratch orgs, ' +
         'to deploy and retrieve source to and from non-source-tracked orgs, ' +
         'to see synchronization changes between your project and scratch orgs, and to convert your source ' +
-        'to the metadata format for Metadata API deployments.'
-    }
+        'to the metadata format for Metadata API deployments.',
+    },
   },
 
   source_convert: {
@@ -2224,8 +2032,8 @@ const messages = {
         '(in which case the operation is applied to all metadata types in the directory and its sub-directories).' +
         '\nIf you specify this parameter, don’t specify --manifest or --metadata.',
       metadataParamDescription: 'comma-separated list of metadata component names to convert',
-      metadataParamLongDescription: 'A comma-separated list of metadata component names to convert.'
-    }
+      metadataParamLongDescription: 'A comma-separated list of metadata component names to convert.',
+    },
   },
 
   sourceConvertCommand: {
@@ -2233,8 +2041,8 @@ const messages = {
       success: 'Source was successfully converted to Metadata API format and written to the location: %s',
       invalidRootDirectory: 'The package root directory does not exist: %s',
       noSourceInRootDirectory: 'No matching source was found within the package root directory: %s',
-      rootDirectoryNotASourceDirectory: 'The package root directory is not a source directory'
-    }
+      rootDirectoryNotASourceDirectory: 'The package root directory is not a source directory',
+    },
   },
 
   lightning: {
@@ -2244,58 +2052,30 @@ const messages = {
         'Use the lightning commands to create Aura components and Lightning web components ' +
         'and to test Aura components. As of API version 45.0, you can build Lightning components using two programming models: ' +
         'Lightning Web Components, and the original model, Aura Components. Lightning web components and Aura components can ' +
-        'coexist and interoperate on a page.'
-    }
+        'coexist and interoperate on a page.',
+    },
   },
 
   schema: {
     en_US: {
       mainTopicDescriptionHelp: 'view standard and custom objects',
       mainTopicLongDescriptionHelp:
-        'Use the schema commands to view information about the ' + 'standard and custom objects in your org.'
-    }
+        'Use the schema commands to view information about the ' + 'standard and custom objects in your org.',
+    },
   },
 
   visualforce: {
     en_US: {
       mainTopicDescriptionHelp: 'create and edit Visualforce files',
-      mainTopicLongDescriptionHelp: 'Use the visualforce commands to create Visualforce pages and components.'
-    }
+      mainTopicLongDescriptionHelp: 'Use the visualforce commands to create Visualforce pages and components.',
+    },
   },
 
   project: {
     en_US: {
       mainTopicDescriptionHelp: 'set up a Salesforce DX project',
-      mainTopicLongDescriptionHelp: 'Use the project commands to set up a Salesforce DX project.'
-    }
-  },
-
-  projectUpgrade: {
-    en_US: {
-      commandDescription: 'update project config files to the latest format',
-      commandDescriptionLong: 'Updates project configuration and definition files to the latest format.',
-      commandHelp: 'Examples:' + '\n $   sfdx force:project:upgrade' + '\n $   sfdx force:project:upgrade -f',
-      forceOption: 'run all upgrades even if project has already been upgraded',
-      forceOptionLong: 'Run all upgrades, even if the project definition files have already been upgraded.',
-
-      error_validProject: 'Need a valid project to upgrade',
-      error_upgradeFailed: 'Failed to upgrade: %s',
-
-      prompt_renameProjectFile:
-        'Found old project file in %s. To continue upgrade, you must rename it to %s. Would you like to continue (yes/no)?',
-      prompt_queuedActions: 'Found %s project update(s) to perform. Do you want to continue (list/yes/no)?',
-      prompt_continue: 'Do you want to continue (yes/no)?',
-
-      prompt_orgDefPattern:
-        'Check for old org definition files in the "config" directory using the pattern "config/*def.json" by entering "D" or "DEFAULT". Otherwise, enter the pattern to find your org definition files, such as "orgs/my-org-*def.json". To skip conversion of org definition files, enter "SKIP".',
-
-      skipping: 'Skipping %s upgrades.',
-      uptodate: 'Your project is up to date.',
-
-      action_orgDefConversion: 'Upgrade %s org definition files to new format.',
-      action_headsDownProject: 'Upgrade %s to headsDownCamelCase',
-      action_removeUseDecomposition: 'Remove useDecomposition from %s'
-    }
+      mainTopicLongDescriptionHelp: 'Use the project commands to set up a Salesforce DX project.',
+    },
   },
 
   org_shape: {
@@ -2310,8 +2090,8 @@ const messages = {
       create_shape_command_username: 'a username or alias for the target org',
       create_shape_command_username_long:
         'Username or alias of the previously authorized org from which you want to create an org shape.',
-      create_shape_command_no_access: 'The org needs to be enabled for org shape before one can be created.'
-    }
+      create_shape_command_no_access: 'The org needs to be enabled for org shape before one can be created.',
+    },
   },
 
   orgSnapshot: {
@@ -2370,16 +2150,16 @@ const messages = {
       sourceOrgInvalid: 'Provide a valid name or ID for your source org.',
       nameInvalid: 'Provide a valid name for your snapshot.',
       snapshotInvalid: 'Provide a valid name or ID for your snapshot.',
-      unsupportedSnapshotOrgCreateOptions: 'Org snapshots don’t support one or more options you specified: %s'
-    }
-  }
+      unsupportedSnapshotOrgCreateOptions: 'Org snapshots don’t support one or more options you specified: %s',
+    },
+  },
 };
 
-const _getLocale = function() {
+const _getLocale = function () {
   return 'en_US';
 };
 
-export = function(locale = _getLocale()) {
+export = function (locale = _getLocale()) {
   return {
     getMessage(label, args?: any, bundle = 'default') {
       const bundleLocale = messages[bundle][locale];
@@ -2395,7 +2175,9 @@ export = function(locale = _getLocale()) {
       if (util.isNullOrUndefined(args)) {
         return bundleLocale[label];
       } else {
-        if (!isArray(args)) args = [args];
+        if (!isArray(args)) {
+          args = [args];
+        }
         const everyone = [].concat(bundleLocale[label], args);
         // @ts-ignore TODO: typings want a min of one arg but the line above guarantees that
         return util.format(...everyone);
@@ -2412,6 +2194,6 @@ export = function(locale = _getLocale()) {
 
     get perflog() {
       return PERF_LOG_LEVEL_PARAM;
-    }
+    },
   };
 };

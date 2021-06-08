@@ -1,14 +1,14 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
 
-import MetadataRegistry = require('./metadataRegistry');
 import * as glob from 'glob';
+import MetadataRegistry = require('./metadataRegistry');
 
 import * as PathUtil from './sourcePathUtil';
 const { env } = require('@salesforce/kit');
@@ -48,7 +48,7 @@ export class BundlePathHelper {
   static getMetadataFileNameFromBundleFileProperties(fullName, bundleFileTypeProperties): string {
     const normalizedFullName = path.normalize(fullName);
     const bundleName = normalizedFullName.split(path.sep)[0];
-    const matchingBundle = bundleFileTypeProperties.find(fileProperty => {
+    const matchingBundle = bundleFileTypeProperties.find((fileProperty) => {
       const normalizedBFTPFullName = path.normalize(fileProperty.fullName);
       return normalizedBFTPFullName.split(path.sep)[0] === bundleName;
     });
@@ -126,13 +126,13 @@ export class BundlePathHelper {
 
   static getAllNestedBundleContentPaths(bundleDirPath: string, forceIgnore): Promise<string[]> {
     const bundlePaths = glob.sync(path.join(bundleDirPath, '**'), {
-      nodir: true
+      nodir: true,
     });
     return Promise.resolve(
       bundlePaths
-        .map(bundlePath => PathUtil.replaceForwardSlashes(bundlePath))
+        .map((bundlePath) => PathUtil.replaceForwardSlashes(bundlePath))
         .filter(
-          bundlePath => forceIgnore.accepts(bundlePath) && !bundlePath.endsWith(MetadataRegistry.getMetadataFileExt())
+          (bundlePath) => forceIgnore.accepts(bundlePath) && !bundlePath.endsWith(MetadataRegistry.getMetadataFileExt())
         )
     );
   }

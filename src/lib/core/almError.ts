@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -21,14 +21,6 @@ const messages = Messages();
 
 // Hash of error keys to error names
 const ALMErrors = {
-  apexTestApiInvalidReporter: 'InvalidParam',
-  apexTestApiInvalidTestLevel: 'InvalidParamValue',
-  apexTestApiInvalidTestRunId: 'InvalidTestRunId',
-  apexTestCommandInvalidTestlevel: 'InvalidTestlevel',
-  apexReportCommandInvalidResponse: 'InvalidAPIResponse',
-  apexReportCommandNoTestFound: 'NoTestsFound',
-  apexReportCommandTestResultRetrievalFailed: 'TestResultRetrievalFailed',
-  apexReportCommandCodeCoverageRetrievalFailed: 'CodeCoverageRetrievalFailed',
   dataImportFileNotFound: 'InvalidDataImport',
   dataImportFileUnknownContentType: 'InvalidDataImport',
   dataImportFileUnsupported: 'InvalidDataImport',
@@ -40,7 +32,7 @@ const ALMErrors = {
   dataImportFailed: 'FailedDataImport',
   sourcePushFailed: 'DeployFailed',
   sourceConflictDetected: 'sourceConflictDetected',
-  signupDuplicateSettingsSpecified: 'InvalidProjectWorkspace'
+  signupDuplicateSettingsSpecified: 'InvalidProjectWorkspace',
 };
 
 /*
@@ -53,7 +45,7 @@ const ALMErrors = {
 const ALMError = (errorKey, errorTokens?, actionKey?, actionTokens?): Error & { [key: string]: any } => {
   const error = new Error();
 
-  const _updateError = function(key, tokens, attribute) {
+  const _updateError = function (key, tokens, attribute) {
     if (_.isString(key)) {
       error[attribute] = messages.getMessage(key, tokens);
     } else {

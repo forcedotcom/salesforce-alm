@@ -1,29 +1,23 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-
-import { AnyJson } from '@salesforce/ts-types';
 
 import * as path from 'path';
 import * as os from 'os';
 
 import { isNil, get as _get } from 'lodash';
-import { AggregateSourceElement } from './aggregateSourceElement';
-import { MetadataTypeFactory } from './metadataTypeFactory';
 import { SfdxError, SfdxErrorConfig, fs, Logger, Messages, SfdxProject } from '@salesforce/core';
-import { MdRetrieveApi } from '../mdapi/mdapiRetrieveApi';
-import { MetadataType } from './metadataType';
-import { InFolderMetadataType } from './metadataTypeImpl/inFolderMetadataType';
-import * as ManifestCreateApi from './manifestCreateApi';
-import { ManifestEntry, SourceOptions } from './types';
 import srcDevUtil = require('../core/srcDevUtil');
 import consts = require('../core/constants');
 import MdapiPackage = require('../source/mdapiPackage');
+import { AggregateSourceElement } from './aggregateSourceElement';
+import { MetadataTypeFactory } from './metadataTypeFactory';
+import { MetadataType } from './metadataType';
+import { InFolderMetadataType } from './metadataTypeImpl/inFolderMetadataType';
 import { XmlLineError } from './xmlMetadataDocument';
-import * as PathUtil from '../source/sourcePathUtil';
 import { NondecomposedTypesWithChildrenMetadataType } from './metadataTypeImpl/nondecomposedTypesWithChildrenMetadataType';
 import { CustomLabelsMetadataType } from './metadataTypeImpl/customLabelsMetadataType';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
@@ -35,6 +29,7 @@ Messages.importMessagesDirectory(__dirname);
 
 /**
  * Validate the value for the 'wait' parameter and reset it as a number.
+ *
  * @param flags The command parameters (aka flags)
  * @param minWaitTime The minimum allowable time to wait
  */
@@ -55,6 +50,7 @@ export const parseWaitParam = (flags: { wait?: string }, minWaitTime: number = c
 
 /**
  * Validate that the org is a non-source-tracked org.
+ *
  * @param orgName The username of the org for doing the source:deploy or source:retrieve
  * @param errAction The action ('push' or 'pull') to take when the org is discovered to be a source tracked org.
  */
@@ -68,6 +64,7 @@ export const validateNonSourceTrackedOrg = async (orgName: string, errAction: st
 
 /**
  * Validate that a manifest file path exists and is readable.
+ *
  * @param manifestPath The path to the manifest file (package.xml)
  */
 export const validateManifestPath = async (manifestPath: string) => {
@@ -111,11 +108,12 @@ export async function cleanupOutputDir(outputDir: string): Promise<void> {
 
 /**
  * Return the aggregate source element for the specified file
+ *
  * @param {string} sourcePath the file in the workspace
  * @param sourceWorkspaceAdapter
  * @returns {AggregateSourceElement}
  */
-export const getSourceElementForFile = async function(
+export const getSourceElementForFile = async function (
   sourcePath: string,
   sourceWorkspaceAdapter: SourceWorkspaceAdapter,
   metadataType?: MetadataType
@@ -154,7 +152,7 @@ export const getSourceElementForFile = async function(
 /**
  * Get the source elements from the source path, whether for a particular file or a directory
  */
-export const getSourceElementsFromSourcePath = async function(
+export const getSourceElementsFromSourcePath = async function (
   optionsSourcePath: string,
   sourceWorkspaceAdapter: SourceWorkspaceAdapter
 ): Promise<AggregateSourceElements> {
@@ -213,13 +211,14 @@ export const getSourceElementsFromSourcePath = async function(
 
 /**
  * Return the specified aggregate source element or error if it does not exist
+ *
  * @param {AggregateSourceElements} sourceElements All the source elements in the workspace
  * @param {string} key The key of the particular source element we are looking for
  * @param {string} packageName
  * @param {MetadataRegistry} metadataRegistry
  * @returns {AggregateSourceElement}
  */
-export const loadSourceElement = function(
+export const loadSourceElement = function (
   sourceElements: AggregateSourceElements,
   key: string,
   metadataRegistry: MetadataRegistry,
@@ -240,7 +239,7 @@ export const loadSourceElement = function(
     }
     const hasParentType = metadataType.getMetadataName() !== metadataType.getAggregateMetadataName();
     if (hasParentType) {
-      //In this case, we are dealing with a decomposed subtype, so need to check for a parent
+      // In this case, we are dealing with a decomposed subtype, so need to check for a parent
       const parentName = metadataType.getAggregateMetadataName();
       const parentMetadataType = MetadataTypeFactory.getAggregateMetadataType(parentName, metadataRegistry);
       const parentFullName = metadataType.getAggregateFullNameFromWorkspaceFullName(mdName);
@@ -255,6 +254,7 @@ export const loadSourceElement = function(
       mdType = MdapiPackage.convertFolderTypeKey(mdType);
       return loadSourceElement(sourceElements, `${mdType}__${mdName}`, metadataRegistry, packageName);
     } else if (metadataType instanceof NondecomposedTypesWithChildrenMetadataType) {
+      // eslint-disable-next-line @typescript-eslint/no-shadow
       const mdType = metadataType.getMetadataName();
       let name = `${mdType}__${mdName.split('.')[0]}`;
 
@@ -284,11 +284,12 @@ export const loadSourceElement = function(
 
 /**
  * Return the aggregate source elements found in the provided source path
+ *
  * @param {Array<string>} sourcePath The path to look for source elements in
  * @param sourceWorkspaceAdapter
  * @returns {AggregateSourceElements}
  */
-export const getSourceElementsInPath = async function(
+export const getSourceElementsInPath = function (
   sourcePath: string,
   sourceWorkspaceAdapter: any
 ): Promise<AggregateSourceElements> {
@@ -296,125 +297,17 @@ export const getSourceElementsInPath = async function(
 };
 
 /**
- * Convert the argument into an array datatype
- * @param arrayOrObjectOrUndefined
- * @returns Array
- */
-export const toArray = function(arrayOrObjectOrUndefined: any) {
-  if (!arrayOrObjectOrUndefined) {
-    return [];
-  } else if (Array.isArray(arrayOrObjectOrUndefined)) {
-    return arrayOrObjectOrUndefined;
-  } else {
-    return [arrayOrObjectOrUndefined];
-  }
-};
-
-/**
- * Parse the manifest file and create a list ManifestEntry objects.
- * @param manifestPath {string} The filepath for the manifest
- * @returns {ManifestEntry[]} An array for ManifestEntry objects from the manifest.
- */
-export const parseToManifestEntriesArray = async function(manifestPath: string): Promise<ManifestEntry[]> {
-  const entries: ManifestEntry[] = [];
-  const options = {
-    unpackaged: manifestPath
-  };
-
-  return MdRetrieveApi._getPackageJson(undefined, options).then(manifestJson => {
-    toArray(manifestJson.types).forEach(type => {
-      if (!type.name) {
-        const errConfig = new SfdxErrorConfig('salesforce-alm', 'source', 'IllFormattedManifest');
-        errConfig.setErrorTokens(['; <name> is missing']);
-        throw SfdxError.create(errConfig);
-      }
-      toArray(type.members).forEach(member => {
-        const _member = PathUtil.replaceForwardSlashes(member);
-        entries.push({
-          type: type.name,
-          name: _member
-        });
-      });
-    });
-    return entries;
-  });
-};
-
-/**
- * Parse manifest entry strings into an array of ManifestEntry objects
- * @param arg {string} The entry string; e.g., "ApexClass, CustomObject:MyObjectName"
- */
-export const parseManifestEntries = function(entries: string): ManifestEntry[] | null {
-  if (entries) {
-    const mdParamArray = entries.split(',');
-    return mdParamArray.map(md => {
-      const [mdType, ...rest] = md.split(':');
-      const mdName = rest.length ? rest.join(':') : '*';
-      return { type: mdType.trim(), name: PathUtil.replaceForwardSlashes(mdName.trim()) };
-    });
-  }
-  return null;
-};
-
-/**
- * Converts SourceOptions.metadata into a package manifest for a given org.
- * @param org { any } The org
- * @param options { SourceOptions } The source options containing the metadata
- * @returns {Promise<string | null>} A path to the created manifest or null of options or options.metadata is null.
- */
-export const toManifest = async function(
-  org: any,
-  options: SourceOptions,
-  tmpOutputDir?: string
-): Promise<string | null> {
-  if (options && options.metadata) {
-    const entries: ManifestEntry[] = parseManifestEntries(options.metadata);
-    if (entries != null) {
-      // Create a manifest and update the options with the manifest file.
-      options.manifest = (await createManifest(org, options, entries, tmpOutputDir)).file;
-      return options.manifest;
-    } else {
-      return null;
-    }
-  }
-  return null;
-};
-
-/**
- * Function to create a manifest for a given org
- * @param org {AnyJson} An org
- * @param options {SourceOptions} Source options
- * @param mdPairs {ManifestEntry[]} Array of metadata items
- * @returns A package.xml manifest
- */
-export const createManifest = async function(
-  org: AnyJson,
-  options: SourceOptions,
-  mdPairs: ManifestEntry[] = [],
-  tmpOutputDir?: string
-): Promise<{ file: string }> {
-  if (!org || !options) {
-    return null;
-  }
-
-  const manifestApi = new ManifestCreateApi(org);
-
-  // Create the package.xml in the temp dir
-  const manifestOptions = Object.assign({}, options, {
-    outputdir: tmpOutputDir
-  });
-  return manifestApi.createManifest(manifestOptions, null, mdPairs);
-};
-
-/**
  * Used to determine if an error is the result of parsing bad XML. If so return a new parsing error.
+ *
  * @param path The file path.
  * @param error The error to inspect.
  */
-export const checkForXmlParseError = function(path: string, error: Error) {
-  if (path && error instanceof SfdxError && error.name === `xmlParseErrorsReported`) {
+// eslint-disable-next-line @typescript-eslint/no-shadow
+export const checkForXmlParseError = function (path: string, error: Error) {
+  if (path && error instanceof SfdxError && error.name === 'xmlParseErrorsReported') {
     const data = (error.data as XmlLineError[]) || [];
     const message = `${path}:${os.EOL}${data.reduce(
+      // eslint-disable-next-line @typescript-eslint/no-shadow
       (messages: string, message: XmlLineError) => `${messages}${os.EOL}${message.message}`,
       ''
     )}`;
@@ -426,13 +319,13 @@ export const checkForXmlParseError = function(path: string, error: Error) {
 /**
  * @param options
  */
-export const containsMdBundle = function(options: any): boolean {
+export const containsMdBundle = function (options: any): boolean {
   if (options.metadata) {
     // for retreiveFromMetadata
     return options.metadata.indexOf('Bundle') >= 0;
   } else {
     // for retrieveFromSourcepath
-    for (let pair of options) {
+    for (const pair of options) {
       if (pair.type.indexOf('Bundle') >= 0) {
         return true;
       }
@@ -463,14 +356,14 @@ export const containsMdBundle = function(options: any): boolean {
  * @param remoteSourceTrackingService
  * @param metadataRegistry
  */
-export const updateSourceTracking = async function(
+export const updateSourceTracking = async function (
   successes: any[],
   remoteSourceTrackingService: RemoteSourceTrackingService,
   metadataRegistry: MetadataRegistry
 ): Promise<void> {
   const metadataTrackableElements: string[] = [];
 
-  successes.forEach(component => {
+  successes.forEach((component) => {
     // Assume only components with id's are trackable (SourceMembers are created)
     if (component.id) {
       const componentMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(

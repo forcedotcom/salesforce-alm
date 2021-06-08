@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -15,12 +15,12 @@ import * as AdmZip from 'adm-zip';
 import * as _ from 'lodash';
 
 // Local
-import CheckStatus = require('./mdapiCheckStatusApi');
 import consts = require('../core/constants');
 import logger = require('../core/logApi');
 import * as almError from '../core/almError';
 import Stash = require('../core/stash');
 import messages = require('../messages');
+import CheckStatus = require('./mdapiCheckStatusApi');
 
 const RETRIEVE_ERROR_EXIT_CODE = 1;
 
@@ -52,7 +52,7 @@ class MdRetrieveReportApi {
       ? consts.DEFAULT_MDAPI_RETRIEVE_WAIT_MINUTES
       : options.wait);
 
-    let reportPromise = BBPromise.resolve();
+    const reportPromise = BBPromise.resolve();
 
     // set the json flag on this for use by this._log
     this.isJsonOutput = options.json;
@@ -61,8 +61,8 @@ class MdRetrieveReportApi {
 
     return reportPromise
       .then(() => this._checkStatus(options))
-      .then(result => (result.done ? this._handleResult(options, result) : result))
-      .catch(err => {
+      .then((result) => (result.done ? this._handleResult(options, result) : result))
+      .catch((err) => {
         if (err.message.toLowerCase().includes('polling time out')) {
           const waitTime = options.wait ? options.wait : consts.DEFAULT_MDAPI_RETRIEVE_WAIT_MINUTES;
           throw almError('mdapiCliWaitTimeExceededError', ['retrieve', waitTime]);
@@ -167,19 +167,19 @@ class MdRetrieveReportApi {
         const files = hasFiles
           ? _.chain(result.fileProperties)
               .sortBy([
-                function(o) {
+                function (o) {
                   return o.fullName.toUpperCase();
-                }
+                },
               ])
               .sortBy([
-                function(o) {
+                function (o) {
                   return o.fileName.toUpperCase();
-                }
+                },
               ])
               .sortBy([
-                function(o) {
+                function (o) {
                   return o.type.toUpperCase();
-                }
+                },
               ])
               .value()
           : [];
@@ -190,8 +190,8 @@ class MdRetrieveReportApi {
             { key: 'type', label: 'Type' },
             { key: 'fileName', label: 'File' },
             { key: 'fullName', label: 'Name' },
-            { key: 'id', label: 'Id' }
-          ]
+            { key: 'id', label: 'Id' },
+          ],
         });
       }
 
@@ -212,7 +212,7 @@ class MdRetrieveReportApi {
     const options = context.flags;
     const validationPromises = [];
 
-    let stashedValues = await Stash.list(Stash.Commands.MDAPI_RETRIEVE);
+    const stashedValues = await Stash.list(Stash.Commands.MDAPI_RETRIEVE);
 
     if (!options.jobid) {
       options.jobid = options.jobid || stashedValues.jobid;
@@ -220,8 +220,12 @@ class MdRetrieveReportApi {
     }
 
     // validate required parameters after populating params from the stash.
-    if (!options.jobid) return BBPromise.reject(almError('MissingRequiredParameter', 'jobid'));
-    if (!options.retrievetargetdir) return BBPromise.reject(almError('MissingRequiredParameter', 'retrievetargetdir'));
+    if (!options.jobid) {
+      return BBPromise.reject(almError('MissingRequiredParameter', 'jobid'));
+    }
+    if (!options.retrievetargetdir) {
+      return BBPromise.reject(almError('MissingRequiredParameter', 'retrievetargetdir'));
+    }
 
     // Wait must be a number that is greater than zero or equal to -1.
     const validWaitValue = !isNaN(+options.wait) && (+options.wait === -1 || +options.wait >= 0);
@@ -233,10 +237,10 @@ class MdRetrieveReportApi {
     validationPromises.push(
       this._validatePath(
         retrieveTargetPath,
-        data => data.isDirectory(),
+        (data) => data.isDirectory(),
         () => BBPromise.resolve(),
         almError('InvalidArgumentDirectoryPath', ['retrievetargetdir', retrieveTargetPath])
-      ).catch(err => {
+      ).catch((err) => {
         // ignore PathDoesNotExist, it will create a directory if it doesn't already exist.
         if (err.name !== 'PathDoesNotExist') {
           return BBPromise.reject(err);
@@ -259,14 +263,14 @@ class MdRetrieveReportApi {
   //                             error if the file read fails.
   _validatePath(pathToValidate, validationFunc, successFunc, error) {
     return this._fsStatAsync(pathToValidate)
-      .then(data => {
+      .then((data) => {
         if (validationFunc(data)) {
           return successFunc();
         } else {
           return BBPromise.reject(error);
         }
       })
-      .catch(err => {
+      .catch((err) => {
         err = err.code === 'ENOENT' ? almError('PathDoesNotExist', pathToValidate) : err;
         return BBPromise.reject(err);
       });

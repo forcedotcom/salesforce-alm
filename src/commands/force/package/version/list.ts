@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -28,44 +28,44 @@ export class PackageVersionListCommand extends ToolbeltCommand {
       char: 'c',
       description: messages.getMessage('createdLastDaysDescription', [], 'packaging'),
       longDescription: messages.getMessage('createdLastDaysLongDescription', [], 'packaging'),
-      required: false
+      required: false,
     }),
     concise: flags.builtin({
       description: messages.getMessage('conciseDescription', [], 'package_version_list'),
-      longDescription: messages.getMessage('conciseLongDescription', [], 'package_version_list')
+      longDescription: messages.getMessage('conciseLongDescription', [], 'package_version_list'),
     }),
     modifiedlastdays: flags.number({
       char: 'm',
       description: messages.getMessage('modifiedLastDaysDescription', [], 'packaging'),
       longDescription: messages.getMessage('modifiedLastDaysLongDescription', [], 'packaging'),
-      required: false
+      required: false,
     }),
     packages: flags.array({
       char: 'p',
       description: messages.getMessage('packagesDescription', [], 'package_version_list'),
       longDescription: messages.getMessage('packagesLongDescription', [], 'package_version_list'),
-      required: false
+      required: false,
     }),
     released: flags.boolean({
       char: 'r',
       description: messages.getMessage('releasedDescription', [], 'package_version_list'),
       longDescription: messages.getMessage('releasedLongDescription', [], 'package_version_list'),
-      required: false
+      required: false,
     }),
     orderby: flags.array({
       char: 'o',
       description: messages.getMessage('orderByDescription', [], 'package_version_list'),
       longDescription: messages.getMessage('orderByLongDescription', [], 'package_version_list'),
-      required: false
+      required: false,
     }),
     verbose: flags.builtin({
       description: messages.getMessage('verboseDescription', [], 'package_version_list'),
-      longDescription: messages.getMessage('verboseLongDescription', [], 'package_version_list')
-    })
+      longDescription: messages.getMessage('verboseLongDescription', [], 'package_version_list'),
+    }),
   };
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const PackageVersionListCommand = require('../../../../lib/package/packageVersionListCommand');
-    return this.execLegacyCommand(new PackageVersionListCommand(), context);
+    const PackageVersionListCommandImpl = require('../../../../lib/package/packageVersionListCommand');
+    return this.execLegacyCommand(new PackageVersionListCommandImpl(), context);
   }
 }

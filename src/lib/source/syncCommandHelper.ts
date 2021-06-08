@@ -1,21 +1,20 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
 import * as path from 'path';
-import * as _ from 'lodash';
 
+import { Logger } from '@salesforce/core';
 import { WorkspaceFileState, toReadableState } from './workspaceFileState';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { MetadataTypeFactory } from './metadataTypeFactory';
 import { replaceForwardSlashes } from './sourcePathUtil';
 import MetadataRegistry = require('./metadataRegistry');
-import { Logger } from '@salesforce/core';
 
 interface ComponentFailure {
   changed: boolean;
@@ -32,7 +31,7 @@ interface ComponentFailure {
   lineNumber?: number;
 }
 
-const _createRowsForConflictStatus = function(
+const _createRowsForConflictStatus = function (
   rows,
   createDisplayRowData,
   outpuFileInfo,
@@ -47,14 +46,14 @@ const _createRowsForConflictStatus = function(
   rows.push(row);
 };
 
-const _getState = function(state, deleteSupported) {
-  const calcState = !!state ? state : WorkspaceFileState.DELETED;
+const _getState = function (state, deleteSupported) {
+  const calcState = state ? state : WorkspaceFileState.DELETED;
   return !deleteSupported && calcState === WorkspaceFileState.DELETED
     ? `${toReadableState(WorkspaceFileState.DELETED)} (local file)`
     : toReadableState(calcState);
 };
 
-const _getFullNameFromDeleteFailure = function(failure) {
+const _getFullNameFromDeleteFailure = function (failure) {
   /*
    * Note the weird fullName behavior in the mdapi deploy file property.
    * Fortunately we can recover the fullName from the error message text!
@@ -64,7 +63,7 @@ const _getFullNameFromDeleteFailure = function(failure) {
   return matches !== null ? matches[1] : null;
 };
 
-const _getSourceElement = function(
+const _getSourceElement = function (
   componentFailure: ComponentFailure,
   aggregateSourceElements: AggregateSourceElements,
   metadataRegistry: MetadataRegistry
@@ -90,7 +89,7 @@ const _getSourceElement = function(
   return null;
 };
 
-const _parseComponentFailure = function(
+const _parseComponentFailure = function (
   componentFailure: ComponentFailure,
   sourceElements: AggregateSourceElements,
   metadataRegistry: MetadataRegistry,
@@ -152,7 +151,7 @@ const _parseComponentFailure = function(
     fullName,
     type: componentFailure.componentType,
     filePath,
-    problemType: componentFailure.problemType
+    problemType: componentFailure.problemType,
   };
 };
 
@@ -193,6 +192,7 @@ const self = {
 
   /**
    * report formatting for retrieve failures.
+   *
    * @param resp - the result of toolingRetrieve
    * @param detailProperty - the name of the property with the deploy details. Defaults to 'DeployDetails'.
    * @returns {string} represents reported deployment errors
@@ -225,6 +225,7 @@ const self = {
 
   /**
    * helper method used by the sync commands to retrieve status of a container async request.
+   *
    * @param force - the force api
    * @param api - scratch org api
    * @param sobjectId - id of the container async request
@@ -235,7 +236,7 @@ const self = {
    * @returns {Promise}
    */
   retrieveContainerStatus(force, api, sobjectId, messages, callback, resolve, reject) {
-    return force.toolingRetrieve(api, 'ContainerAsyncRequest', sobjectId).then(resp => {
+    return force.toolingRetrieve(api, 'ContainerAsyncRequest', sobjectId).then((resp) => {
       switch (resp.State) {
         case 'Completed':
           return resolve(callback());
@@ -312,8 +313,8 @@ const self = {
       { key: 'type', label: messages.getMessage('typeTableColumn') },
       {
         key: 'filePath',
-        label: messages.getMessage('workspacePathTableColumn')
-      }
+        label: messages.getMessage('workspacePathTableColumn'),
+      },
     ];
 
     return [...stateCol, ...columns];
@@ -339,7 +340,7 @@ const self = {
       state: 'Conflict',
       fullName: fileInfo.fullName,
       type: fileInfo.type,
-      filePath
+      filePath,
     });
 
     _createRowsForConflictStatus(rows, _createDisplayRowData, conflictFileInfo, projectPath, self, false);
@@ -350,7 +351,7 @@ const self = {
       state: `Local ${_getState(fileInfo.state, fileInfo.deleteSupported)}`,
       fullName: fileInfo.fullName,
       type: fileInfo.type,
-      filePath
+      filePath,
     });
 
     _createRowsForConflictStatus(rows, _createDisplayRowData, outputFileInfo, projectPath, self, true);
@@ -362,7 +363,7 @@ const self = {
       state: `Remote ${toReadableState(sm.state)}`,
       fullName: sm.fullName,
       type: sm.type,
-      filePath
+      filePath,
     });
     _createRowsForConflictStatus(rows, _createDisplayRowData, sourceMember, projectPath, self, true);
   },
@@ -390,12 +391,12 @@ const self = {
       state: _getState(element.state, element.deleteSupported),
       fullName: element.fullName,
       type: element.type,
-      filePath
+      filePath,
     });
 
     const filePath = outputFileInfo.filePath;
     rows.push(_createDisplayRowData(outputFileInfo, self.trimParentFromPath(projectPath, filePath)));
-  }
+  },
 };
 
 export = self;

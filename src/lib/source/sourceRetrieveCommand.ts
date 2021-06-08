@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { Messages, SfdxError } from '@salesforce/core';
+import logApi = require('../core/logApi');
 import { SourceRetrieve, SourceRetrieveOutput } from './sourceRetrieve';
 import { parseWaitParam, validateManifestPath } from './sourceUtil';
 import * as syncCommandHelper from './syncCommandHelper';
-import logApi = require('../core/logApi');
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('salesforce-alm', 'source_retrieve');
@@ -28,6 +28,7 @@ export class SourceRetrieveCommand {
 
   /**
    * Executes the source retrieve command
+   *
    * @param context - the cli context
    * @returns {Promise}
    */
@@ -37,6 +38,7 @@ export class SourceRetrieveCommand {
 
   /**
    * Validates the source retrieve command parameters
+   *
    * @param context - the cli context
    * @returns {Promise}
    */
@@ -45,7 +47,7 @@ export class SourceRetrieveCommand {
     parseWaitParam(context.flags);
 
     // verify that the user defined one of: manifest, metadata, sourcepath, packagenames
-    if (!Object.keys(context.flags).some(flag => requiredFlags.includes(flag))) {
+    if (!Object.keys(context.flags).some((flag) => requiredFlags.includes(flag))) {
       throw SfdxError.create('salesforce-alm', 'source', 'MissingRequiredParam', requiredFlags);
     }
 
@@ -63,7 +65,7 @@ export class SourceRetrieveCommand {
     // Display any package retrievals
     if (results.packages && results.packages.length) {
       this.logger.styledHeader(this.logger.color.blue('Retrieved Packages'));
-      results.packages.forEach(pkg => {
+      results.packages.forEach((pkg) => {
         this.logger.log(`${pkg.name} package converted and retrieved to: ${pkg.path}`);
       });
       this.logger.log('');
@@ -80,7 +82,7 @@ export class SourceRetrieveCommand {
     if (results.warnings && results.warnings.length) {
       this.logger.log('');
       this.logger.styledHeader(this.logger.color.yellow(messages.getMessage('metadataNotFoundWarning')));
-      results.warnings.forEach(warning => this.logger.log(warning.problem));
+      results.warnings.forEach((warning) => this.logger.log(warning.problem));
     }
   }
 }

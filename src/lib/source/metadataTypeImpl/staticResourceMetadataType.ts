@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -10,10 +10,10 @@ import * as _ from 'lodash';
 
 import MetadataRegistry = require('../metadataRegistry');
 
-import { DefaultMetadataType } from './defaultMetadataType';
 import { MetadataType } from '../metadataType';
 import { StaticResource } from '../decompositionStrategy/staticResource';
 import * as PathUtil from '../sourcePathUtil';
+import { DefaultMetadataType } from './defaultMetadataType';
 
 const STATIC_RESOURCES_DIR = 'staticresources';
 
@@ -31,8 +31,8 @@ export class StaticResourceMetadataType extends DefaultMetadataType {
   }
 
   // Splits a file path into an array, then slices it based on a directory name and index modifier.
-  private slicePath(filePath: string, dirName: string, modifier: number = 1): string[] {
-    let filePathArray = filePath.split(path.sep);
+  private slicePath(filePath: string, dirName: string, modifier = 1): string[] {
+    const filePathArray = filePath.split(path.sep);
     const index = dirName ? filePathArray.lastIndexOf(dirName) : filePathArray.length;
     return filePathArray.slice(0, Math.min(index + modifier, filePathArray.length));
   }
@@ -61,16 +61,17 @@ export class StaticResourceMetadataType extends DefaultMetadataType {
     metadataFilePath: string,
     workspaceVersion: string,
     unsupportedMimeTypes: string[],
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     forceIgnore
   ): Promise<string[]> {
     const staticResource = new StaticResource(
       metadataFilePath,
-      <MetadataType>this,
+      this as MetadataType,
       workspaceVersion,
       undefined,
       unsupportedMimeTypes
     );
-    return staticResource.getResource().then(resourcePath => Promise.resolve([resourcePath]));
+    return staticResource.getResource().then((resourcePath) => Promise.resolve([resourcePath]));
   }
 
   protected getMdapiFormattedContentFileName(originContentPath: string, aggregateFullName: string): string {
@@ -93,7 +94,7 @@ export class StaticResourceMetadataType extends DefaultMetadataType {
   }
 
   getComponentFailureWorkspaceContentPath(metadataFilePath: string, workspaceContentPaths: string[]): string {
-    const sr = new StaticResource(metadataFilePath, <MetadataType>this, undefined);
+    const sr = new StaticResource(metadataFilePath, this as MetadataType, undefined);
     if (sr.isExplodedArchive()) {
       const explodedDir = PathUtil.getFileName(metadataFilePath);
       return path.join(path.dirname(metadataFilePath), explodedDir);
@@ -101,6 +102,7 @@ export class StaticResourceMetadataType extends DefaultMetadataType {
     return workspaceContentPaths[0];
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   shouldDeleteWorkspaceAggregate(metadataType: string): boolean {
     // Handle deletes of staticResources at the subcomponent level
     return false;

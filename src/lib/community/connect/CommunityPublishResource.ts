@@ -1,20 +1,20 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { ConnectResource } from '../../connect/services/ConnectResource';
+import { URL } from 'url';
 import { OutputFlags } from '@oclif/parser';
 import { Org } from '@salesforce/core/lib/org';
-import { CommunitiesServices } from '../service/CommunitiesServices';
 import { UX } from '@salesforce/command';
-import { CommunityInfo } from '../defs/CommunityInfo';
-import { CommunityPublishResponse } from '../defs/CommunityPublishResponse';
 import { SfdxError } from '@salesforce/core/lib/sfdxError';
 import { JsonCollection } from '@salesforce/ts-types';
-import { URL } from 'url';
 import { Messages } from '@salesforce/core';
+import { CommunityPublishResponse } from '../defs/CommunityPublishResponse';
+import { CommunityInfo } from '../defs/CommunityInfo';
+import { CommunitiesServices } from '../service/CommunitiesServices';
+import { ConnectResource } from '../../connect/services/ConnectResource';
 
 Messages.importMessagesDirectory(__dirname);
 const communityMessages = Messages.loadMessages('salesforce-alm', 'community_commands');
@@ -43,6 +43,7 @@ export class CommunityPublishResource implements ConnectResource<CommunityPublis
     return 'POST';
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async fetchPostParams(): Promise<string> {
     return JSON.stringify({});
   }
@@ -52,7 +53,7 @@ export class CommunityPublishResource implements ConnectResource<CommunityPublis
       message: communityMessages.getMessage('publish.response.message'),
       name: result['name'],
       status: this.info.status,
-      url: new URL(result['url'])
+      url: new URL(result['url']),
     };
     const columns = ['id', 'message', 'name', 'status', 'url'];
     this.ux.styledHeader(communityMessages.getMessage('publish.response.styleHeader'));
@@ -67,7 +68,7 @@ export class CommunityPublishResource implements ConnectResource<CommunityPublis
     this.info = await CommunitiesServices.fetchCommunityInfoFromName(this.org, this.flags.name);
     if (!this.info) {
       throw SfdxError.create('salesforce-alm', 'community_commands', 'publish.error.communityNotExists', [
-        this.flags.name
+        this.flags.name,
       ]);
     }
     return this.info.id;

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -18,10 +18,9 @@
 import * as os from 'os';
 import * as util from 'util';
 import * as path from 'path';
-import * as archiver from 'archiver';
-import * as mkdirp from 'mkdirp';
 import * as crypto from 'crypto';
-import { URL } from 'url';
+import * as mkdirp from 'mkdirp';
+import * as archiver from 'archiver';
 
 // Thirdparty
 import * as BBPromise from 'bluebird';
@@ -33,9 +32,9 @@ import * as _ from 'lodash';
 const fs = BBPromise.promisifyAll(require('fs-extra'));
 
 // Local
-import consts = require('./constants');
-import * as errors from './errors';
 import Messages = require('../messages');
+import * as errors from './errors';
+import consts = require('./constants');
 const messages = Messages();
 import logger = require('./logApi');
 
@@ -47,23 +46,23 @@ const SFDX_CONFIG_FILE_NAME = 'sfdx-config.json';
 const SfdxCLIClientId = 'sfdx toolbelt';
 const SFDX_HTTP_HEADERS = {
   'content-type': 'application/json',
-  'user-agent': SfdxCLIClientId
+  'user-agent': SfdxCLIClientId,
 };
 
 const DEV_HUB_SOQL = "SELECT CreatedDate,Edition,ExpirationDate FROM ActiveScratchOrg WHERE ScratchOrg='%s'";
 let zipDirPath: string;
 
-const _getHomeDir = function() {
+const _getHomeDir = function () {
   return os.homedir();
 };
 
-const _getGlobalHiddenFolder = function() {
+const _getGlobalHiddenFolder = function () {
   return path.join(_getHomeDir(), STATE_FOLDER);
 };
 
 const _toLowerCase = (val, key) => key.toLowerCase();
 
-const _checkEmptyContent = function(data, jsonPath, throwOnEmpty = true) {
+const _checkEmptyContent = function (data, jsonPath, throwOnEmpty = true) {
   // REVIEWME: why throw?  shouldn't the caller handle?
   if (!data.length) {
     if (throwOnEmpty) {
@@ -93,6 +92,7 @@ const self = {
 
   /**
    * Returns whether the org has source tracking ability.
+   *
    * @param {string} username the org username
    * @returns {boolean}
    */
@@ -109,11 +109,6 @@ const self = {
     return isSourceTracked;
   },
 
-  readJSONSync(jsonPath, throwOnEmpty = true): AnyJson {
-    const content = fs.readFileSync(jsonPath, 'utf8');
-    return parseJSON(content, jsonPath, throwOnEmpty);
-  },
-
   /**
    * Read a file and convert it to JSON
    *
@@ -121,7 +116,7 @@ const self = {
    * @return promise The contents of the file as a JSON object
    */
   async readJSON(jsonPath, throwOnEmpty = true) {
-    let data = await fs.readFile(jsonPath, 'utf8');
+    const data = await fs.readFile(jsonPath, 'utf8');
     return parseJSON(data, jsonPath, throwOnEmpty);
   },
 
@@ -129,6 +124,7 @@ const self = {
 
   /**
    * Helper for handling errors resulting from reading and then parsing a JSON file
+   *
    * @param e - the error
    * @param filePath - the filePath to the JSON file being read
    */
@@ -141,6 +137,7 @@ const self = {
 
   /**
    * simple helper for creating an error with a name.
+   *
    * @param message - the message for the error
    * @param name - the name of the error. preferably containing no spaces, starting with a capital letter, and camel-case.
    * @returns {Error}
@@ -157,6 +154,7 @@ const self = {
 
   /**
    * function that normalizes cli args between yargs and heroku toolbelt
+   *
    * @param context - the cli context
    * @returns {object}
    */
@@ -171,6 +169,7 @@ const self = {
 
   /**
    * Simple helper method to determine that the path is a file (all SFDX files have an extension)
+   *
    * @param localPath
    * @returns {boolean}
    */
@@ -181,6 +180,7 @@ const self = {
 
   /**
    * Simple helper method to determine if a fs path exists.
+   *
    * @param localPath The path to check. Either a file or directory.
    * @returns {boolean} true if the path exists false otherwise.
    */
@@ -194,6 +194,7 @@ const self = {
 
   /**
    * Ensure that a directory exists, creating as necessary
+   *
    * @param localPath The path to the directory
    */
   ensureDirectoryExistsSync(localPath) {
@@ -204,6 +205,7 @@ const self = {
 
   /**
    * If a file exists, delete it
+   *
    * @param localPath - Path of the file to delete.
    */
   deleteIfExistsSync(localPath) {
@@ -219,6 +221,7 @@ const self = {
 
   /**
    * If a directory exists, force remove it and anything inside
+   *
    * @param localPath - Path of the directory to delete.
    */
   deleteDirIfExistsSync(localPath) {
@@ -227,15 +230,16 @@ const self = {
 
   /**
    * If a directory exists, return all the items inside of it
+   *
    * @param localPath - Path of the directory
-   * @param deep{boolean} - Whether to include files in all subdirectories resursively
+   * @param deep{boolean} - Whether to include files in all subdirectories recursively
    * @param excludeDirs{boolean} - Whether to exclude directories in the returned list
    * @returns {Array} - files in directory
    */
   getDirectoryItems(localPath: string, deep?: boolean, excludeDirs?: boolean) {
     let dirItems = [];
     if (self.pathExistsSync(localPath)) {
-      fs.readdirSync(localPath).forEach(file => {
+      fs.readdirSync(localPath).forEach((file) => {
         const curPath = path.join(localPath, file);
         const isDir = fs.statSync(curPath).isDirectory();
         if (!isDir || (isDir && !excludeDirs)) {
@@ -249,25 +253,13 @@ const self = {
     return dirItems;
   },
 
-  /**
-   * Return filepath of the global file in $HOME/.sfdx.
-   *
-   * @returns String
-   */
-  getGlobalFilePath(jsonConfigFileName) {
-    if (util.isNullOrUndefined(jsonConfigFileName)) {
-      throw new errors.MissingRequiredParameter('jsonConfigFileName');
-    }
-
-    return path.join(_getGlobalHiddenFolder(), jsonConfigFileName);
-  },
-
   getGlobalHiddenFolder() {
     return _getGlobalHiddenFolder();
   },
 
   /**
    * Helper method for removing config file data from .sfdx.
+   *
    * @param jsonConfigFileName The name of the config file stored in .sfdx.
    * @returns BBPromise
    */
@@ -282,6 +274,7 @@ const self = {
 
   /**
    * Helper method for getting config file data from $HOME/.sfdx.
+   *
    * @param {string} jsonConfigFileName The name of the config file stored in .sfdx.
    * @param {object} defaultIfNotExist A value returned if the files doesn't exist. It not set, an error would be thrown.
    * @returns {BBPromise<object>} The resolved content as a json object.
@@ -292,7 +285,7 @@ const self = {
     }
 
     const configFilePath = path.join(_getGlobalHiddenFolder(), jsonConfigFileName);
-    return this.readJSON(configFilePath).catch(err => {
+    return this.readJSON(configFilePath).catch((err) => {
       if (err.code === 'ENOENT' && _.isObject(defaultIfNotExist)) {
         return BBPromise.resolve(defaultIfNotExist);
       }
@@ -302,6 +295,7 @@ const self = {
 
   /**
    * Synchronous version of getAppConfig.
+   *
    * @deprecated
    */
   getGlobalConfigSync(jsonConfigFileName) {
@@ -319,16 +313,8 @@ const self = {
   },
 
   /**
-   * Determines if a value is an object {}.
-   * @param {object} value - language value of an object
-   * @returns {boolean} - true only if value is an object and not a function or an array.
-   */
-  isObject(value) {
-    return _.isObject(value) && !_.isArray(value) && !_.isFunction(value);
-  },
-
-  /**
    * Helper method for saving config files to .sfdx.
+   *
    * @param config The config.json configuration object.
    * @param jsonConfigFileName The name for the config file to store in .sfdx.
    * @param jsonConfigObject The json object to store in .sfdx/[jsonConfigFileName]
@@ -347,7 +333,7 @@ const self = {
       fs
         .mkdirAsync(path.join(_getGlobalHiddenFolder()), consts.DEFAULT_USER_DIR_MODE)
 
-        .error(err => {
+        .error((err) => {
           // This directory already existing is a normal and expected thing.
           if (err.code !== 'EEXIST') {
             throw err;
@@ -360,7 +346,7 @@ const self = {
           return fs.writeFileAsync(configFilePath, JSON.stringify(jsonConfigObject, undefined, 4), {
             encoding: 'utf8',
             flag: 'w+',
-            mode: consts.DEFAULT_USER_FILE_MODE
+            mode: consts.DEFAULT_USER_FILE_MODE,
           });
         })
     );
@@ -368,6 +354,7 @@ const self = {
 
   /**
    * Get the name of the directory containing workspace state
+   *
    * @returns {string}
    */
   getWorkspaceStateFolderName() {
@@ -380,6 +367,7 @@ const self = {
 
   /**
    * Get the full path to the file storing the workspace org config information
+   *
    * @param wsPath - The root path of the workspace
    * @returns {*}
    */
@@ -388,56 +376,8 @@ const self = {
   },
 
   /**
-   * Return true is the url is a local or vpod url and not a production url.
-   * @param url - url to host resource
-   * @returns {boolean}
-   */
-  isInternalUrl(url) {
-    if (util.isNullOrUndefined(url)) {
-      return false;
-    }
-    return (
-      url.indexOf('.internal.') > -1 ||
-      url.indexOf('.vpod.') > -1 ||
-      url.startsWith('https://gs1.') ||
-      url.indexOf('stm.salesforce.com') > -1 ||
-      url.indexOf('.blitz.salesforce.com') > -1
-    );
-  },
-
-  /**
-   * Returns true if a provided url is Salesforce owned.
-   * @param {*} urlString
-   */
-  isSalesforceDomain(urlString) {
-    let url;
-
-    try {
-      url = new URL(urlString);
-    } catch (e) {
-      return false;
-    }
-
-    // Source https://help.salesforce.com/articleView?id=000003652&type=1
-    const allowListOfSalesforceDomainPatterns = [
-      '.cloudforce.com',
-      '.content.force.com',
-      '.force.com',
-      '.salesforce.com',
-      '.salesforceliveagent.com',
-      '.secure.force.com'
-    ];
-
-    const allowListOfSalesforceHosts = ['developer.salesforce.com', 'trailhead.salesforce.com'];
-
-    return (
-      !_.isNil(allowListOfSalesforceDomainPatterns.find(pattern => _.endsWith(url.hostname, pattern))) ||
-      _.includes(allowListOfSalesforceHosts, url.hostname)
-    );
-  },
-
-  /**
    * Helper function that returns true if a value is an integer.
+   *
    * @param value the value to compare
    * @returns {boolean} true if value is an integer. this is not a mathematical definition. that is -0 returns true.
    * this is in intended to be followed up with parseInt.
@@ -445,23 +385,10 @@ const self = {
   isInt(value) {
     return (
       !isNaN(value) &&
-      (function(x) {
+      (function (x) {
         return (x | 0) === x;
       })(parseFloat(value))
     );
-  },
-
-  /**
-   * Validate that user name is valid by checking we have an auth record.
-   * @param username - username for the target org
-   * @returns {boolean}
-   */
-  isUsernameValid(username) {
-    if (util.isNullOrUndefined(username)) {
-      return false;
-    }
-    const filepath = path.join(_getGlobalHiddenFolder(), `${username}.json`);
-    return self.pathExistsSync(filepath);
   },
 
   /**
@@ -472,7 +399,7 @@ const self = {
    */
   sequentialExecute(promiseFactories) {
     let result = BBPromise.resolve();
-    promiseFactories.forEach(promiseFactory => {
+    promiseFactories.forEach((promiseFactory) => {
       result = result.then(promiseFactory);
     });
     return result;
@@ -485,11 +412,12 @@ const self = {
    * @returns {BBPromise.<*>}
    */
   parallelExecute(promiseFactories) {
-    return BBPromise.all(promiseFactories.map(factory => factory()));
+    return BBPromise.all(promiseFactories.map((factory) => factory()));
   },
 
   /**
    * Given a request object or string url a request object is returned with the additional http headers needed by force.com
+   *
    * @param {(string|object)} request - A string url or javascript object.
    * @param options - {object} that may contain headers to add to request
    * @returns {object} a request object containing {method, url, headers}
@@ -569,7 +497,7 @@ const self = {
         // zip file returned once stream is closed, see 'close' listener below
       });
 
-      archive.on('error', err => {
+      archive.on('error', (err) => {
         reject(err);
       });
 
@@ -616,7 +544,7 @@ const self = {
       if (deep) {
         let _val = val;
         if (_.isArray(val)) {
-          _.forEach(val, v1 => {
+          _.forEach(val, (v1) => {
             if (_.isPlainObject(v1)) {
               _val = this.mapKeys(v1, converterFn, deep);
             }
@@ -665,19 +593,19 @@ const self = {
 
   /**
    * Helper to make a nodejs base64 encoded string compatible with rfc4648 alternative encoding for urls.
+   *
    * @param {string} base64Encoded - a nodejs base64 encoded string
    * @returns {string} returns the string escaped.
    */
   base64UrlEscape(base64Encoded?) {
     // builtin node js base 64 encoding is not 64 url compatible.
     // See - https://toolsn.ietf.org/html/rfc4648#section-5
-    return _.replace(base64Encoded, /\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+    return _.replace(base64Encoded, /\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   },
 
   /**
    * Helper that will un-escape a base64 url encoded string.
+   *
    * @param {string} base64EncodedAndEscaped - the based 64 escaped and encoded string.
    * @returns {string} returns the string un-escaped.
    */
@@ -689,14 +617,12 @@ const self = {
   },
 
   getContentHash(contents) {
-    return crypto
-      .createHash('sha1')
-      .update(contents)
-      .digest('hex');
+    return crypto.createHash('sha1').update(contents).digest('hex');
   },
 
   /**
    * Logs the collection of unsupported mime types to the server
+   *
    * @param unsupportedMimeTypes
    * @param _logger
    * @param force
@@ -716,7 +642,7 @@ const self = {
       }
     }
     return BBPromise.resolve();
-  }
+  },
 };
 
 export = self;

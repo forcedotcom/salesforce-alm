@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -23,15 +23,15 @@ import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
 
 // Local module object.
-import * as errors from './errors';
+import { ConfigAggregator } from '@salesforce/core';
 import messages = require('../messages');
+import SchemaValidator = require('../schema/schemaValidator');
+import * as errors from './errors';
 import * as almError from './almError';
 import * as projectDirectory from './projectDir';
 import srcDevUtil = require('./srcDevUtil');
 import consts = require('./constants');
-import SchemaValidator = require('../schema/schemaValidator');
 import logApi = require('./logApi');
-import { ConfigAggregator } from '@salesforce/core';
 
 const pjson = require('../../../package.json');
 const sfdxProjectSchemaPath = path.join(__dirname, '..', '..', '..', 'schemas', 'sfdxProjectSchema.json');
@@ -39,7 +39,7 @@ const _DEFAULT_PORT = 1717;
 
 const fsWriteFile = BBPromise.promisify(fs.writeFile);
 
-const checkHiddenStateFolder = function(projectDir) {
+const checkHiddenStateFolder = function (projectDir) {
   const stateFolderPath = path.join(projectDir, srcDevUtil.getWorkspaceStateFolderName());
 
   if (!srcDevUtil.pathExistsSync(stateFolderPath)) {
@@ -59,13 +59,13 @@ const checkHiddenStateFolder = function(projectDir) {
 const sfdxProjectBlockList = ['packageAliases'];
 
 // constructor
-export const Config = function(projectDir?) {
+export const Config = function (projectDir?) {
   this.projectDir = projectDir;
   this.pjson = pjson;
   this.validator = new SchemaValidator(logApi, sfdxProjectSchemaPath);
 };
 
-const _throwUnexpectedVersionFormat = function(incorrectVersion) {
+const _throwUnexpectedVersionFormat = function (incorrectVersion) {
   const errorName = 'UnexpectedVersionFormat';
   throw srcDevUtil.getError(messages().getMessage(errorName, [incorrectVersion], 'versionCommand'), errorName);
 };
@@ -79,7 +79,7 @@ const _throwUnexpectedVersionFormat = function(incorrectVersion) {
  *
  * @returns {string}
  */
-Config.prototype.getApiVersion = function() {
+Config.prototype.getApiVersion = function () {
   // If we already stored an api version return it.
   if (this.apiVersion) {
     return this.apiVersion;
@@ -125,7 +125,7 @@ Config.prototype.getApiVersion = function() {
   return this.apiVersion;
 };
 
-Config.prototype.getProjectPath = function() {
+Config.prototype.getProjectPath = function () {
   if (!this.projectDir) {
     this.projectDir = projectDirectory.getPath();
     checkHiddenStateFolder(this.projectDir);
@@ -135,15 +135,16 @@ Config.prototype.getProjectPath = function() {
 };
 
 // The toolbelt only supports us english.
-Config.prototype.getLocale = function() {
+Config.prototype.getLocale = function () {
   return messages().getLocale();
 };
 
 /**
  * Users may override the oauth port used for the http server.
+ *
  * @returns {number} 1717 is the default listen port number
  */
-Config.prototype.getOauthLocalPort = function() {
+Config.prototype.getOauthLocalPort = function () {
   const appConfig = this.getAppConfigIfInWorkspace();
   const configPort = Number(appConfig.OauthLocalPort || appConfig.oauthLocalPort || _DEFAULT_PORT);
 
@@ -158,15 +159,16 @@ Config.prototype.getOauthLocalPort = function() {
 /**
  * @returns {string} The App Cloud standard Connected App Callback URL.
  */
-Config.prototype.getOauthCallbackUrl = function() {
+Config.prototype.getOauthCallbackUrl = function () {
   return `http://localhost:${this.getOauthLocalPort()}/OauthRedirect`;
 };
 
 /**
  * Reads the app config from disk and caches it.
+ *
  * @returns {*} A key value.
  */
-Config.prototype.getAppConfig = function() {
+Config.prototype.getAppConfig = function () {
   if (!this.appConfig) {
     this.appConfig = this.getConfigContent();
   }
@@ -176,10 +178,11 @@ Config.prototype.getAppConfig = function() {
 
 /**
  * Reads the workspace app config, if we are in a workspace.
+ *
  * @param {object} force The force object
  * @returns {object} the workspace config object, or an empty object if not in a workspace
  */
-Config.prototype.getAppConfigIfInWorkspace = function() {
+Config.prototype.getAppConfigIfInWorkspace = function () {
   try {
     return this.getAppConfig();
   } catch (e) {
@@ -190,19 +193,19 @@ Config.prototype.getAppConfigIfInWorkspace = function() {
   return {};
 };
 
-Config.prototype.getGlobalHiddenFolder = function() {
+Config.prototype.getGlobalHiddenFolder = function () {
   return srcDevUtil.getGlobalHiddenFolder();
 };
 
-Config.prototype.getWorkspaceConfigFilename = function() {
+Config.prototype.getWorkspaceConfigFilename = function () {
   return consts.WORKSPACE_CONFIG_FILENAME;
 };
 
-Config.prototype.getOldAndBustedWorkspaceConfigFilename = function() {
+Config.prototype.getOldAndBustedWorkspaceConfigFilename = function () {
   return consts.OLD_WORKSPACE_CONFIG_FILENAME;
 };
 
-Config.prototype.setWorkspaceTypeDefault = function(type, username) {
+Config.prototype.setWorkspaceTypeDefault = function (type, username) {
   const config = {};
   config[type] = username;
   _.assign(this.getAppConfig(), config);
@@ -218,12 +221,12 @@ Config.prototype.setWorkspaceTypeDefault = function(type, username) {
  * @param projectDir The root workspace directory
  * @returns {*} An array representing the artifact paths.
  */
-const _extractPackageDirPaths = function(messagesLocale, configObject, workspaceConfig, projectDir) {
+const _extractPackageDirPaths = function (messagesLocale, configObject, workspaceConfig, projectDir) {
   const pathsArray = [];
   const packageDirectories = workspaceConfig.packageDirectories;
 
   if (packageDirectories && packageDirectories.length !== 0) {
-    packageDirectories.forEach(packageDir => {
+    packageDirectories.forEach((packageDir) => {
       if (packageDir.path) {
         if (path.isAbsolute(packageDir.path)) {
           const error = new Error(messagesLocale.getMessage('InvalidAbsolutePath', packageDir.path));
@@ -266,7 +269,7 @@ const _extractPackageDirPaths = function(messagesLocale, configObject, workspace
   return pathsArray;
 };
 
-Config.prototype._getConfigContent = function(projectDir, workspaceConfigObject) {
+Config.prototype._getConfigContent = function (projectDir, workspaceConfigObject) {
   let configObject;
   try {
     // get sfdx-project.json from the ~/.sfdx directory
@@ -307,7 +310,7 @@ Config.prototype._getConfigContent = function(projectDir, workspaceConfigObject)
       defaultSrcWaitMs: consts.DEFAULT_SRC_WAIT_MINUTES * 60000,
       defaultMdapiPollIntervalMinutes: consts.DEFAULT_MDAPI_POLL_INTERVAL_MINUTES,
       defaultMdapiPollIntervalMs: consts.DEFAULT_MDAPI_POLL_INTERVAL_MINUTES * 60000,
-      defaultMdapiWaitMinutes: consts.DEFAULT_MDAPI_WAIT_MINUTES
+      defaultMdapiWaitMinutes: consts.DEFAULT_MDAPI_WAIT_MINUTES,
     };
 
     _.defaults(configObject, workspaceConfigObject, defaultConfig);
@@ -337,7 +340,7 @@ Config.prototype._getConfigContent = function(projectDir, workspaceConfigObject)
   }
 };
 
-const _getWorkspaceConfigObject = function(projectConfigDotJsonPath) {
+const _getWorkspaceConfigObject = function (projectConfigDotJsonPath) {
   if (srcDevUtil.pathExistsSync(projectConfigDotJsonPath)) {
     return JSON.parse(fs.readFileSync(projectConfigDotJsonPath, 'utf8'));
   } else {
@@ -345,7 +348,7 @@ const _getWorkspaceConfigObject = function(projectConfigDotJsonPath) {
   }
 };
 
-Config.prototype.getConfigContentWithValidation = async function(projectDir = this.getProjectPath()) {
+Config.prototype.getConfigContentWithValidation = async function (projectDir = this.getProjectPath()) {
   const projectConfigDotJsonPath = path.join(projectDir, this.getWorkspaceConfigFilename());
   const workspaceConfigObject = _getWorkspaceConfigObject(projectConfigDotJsonPath);
 
@@ -357,7 +360,7 @@ Config.prototype.getConfigContentWithValidation = async function(projectDir = th
       throw almError(
         {
           bundle: 'sfdxConfig',
-          keyName: 'sfdxProjectValidationFailure'
+          keyName: 'sfdxProjectValidationFailure',
         },
         ['sfdx-project.json', err.message]
       );
@@ -366,7 +369,7 @@ Config.prototype.getConfigContentWithValidation = async function(projectDir = th
   }
 };
 
-Config.prototype.getConfigContent = function(projectDir = this.getProjectPath()) {
+Config.prototype.getConfigContent = function (projectDir = this.getProjectPath()) {
   const projectConfigDotJsonPath = path.join(projectDir, this.getWorkspaceConfigFilename());
   const workspaceConfigObject = _getWorkspaceConfigObject(projectConfigDotJsonPath);
   return this._getConfigContent(projectDir, workspaceConfigObject);
@@ -374,10 +377,11 @@ Config.prototype.getConfigContent = function(projectDir = this.getProjectPath())
 
 /**
  * Updates a config object on disk.
+ *
  * @param config The object to save.
  * @param projectDir The absolute path to the directory containing the workspace.
  */
-Config.prototype.setConfigContent = function(configFileName, configDir, config) {
+Config.prototype.setConfigContent = function (configFileName, configDir, config) {
   if (config) {
     srcDevUtil.ensureDirectoryExistsSync(configDir);
 
@@ -389,12 +393,12 @@ Config.prototype.setConfigContent = function(configFileName, configDir, config) 
     }
 
     return promise
-      .then(existingConfig => _.assign(existingConfig, config))
-      .then(async newConfig => {
+      .then((existingConfig) => _.assign(existingConfig, config))
+      .then(async (newConfig) => {
         // file is customer-editable, so write w/ spaces for readability
         await fsWriteFile(configFilePath, JSON.stringify(newConfig, null, 4), {
           flag: 'w',
-          encoding: 'utf-8'
+          encoding: 'utf-8',
         });
       });
   } else {
@@ -404,10 +408,11 @@ Config.prototype.setConfigContent = function(configFileName, configDir, config) 
 
 /**
  * Updates the workspace org config object on disk.
+ *
  * @param config The object to save.
  * @param projectDir The absolute path to the directory containing the workspace.
  */
-Config.prototype.setWorkspaceOrgConfigContent = function(projectDir, config) {
+Config.prototype.setWorkspaceOrgConfigContent = function (projectDir, config) {
   return this.setConfigContent(
     srcDevUtil.getConfigFileName(),
     path.join(projectDir, srcDevUtil.getWorkspaceStateFolderName()),
@@ -417,10 +422,11 @@ Config.prototype.setWorkspaceOrgConfigContent = function(projectDir, config) {
 
 /**
  * Updates the workspace org config object on disk.
+ *
  * @param config The object to save.
  * @param projectDir The absolute path to the directory containing the workspace.
  */
-Config.prototype.setWorkspaceConfigContent = function(projectDir, config) {
+Config.prototype.setWorkspaceConfigContent = function (projectDir, config) {
   return this.setConfigContent(this.getWorkspaceConfigFilename(), projectDir, config);
 };
 

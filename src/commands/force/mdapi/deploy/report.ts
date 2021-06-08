@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -30,24 +30,24 @@ export class MdapiDeployReportCommand extends ToolbeltCommand {
       char: 'w',
       description: messages.getMessage('mdapiCliWait', [consts.DEFAULT_MDAPI_WAIT_MINUTES]),
       longDescription: messages.getMessage('mdapiCliWaitLong', [consts.DEFAULT_MDAPI_WAIT_MINUTES]),
-      required: false
+      required: false,
     }),
     jobid: flags.id({
       char: 'i',
       description: messages.getMessage('mdDeployCommandCliJobId'),
       longDescription: messages.getMessage('mdDeployCommandCliJobIdLong'),
-      required: false
+      required: false,
     }),
     verbose: flags.builtin({
       description: messages.getMessage('mdDeployCommandCliVerbose'),
-      longDescription: messages.getMessage('mdDeployReportCommandCliVerboseLong')
-    })
+      longDescription: messages.getMessage('mdDeployReportCommandCliVerboseLong'),
+    }),
   };
 
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const MdapiDeployReportCommand = require('../../../../lib/mdapi/mdapiDeployReportCommand');
-    return this.execLegacyCommand(new MdapiDeployReportCommand(context), context);
+    const MdapiDeployReportCommandImpl = require('../../../../lib/mdapi/mdapiDeployReportCommand');
+    return this.execLegacyCommand(new MdapiDeployReportCommandImpl(context), context);
   }
   public resolveUsername(context) {
     return context.flags.jobid ? undefined : Stash.get('targetusername', Stash.Commands.MDAPI_DEPLOY);

@@ -1,20 +1,22 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { get as _get, isPlainObject as _isPlainObject } from 'lodash';
 import { join as pathJoin } from 'path';
-import MetadataRegistry = require('./metadataRegistry');
-import * as SourceUtil from './sourceUtil';
-import { MdRetrieveApi, MdRetrieveOptions } from '../mdapi/mdapiRetrieveApi';
-import MdapiConvertApi = require('./mdapiConvertApi');
+import { get as _get, isPlainObject as _isPlainObject } from 'lodash';
 import { Logger, SfdxError, Messages } from '@salesforce/core';
-import * as syncCommandHelper from './syncCommandHelper';
-import { ManifestEntry, SourceOptions } from './types';
 import { SfdxProject } from '@salesforce/core';
+import { MdRetrieveApi, MdRetrieveOptions } from '../mdapi/mdapiRetrieveApi';
+import MetadataRegistry = require('./metadataRegistry');
+import { createOutputDir, cleanupOutputDir, getSourceElementsFromSourcePath } from './sourceUtil';
+import { toManifest, createManifest } from './manifestUtils';
+import { toArray } from './parseManifestEntriesArray';
+import MdapiConvertApi = require('./mdapiConvertApi');
+import * as syncCommandHelper from './syncCommandHelper';
+import { SourceOptions } from './types';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { MdapiPullApi } from './sourcePullApi';
@@ -31,17 +33,17 @@ export interface SourceRetrieveOptions extends SourceOptions {
 }
 
 export interface SourceRetrieveOutput {
-  inboundFiles: {
+  inboundFiles: Array<{
     state: string;
     fullName: string;
     type: string;
     filePath: string;
-  }[];
+  }>;
   warnings?: string[];
-  packages?: {
+  packages?: Array<{
     name: string;
     path: string;
-  }[];
+  }>;
 }
 
 /**
@@ -72,14 +74,14 @@ export class SourceRetrieve {
       defaultPackagePath: this.defaultPackagePath,
       fromConvert: false,
       sourceMode: mode,
-      sourcePaths: options.sourcepath && options.sourcepath.split(',')
+      sourcePaths: options.sourcepath && options.sourcepath.split(','),
     };
     this.swa = await SourceWorkspaceAdapter.create(swaOptions);
 
     let results;
 
     try {
-      this.tmpOutputDir = await SourceUtil.createOutputDir('sourceRetrieve');
+      this.tmpOutputDir = await createOutputDir('sourceRetrieve');
       if (options.sourcepath) {
         this.logger.info(`Retrieving metadata in sourcepath '${options.sourcepath}' from org: '${this.org.name}'`);
         results = await this.retrieveFromSourcePath(options);
@@ -94,7 +96,7 @@ export class SourceRetrieve {
         results = await this.retrieveFromMetadata(options);
       }
     } finally {
-      await SourceUtil.cleanupOutputDir(this.tmpOutputDir);
+      await cleanupOutputDir(this.tmpOutputDir);
       // Delete the sourcePathInfos.json for this org.  Ideally, we never create it but
       // until then, this is necessary.
       this.org.getSourcePathInfos().delete();
@@ -106,7 +108,7 @@ export class SourceRetrieve {
   // Retrieve specific source paths from an org and update the project.
   private async retrieveFromSourcePath(options: SourceRetrieveOptions): Promise<SourceRetrieveOutput> {
     // Parse the sourcepath parameter for metadata files and build a map of AggregateSourceElements
-    const aggregateSourceElements = await SourceUtil.getSourceElementsFromSourcePath(options.sourcepath, this.swa);
+    const aggregateSourceElements = await getSourceElementsFromSourcePath(options.sourcepath, this.swa);
 
     // Create a manifest and update the options with the manifest file.
     options.manifest = await this.createManifest(aggregateSourceElements, options, this.tmpOutputDir);
@@ -117,7 +119,7 @@ export class SourceRetrieve {
 
   private async retrieveFromMetadata(options: SourceRetrieveOptions): Promise<SourceRetrieveOutput> {
     // toManifest will also tack the manifest onto the options
-    await SourceUtil.toManifest(this.org, options, this.tmpOutputDir);
+    await toManifest(this.org, options, this.tmpOutputDir);
 
     // Now that we have a package.xml, the rest is just a retrieve using the manifest.
     return this.retrieveFromManifest(options);
@@ -126,10 +128,9 @@ export class SourceRetrieve {
   // Retrieve metadata specified in a manifest file (package.xml) from an org and update the project.
   private async retrieveFromManifest(
     options: SourceRetrieveOptions,
-    aggregateSourceElements?: AggregateSourceElements,
-    entries?: ManifestEntry[]
+    aggregateSourceElements?: AggregateSourceElements
   ): Promise<SourceRetrieveOutput> {
-    let results: SourceRetrieveOutput = { inboundFiles: [], packages: [], warnings: [] };
+    const results: SourceRetrieveOutput = { inboundFiles: [], packages: [], warnings: [] };
     const project = SfdxProject.getInstance();
     const defaultPackage = project.getDefaultPackage();
 
@@ -159,7 +160,7 @@ export class SourceRetrieve {
 
       try {
         // Create a temp directory
-        tmpPkgOutputDir = await SourceUtil.createOutputDir('sourceRetrieve_pkg');
+        tmpPkgOutputDir = await createOutputDir('sourceRetrieve_pkg');
 
         let ases: AggregateSourceElements;
 
@@ -175,7 +176,7 @@ export class SourceRetrieve {
           forceoverwrite: true, // retrieve always overwrites
           retrievetargetdir: tmpPkgOutputDir,
           unpackaged: options.manifest,
-          wait: options.wait
+          wait: options.wait,
         });
 
         // Only retrieve packages once if the param was set.
@@ -231,8 +232,8 @@ export class SourceRetrieve {
             const { inboundFiles, warnings } = await this.processResults(res, sourceElements);
             if (results.inboundFiles.length > 0) {
               // Could be duplicates with multiple package directories so don't add inbound files twice
-              const filePaths = results.inboundFiles.map(file => file.filePath);
-              for (let inboundFile of inboundFiles) {
+              const filePaths = results.inboundFiles.map((file) => file.filePath);
+              for (const inboundFile of inboundFiles) {
                 if (!filePaths.includes(inboundFile.filePath)) {
                   results.inboundFiles.push(inboundFile);
                 }
@@ -256,7 +257,7 @@ export class SourceRetrieve {
           }
         }
       } finally {
-        await SourceUtil.cleanupOutputDir(tmpPkgOutputDir);
+        await cleanupOutputDir(tmpPkgOutputDir);
       }
     }
 
@@ -276,14 +277,15 @@ export class SourceRetrieve {
     );
 
     // Create a manifest and update the options with the manifest file.
-    const manifest = await SourceUtil.createManifest(this.org, options, mdFullPairs, outputDirPath);
+    const manifest = await createManifest(this.org, options, mdFullPairs, outputDirPath);
     return manifest.file;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async processResults(result, sourceElements: AggregateSourceElements) {
     const inboundFiles = [];
 
-    sourceElements.getAllWorkspaceElements().forEach(workspaceElement => {
+    sourceElements.getAllWorkspaceElements().forEach((workspaceElement) => {
       syncCommandHelper.createDisplayRows(inboundFiles, workspaceElement.toObject(), this.projectPath);
     });
 
@@ -291,7 +293,7 @@ export class SourceRetrieve {
 
     // If there are warning messages along with successes, display them (i.e., partial success).
     if (result.messages) {
-      output.warnings = SourceUtil.toArray(result.messages);
+      output.warnings = toArray(result.messages);
     }
     return output;
   }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -26,18 +26,19 @@ export class Package1VersionCreateGetCommand extends ToolbeltCommand {
       char: 'i',
       description: messages.getMessage('requestId', [], 'package1_version_create_get'),
       longDescription: messages.getMessage('requestIdLong', [], 'package1_version_create_get'),
-      required: true
-    })
+      required: true,
+    }),
   };
 
   /**
    * context hook
+   *
    * @param context - the cli context
    * @returns {Promise}
    */
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const Package1VersionCreateGetCommand = require('../../../../../lib/package1/package1VersionCreateGetCommand');
-    return this.execLegacyCommand(new Package1VersionCreateGetCommand(), context);
+    const Package1VersionCreateGetCommandImpl = require('../../../../../lib/package1/package1VersionCreateGetCommand');
+    return this.execLegacyCommand(new Package1VersionCreateGetCommandImpl(), context);
   }
 }

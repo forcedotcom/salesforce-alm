@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -16,16 +16,17 @@ import * as optional from 'optional-js';
 
 // Local
 import srcDevUtil = require('../core/srcDevUtil');
-import SourceConvertApi = require('./sourceConvertApi');
 import Messages = require('../messages');
 const messages = Messages();
 import Org = require('../core/scratchOrgApi');
 import logger = require('../core/logApi');
+import SourceConvertApi = require('./sourceConvertApi');
 
 const COMMAND_TEMP_ORG = 'sourceConvertTempOrg@org.org';
 
 class SourceConvertCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {

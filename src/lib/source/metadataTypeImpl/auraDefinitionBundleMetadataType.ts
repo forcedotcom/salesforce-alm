@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -58,7 +58,7 @@ export class AuraDefinitionBundleMetadataType extends BundleMetadataType {
     const bundlePaths = glob.sync(path.join(bundleDirPath, '*'));
     return Promise.resolve(
       bundlePaths.filter(
-        bundlePath => forceIgnore.accepts(bundlePath) && !bundlePath.endsWith(MetadataRegistry.getMetadataFileExt())
+        (bundlePath) => forceIgnore.accepts(bundlePath) && !bundlePath.endsWith(MetadataRegistry.getMetadataFileExt())
       )
     );
   }
@@ -98,7 +98,7 @@ export class AuraDefinitionBundleMetadataType extends BundleMetadataType {
     // For Aura Bundles, if we are deleting the metadata file, but there are still other aura definitions present, we should throw an error
     const auraTypeDef = metadataRegistry.getLightningDefByFileName(deletedContentPath);
     if (auraTypeDef && auraTypeDef.hasMetadata) {
-      const otherAuraFilesExist = contentPaths.some(contentPath => !contentPath.endsWith(auraTypeDef.fileSuffix));
+      const otherAuraFilesExist = contentPaths.some((contentPath) => !contentPath.endsWith(auraTypeDef.fileSuffix));
       if (otherAuraFilesExist) {
         const err = new Error();
         err['message'] = messages.getMessage('MissingContentFile', deletedContentPath);
@@ -117,12 +117,13 @@ export class AuraDefinitionBundleMetadataType extends BundleMetadataType {
     return {
       fullName: sourceMemberName,
       type: sourceMemberType,
-      isNameObsolete
+      isNameObsolete,
     };
   }
 
   /**
    * Returns the fileProperty object for the Aura definition metadata file corresponding to the given filePropertyFileName
+   *
    * @param retrieveRoot
    * @param filePropertyFileName
    * @returns {any}
@@ -135,13 +136,13 @@ export class AuraDefinitionBundleMetadataType extends BundleMetadataType {
   ): any {
     const bundleDirPath = path.join(retrieveRoot, path.dirname(filePropertyFileName));
     const bundlePaths = glob.sync(path.join(bundleDirPath, '*'));
-    const bundleDefinitionPath = bundlePaths.find(bundlePath =>
+    const bundleDefinitionPath = bundlePaths.find((bundlePath) =>
       AuraDefinitionBundleMetadataType.prototype.isDefinitionFile(bundlePath, metadataRegistry)
     );
     const auraDefinitionFileProperty = {
       type: auraMetadataName,
       fileName: path.relative(retrieveRoot, bundleDefinitionPath),
-      fullName: path.basename(bundleDefinitionPath, path.extname(bundleDefinitionPath))
+      fullName: path.basename(bundleDefinitionPath, path.extname(bundleDefinitionPath)),
     };
     return auraDefinitionFileProperty;
   }
@@ -155,6 +156,7 @@ export class AuraDefinitionBundleMetadataType extends BundleMetadataType {
     return false;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   shouldDeleteWorkspaceAggregate(metadataType: string): boolean {
     // Handle deletes of AuraDefinitionBundles at the subcomponent level because
     // SourceMembers are created for each subcomponent

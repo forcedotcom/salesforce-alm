@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { OrgSnapshotApi, OrgSnapshotApiImpl, ColumnData } from './orgSnapshotApi';
@@ -29,7 +29,7 @@ class OrgSnapshotGetCommand {
     }
 
     this.orgSnapshotIdOrName = context.flags.snapshot;
-    return OrgSnapshotApiImpl.create(context.org).then(orgSnapshotApi => {
+    return OrgSnapshotApiImpl.create(context.org).then((orgSnapshotApi) => {
       this.orgSnapshotApi = orgSnapshotApi;
       return this.orgSnapshotApi.get(this.orgSnapshotIdOrName);
     });
@@ -37,6 +37,7 @@ class OrgSnapshotGetCommand {
 
   /**
    * returns a human readable message for a cli output
+   *
    * @param result - the data representing the Org Snapshot
    * @returns {string}
    */
@@ -51,8 +52,8 @@ class OrgSnapshotGetCommand {
     this.logger.table(data, {
       columns: [
         { key: 'name', label: 'Name' },
-        { key: 'value', label: 'Value' }
-      ]
+        { key: 'value', label: 'Value' },
+      ],
     });
 
     return '';

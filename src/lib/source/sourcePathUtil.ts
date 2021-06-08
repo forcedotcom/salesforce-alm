@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import * as path from 'path';
 
 import * as fs from 'fs-extra';
 import * as _ from 'lodash';
 
-import MetadataRegistry = require('./metadataRegistry');
 import * as glob from 'glob';
+import MetadataRegistry = require('./metadataRegistry');
 
 /**
  * Returns the given filePath without '-meta.xml'
@@ -18,17 +18,18 @@ import * as glob from 'glob';
  * @param {string} filePath
  * @returns {string}
  */
-export const removeMetadataFileExtFrom = function(filePath: string): string {
+export const removeMetadataFileExtFrom = function (filePath: string): string {
   return filePath.replace(MetadataRegistry.getMetadataFileExt(), '');
 };
 
 /**
  * Returns the fileName stripped of any file extensions
+ *
  * @param {string} filePath
  * @param {TypeDefObj} typeDef
  * @returns {string}
  */
-export const getFileName = function(filePath: string) {
+export const getFileName = function (filePath: string) {
   const filePathWithoutMetadataExt = removeMetadataFileExtFrom(filePath);
   return path.basename(filePathWithoutMetadataExt, path.extname(filePathWithoutMetadataExt));
 };
@@ -40,7 +41,7 @@ export const getFileName = function(filePath: string) {
  * @param {string} filePath
  * @returns {string}
  */
-export const getParentDirectoryName = function(filePath: string) {
+export const getParentDirectoryName = function (filePath: string) {
   return path.basename(path.dirname(filePath));
 };
 
@@ -51,7 +52,7 @@ export const getParentDirectoryName = function(filePath: string) {
  * @param {string} filePath
  * @returns {string}
  */
-export const getGrandparentDirectoryName = function(filePath: string) {
+export const getGrandparentDirectoryName = function (filePath: string) {
   return path.basename(path.dirname(path.dirname(filePath)));
 };
 
@@ -63,7 +64,7 @@ export const getGrandparentDirectoryName = function(filePath: string) {
  * @param {string} dirName
  * @returns {string}
  */
-export const getPathToDir = function(filePath: string, dirName: string): string {
+export const getPathToDir = function (filePath: string, dirName: string): string {
   const filePathParts = filePath.split(path.sep);
   const indexOfGivenDir = filePathParts.indexOf(dirName);
   if (indexOfGivenDir !== -1) {
@@ -76,22 +77,22 @@ export const getPathToDir = function(filePath: string, dirName: string): string 
   return null;
 };
 
-export const getContentPathWithNonStdExtFromMetadataPath = function(metadataFilePath: string): string {
+export const getContentPathWithNonStdExtFromMetadataPath = function (metadataFilePath: string): string {
   const fileNameWithoutExtensions = getFileName(metadataFilePath);
   let matchingWorkspaceFiles = glob.sync(path.join(path.dirname(metadataFilePath), `${fileNameWithoutExtensions}*`));
-  matchingWorkspaceFiles = matchingWorkspaceFiles.map(filePath => path.resolve(filePath)); // glob returns paths using the forward slash only, which breaks tests in Windows
+  matchingWorkspaceFiles = matchingWorkspaceFiles.map((filePath) => path.resolve(filePath)); // glob returns paths using the forward slash only, which breaks tests in Windows
   return matchingWorkspaceFiles.find(
-    docFile =>
+    (docFile) =>
       fileNamesWithoutExtensionsMatch(path.basename(docFile), fileNameWithoutExtensions) &&
       !docFile.endsWith(MetadataRegistry.getMetadataFileExt())
   );
 };
 
-export const fileNamesWithoutExtensionsMatch = function(filename1: string, filename2: string): boolean {
+export const fileNamesWithoutExtensionsMatch = function (filename1: string, filename2: string): boolean {
   return path.basename(filename1, path.extname(filename1)) === path.basename(filename2, path.extname(filename2));
 };
 
-export const removeParentDirFromPath = function(filePath: string): string {
+export const removeParentDirFromPath = function (filePath: string): string {
   const fileName = path.basename(filePath);
   return path.join(path.dirname(path.dirname(filePath)), fileName);
 };
@@ -102,7 +103,7 @@ export const removeParentDirFromPath = function(filePath: string): string {
  * @param {string} str
  * @returns {string}
  */
-export const replaceForwardSlashes = function(str: string): string {
+export const replaceForwardSlashes = function (str: string): string {
   return str.replace(/\//g, path.sep);
 };
 
@@ -112,16 +113,17 @@ export const replaceForwardSlashes = function(str: string): string {
  * @param {string} str
  * @returns {string}
  */
-export const encodeMetadataString = function(str: string): string {
+export const encodeMetadataString = function (str: string): string {
   return encodeURIComponent(str).replace(/%20/g, ' ');
 };
 
 /**
  * gets a list of sub-directories from a parent directory.
+ *
  * @param {string} filePath The path to look for nested directories
  * @returns {string[]} An array of all sub directories
  */
-export const getNestedDirectoryPaths = function(filePath: string): string[] {
+export const getNestedDirectoryPaths = function (filePath: string): string[] {
   const accum = [];
 
   const _recur = (_filePath: string) => {
@@ -137,7 +139,7 @@ export const getNestedDirectoryPaths = function(filePath: string): string[] {
           accum.push(_filePath);
           const dirListing: string[] = fs.readdirSync(_filePath);
           // Is the folder empty?
-          dirListing.forEach(_path => {
+          dirListing.forEach((_path) => {
             const subPath: string = path.join(_filePath, _path);
             _recur(subPath);
           });
@@ -153,6 +155,7 @@ export const getNestedDirectoryPaths = function(filePath: string): string[] {
 
 /**
  * Removes all the empty sub-directories
+ *
  * @param {string} filePath The parent path to look for empty directories. This directory will also be removed if it
  * ends up being empty.
  */
@@ -163,13 +166,15 @@ export function cleanEmptyDirs(filePath: string) {
   paths.sort((a: string, b: string): number => {
     const aLevelCount = _.split(a, path.sep).length;
     const bLevelCount = _.split(b, path.sep).length;
-    if (aLevelCount > bLevelCount) return -1;
+    if (aLevelCount > bLevelCount) {
+      return -1;
+    }
     return aLevelCount < bLevelCount ? 1 : 0;
   });
 
   // Iterate and deleted all the empty folders. If a parent becomes empty because it only contained empty folders it
   // will be deleted later because its level is one less.
-  paths.forEach(_path => {
+  paths.forEach((_path) => {
     const dirListing: string[] = fs.readdirSync(_path);
     if (dirListing.length === 0) {
       fs.removeSync(_path);
@@ -179,6 +184,7 @@ export function cleanEmptyDirs(filePath: string) {
 
 /**
  * Comparator function to sort an array of strings by parent child relationship.
+ *
  * @param left  {string} The left path string
  * @param right {string} The right path string
  * @returns
@@ -200,12 +206,15 @@ export function deleteOrderComparator(left: string, right: string): number {
 
 /**
  * A better file exists function that ensures a file can be read from the filesystem.
+ *
  * @param path The absolute files path or relative path to a file from the CWD.
  */
+// eslint-disable-next-line @typescript-eslint/no-shadow
 export function canRead(path: string): boolean {
   if (path) {
     try {
-      fs.existsSync(path, fs.constants.R_OK);
+      fs.access(path, fs.constants.R_OK);
+
       return true;
     } catch (e) {
       return false;

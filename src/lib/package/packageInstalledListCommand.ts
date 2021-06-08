@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -19,6 +19,7 @@ const QUERY =
 
 class packageInstalledListCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -27,7 +28,7 @@ class packageInstalledListCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       throw pkgUtils.applyErrorAction(err);
     });
@@ -37,10 +38,10 @@ class packageInstalledListCommand {
     this.org = context.org;
     this.force = this.org.force;
 
-    return this.force.toolingQuery(this.org, QUERY).then(queryResult => {
+    return this.force.toolingQuery(this.org, QUERY).then((queryResult) => {
       const records = queryResult.records;
       if (records && records.length > 0) {
-        records.forEach(record => {
+        records.forEach((record) => {
           this.results.push({
             Id: record.Id,
             SubscriberPackageId: record.SubscriberPackageId,
@@ -48,7 +49,7 @@ class packageInstalledListCommand {
             SubscriberPackageNamespace: record.SubscriberPackage.NamespacePrefix,
             SubscriberPackageVersionId: record.SubscriberPackageVersion.Id,
             SubscriberPackageVersionName: record.SubscriberPackageVersion.Name,
-            SubscriberPackageVersionNumber: `${record.SubscriberPackageVersion.MajorVersion}.${record.SubscriberPackageVersion.MinorVersion}.${record.SubscriberPackageVersion.PatchVersion}.${record.SubscriberPackageVersion.BuildNumber}`
+            SubscriberPackageVersionNumber: `${record.SubscriberPackageVersion.MajorVersion}.${record.SubscriberPackageVersion.MinorVersion}.${record.SubscriberPackageVersion.PatchVersion}.${record.SubscriberPackageVersion.BuildNumber}`,
           });
         });
       }
@@ -58,6 +59,7 @@ class packageInstalledListCommand {
 
   /**
    * indicates that the human readable message should be tabular
+   *
    * @returns {[{}...]}
    */
   getColumnData() {
@@ -65,37 +67,37 @@ class packageInstalledListCommand {
     return [
       {
         key: 'Id',
-        label: messages.getMessage('id', [], 'package_installed_list')
+        label: messages.getMessage('id', [], 'package_installed_list'),
       },
       {
         key: 'SubscriberPackageId',
-        label: messages.getMessage('subscriberPackageId', [], 'package_installed_list')
+        label: messages.getMessage('subscriberPackageId', [], 'package_installed_list'),
       },
       {
         key: 'SubscriberPackageName',
-        label: messages.getMessage('subscriberPackageName', [], 'package_installed_list')
+        label: messages.getMessage('subscriberPackageName', [], 'package_installed_list'),
       },
       {
         key: 'SubscriberPackageNamespace',
-        label: messages.getMessage('subscriberPackageNamespace', [], 'package_installed_list')
+        label: messages.getMessage('subscriberPackageNamespace', [], 'package_installed_list'),
       },
       {
         key: 'SubscriberPackageVersionId',
-        label: messages.getMessage('subscriberPackageVersionId', [], 'package_installed_list')
+        label: messages.getMessage('subscriberPackageVersionId', [], 'package_installed_list'),
       },
       {
         key: 'SubscriberPackageVersionName',
-        label: messages.getMessage('subscriberPackageVersionName', [], 'package_installed_list')
+        label: messages.getMessage('subscriberPackageVersionName', [], 'package_installed_list'),
       },
       {
         key: 'SubscriberPackageVersionNumber',
-        label: messages.getMessage('subscriberPackageVersionNumber', [], 'package_installed_list')
-      }
+        label: messages.getMessage('subscriberPackageVersionNumber', [], 'package_installed_list'),
+      },
     ];
   }
 }
 
 export = {
   packageInstalledListCommand,
-  QUERY
+  QUERY,
 };

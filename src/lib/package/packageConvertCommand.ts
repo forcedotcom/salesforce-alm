@@ -7,11 +7,10 @@
 
 // Node
 import * as path from 'path';
-import * as BBPromise from 'bluebird';
-
-const fs = BBPromise.promisifyAll(require('fs-extra'));
 import * as util from 'util';
 import * as os from 'os';
+import * as crypto from 'crypto';
+import * as BBPromise from 'bluebird';
 
 // Local
 
@@ -20,8 +19,8 @@ import srcDevUtil = require('../core/srcDevUtil');
 import PackageVersionCreateRequestApi = require('./packageVersionCreateRequestApi');
 import pkgUtils = require('./packageUtils');
 // import SettingsGenerator = require('../org/scratchOrgSettingsGenerator');
-import * as crypto from 'crypto';
 import PackageVersionCreateCommand = require('./packageVersionCreateCommand');
+const fs = BBPromise.promisifyAll(require('fs-extra'));
 
 interface Package2VersionCreateRequestObject {
   Package2Id: string;
@@ -33,9 +32,10 @@ interface Package2VersionCreateRequestObject {
 
 class PackageConvertCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
-  private DESCRIPTOR_FILE: string = 'package2-descriptor.json';
+  private DESCRIPTOR_FILE = 'package2-descriptor.json';
   private logger: any;
   private maxRetries: number;
   private packageVersionCreateCommand: PackageVersionCreateCommand;
@@ -47,7 +47,7 @@ class PackageConvertCommand {
   }
 
   execute(context) {
-    return this.innerExecute(context).catch(err => {
+    return this.innerExecute(context).catch((err) => {
       err = pkgUtils.massageErrorMessage(err);
       throw pkgUtils.applyErrorAction(err);
     });
@@ -100,22 +100,20 @@ class PackageConvertCommand {
 
   /**
    * Convert the list of command line options to a JSON object that can be used to create an Package2VersionCreateRequest entity.
+   *
    * @param context: command context
    * @param packageId: package2 id to create a package version for
    * @returns {{Package2Id: string, Package2VersionMetadata: *, Tag: *, Branch: number}}
    * @private
    */
   private async createPackageVersionCreateRequest(context, packageId: string) {
-    const uniqueHash: string = crypto
-      .createHash('sha1')
-      .update(`${Date.now()}${Math.random()}`)
-      .digest('hex');
+    const uniqueHash: string = crypto.createHash('sha1').update(`${Date.now()}${Math.random()}`).digest('hex');
     const packageVersTmpRoot: string = path.join(os.tmpdir(), `${packageId}-${uniqueHash}`);
     const packageVersBlobDirectory: string = path.join(packageVersTmpRoot, 'package-version-info');
     const packageVersBlobZipFile: string = path.join(packageVersTmpRoot, 'package-version-info.zip');
 
     const packageDescriptorJson = {
-      id: packageId
+      id: packageId,
     };
 
     srcDevUtil.ensureDirectoryExistsSync(packageVersTmpRoot);
@@ -141,7 +139,7 @@ class PackageConvertCommand {
       VersionInfo: zipFileBase64,
       InstallKey: context.flags.installationkey,
       Instance: context.flags.buildinstance,
-      IsConversionRequest: true
+      IsConversionRequest: true,
     };
 
     return fs.removeAsync(packageVersTmpRoot).then(() => requestObject);

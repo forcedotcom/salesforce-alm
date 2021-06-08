@@ -1,36 +1,36 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // 3pp
+import * as util from 'util';
+import path = require('path');
 import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
 
 // Local
+import { AsyncCreatable } from '@salesforce/kit';
+import { Lifecycle, Logger, Messages, SfdxError, SfdxProject } from '@salesforce/core';
 import { MdRetrieveApi } from '../mdapi/mdapiRetrieveApi';
-import * as SourceUtil from './sourceUtil';
+import messagesApi = require('../messages');
+import { createOutputDir, cleanupOutputDir } from './sourceUtil';
 import * as ManifestCreateApi from './manifestCreateApi';
 import SourceMetadataMemberRetrieveHelper = require('./sourceMetadataMemberRetrieveHelper');
 import * as syncCommandHelper from './syncCommandHelper';
-import messagesApi = require('../messages');
 import MetadataRegistry = require('./metadataRegistry');
 import { BundleMetadataType } from './metadataTypeImpl/bundleMetadataType';
 
 import * as pathUtil from './sourcePathUtil';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { AggregateSourceElements } from './aggregateSourceElements';
-import { AsyncCreatable } from '@salesforce/kit';
-import { Lifecycle, Logger, Messages, SfdxError, SfdxProject } from '@salesforce/core';
 import { SrcStatusApi } from './srcStatusApi';
 import { RemoteSourceTrackingService } from './remoteSourceTrackingService';
 import { WorkspaceElementObj } from './workspaceElement';
-import * as util from 'util';
 import { SourceLocations } from './sourceLocations';
 import { SourceResult, MetadataResult } from './sourceHooks';
-import path = require('path');
 
 export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
   public smmHelper: SourceMetadataMemberRetrieveHelper;
@@ -58,14 +58,14 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
 
   protected async init(): Promise<void> {
     this.remoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
-      username: this.scratchOrg.name
+      username: this.scratchOrg.name,
     });
     this.logger = await Logger.child(this.constructor.name);
     if (!this.swa) {
       const options: SourceWorkspaceAdapter.Options = {
         org: this.scratchOrg,
         metadataRegistryImpl: MetadataRegistry,
-        defaultPackagePath: this.force.getConfig().getAppConfig().defaultPackagePath
+        defaultPackagePath: this.force.getConfig().getAppConfig().defaultPackagePath,
       };
 
       this.swa = await SourceWorkspaceAdapter.create(options);
@@ -87,18 +87,18 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     }
 
     const packages = await this.smmHelper.getRevisionsAsPackage(this.obsoleteNames);
-    const results = await BBPromise.mapSeries(Object.keys(packages), async pkgName => {
+    const results = await BBPromise.mapSeries(Object.keys(packages), async (pkgName) => {
       SfdxProject.getInstance().setActivePackage(pkgName);
       const pkg = packages[pkgName];
       const opts = Object.assign({}, options);
       this.logger.debug('Retrieving', pkgName);
       try {
         // Create a temp directory
-        opts.retrievetargetdir = await SourceUtil.createOutputDir('pull');
+        opts.retrievetargetdir = await createOutputDir('pull');
 
         // Create a manifest (package.xml).
         const manifestOptions = Object.assign({}, opts, {
-          outputdir: opts.retrievetargetdir
+          outputdir: opts.retrievetargetdir,
         });
         const manifest = await this._createPackageManifest(manifestOptions, pkg);
         this.logger.debug(util.inspect(manifest, { depth: 6 }));
@@ -112,24 +112,25 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
           const retrieveOptions = Object.assign(MdRetrieveApi.getDefaultOptions(), {
             retrievetargetdir: opts.retrievetargetdir,
             unpackaged: manifest.file,
-            wait: opts.wait
+            wait: opts.wait,
           });
 
           // Retrieve the metadata
-          result = await new MdRetrieveApi(this.scratchOrg).retrieve(retrieveOptions).catch(err => err.result);
+          result = await new MdRetrieveApi(this.scratchOrg).retrieve(retrieveOptions).catch((err) => err.result);
         }
-        this.logger.debug(`Retrieve result:`, result);
+        this.logger.debug('Retrieve result:', result);
         // Update local metadata source.
         return await this._postRetrieve(result, opts);
       } finally {
         // Delete the output dir.
-        await SourceUtil.cleanupOutputDir(opts.retrievetargetdir);
+        await cleanupOutputDir(opts.retrievetargetdir);
       }
     });
 
     return results;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async _createPackageManifest(options, pkg) {
     if (pkg.isEmpty()) {
       return BBPromise.resolve({ empty: true });
@@ -172,7 +173,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
       // E.g., we pulled metadata but it's the same locally so it's not seen as a change.
       inboundFiles = changedSourceElements
         .getAllWorkspaceElements()
-        .map(workspaceElement => workspaceElement.toObject());
+        .map((workspaceElement) => workspaceElement.toObject());
 
       await SourceLocations.nonDecomposedElementsIndex.maybeRefreshIndex(inboundFiles);
       await this.remoteSourceTrackingService.sync();
@@ -194,7 +195,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     );
 
     const postRetrieveHookInfo: MetadataResult = {};
-    result.fileProperties.forEach(fileProperty => {
+    result.fileProperties.forEach((fileProperty) => {
       let { fullName, fileName } = fileProperty;
 
       if (fileProperty.type === 'Package') {
@@ -212,7 +213,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
 
       if (!(typeof postRetrieveHookInfo[fullName] === 'object')) {
         postRetrieveHookInfo[fullName] = {
-          mdapiFilePath: []
+          mdapiFilePath: [],
         };
       }
 
@@ -224,7 +225,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     // emit post retrieve event
     await Lifecycle.getInstance().emit('postretrieve', postRetrieveHookInfo);
 
-    this.obsoleteNames.forEach(obsoleteName => {
+    this.obsoleteNames.forEach((obsoleteName) => {
       this.swa.handleObsoleteSource(changedSourceElements, obsoleteName.fullName, obsoleteName.type);
     });
 
@@ -237,22 +238,22 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     );
 
     return sourcePromise
-      .then(updatedSource => {
+      .then((updatedSource) => {
         // emit post source update event
-        let postSourceUpdateHookInfo: SourceResult = {};
-        updatedSource.forEach(sourceElementMap => {
-          sourceElementMap.forEach(sourceElement => {
+        const postSourceUpdateHookInfo: SourceResult = {};
+        updatedSource.forEach((sourceElementMap) => {
+          sourceElementMap.forEach((sourceElement) => {
             const fullName = sourceElement.aggregateFullName;
 
             if (!postSourceUpdateHookInfo[fullName]) {
               postSourceUpdateHookInfo[fullName] = {
-                workspaceElements: []
+                workspaceElements: [],
               };
             }
 
             const hookInfo = postSourceUpdateHookInfo[fullName];
             const newElements = hookInfo.workspaceElements.concat(
-              sourceElement.workspaceElements.map(we => we.toObject())
+              sourceElement.workspaceElements.map((we) => we.toObject())
             );
 
             hookInfo.workspaceElements = [...newElements];
@@ -261,6 +262,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
         });
         Lifecycle.getInstance()
           .emit('postsourceupdate', postSourceUpdateHookInfo)
+          // eslint-disable-next-line @typescript-eslint/no-empty-function
           .then(() => {});
       })
       .then(() => sourcePromise);
@@ -287,8 +289,8 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
     return this.statusApi
       .doStatus({ local: true, remote: true }) // rely on status so that we centralize the logic
       .then(() => this.statusApi.getLocalConflicts())
-      .catch(err => {
-        let sfdxError = SfdxError.wrap(err);
+      .catch((err) => {
+        const sfdxError = SfdxError.wrap(err);
         if (err.errorCode === 'INVALID_TYPE') {
           const messages: Messages = Messages.loadMessages('salesforce-alm', 'source_pull');
           sfdxError.message = messages.getMessage('NonScratchOrgPull');
@@ -299,7 +301,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
         }
         throw sfdxError;
       })
-      .then(conflicts => {
+      .then((conflicts) => {
         if (conflicts.length > 0) {
           const error = new Error('Conflicts found during sync down');
           error['name'] = 'SourceConflict';
@@ -310,6 +312,7 @@ export class MdapiPullApi extends AsyncCreatable<MdapiPullApi.Options> {
   }
 }
 
+// eslint-disable-next-line no-redeclare
 export namespace MdapiPullApi {
   export interface Options {
     adapter?: SourceWorkspaceAdapter;

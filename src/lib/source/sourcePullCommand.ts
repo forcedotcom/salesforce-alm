@@ -1,19 +1,19 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as BBPromise from 'bluebird';
 
+import { Messages as CoreMessages } from '@salesforce/core';
 import Messages = require('../messages');
 import * as almError from '../core/almError';
 import srcDevUtil = require('../core/srcDevUtil');
+import logger = require('../core/logApi');
 import { parseWaitParam } from './sourceUtil';
 import * as syncCommandHelper from './syncCommandHelper';
-import logger = require('../core/logApi');
-import { Messages as CoreMessages } from '@salesforce/core';
 import { MdapiPullApi } from './sourcePullApi';
 
 const messages = Messages();
@@ -21,6 +21,7 @@ CoreMessages.importMessagesDirectory(__dirname);
 
 class MdapiPullCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -50,10 +51,10 @@ class MdapiPullCommand {
         options.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
         return mdapiPull.doPull(options);
       })
-      .catch(e => {
+      .catch((e) => {
         if (e.name === 'SourceConflict') {
           const error = almError('sourceConflictDetected');
-          e.sourceConflictElements.forEach(sourceElement =>
+          e.sourceConflictElements.forEach((sourceElement) =>
             syncCommandHelper.createConflictRows(rows, sourceElement, projectPath)
           );
           error['columns'] = syncCommandHelper.getColumnMetaInfo(this.commonMsgs);
@@ -64,12 +65,13 @@ class MdapiPullCommand {
           throw e;
         }
       })
-      .then(results => {
-        results.forEach(result => {
-          if (!!result)
-            result.inboundFiles.forEach(sourceItem =>
+      .then((results) => {
+        results.forEach((result) => {
+          if (result) {
+            result.inboundFiles.forEach((sourceItem) =>
               syncCommandHelper.createDisplayRows(rows, sourceItem, projectPath)
             );
+          }
         });
       })
       .then(() => this.logger.styledHeader(this.logger.color.blue(messages.getMessage('pullCommandHumanSuccess'))))
@@ -79,6 +81,7 @@ class MdapiPullCommand {
 
   /**
    * this indicated to index.js this command should produce tabular output.
+   *
    * @returns {*[]}
    */
   getColumnData() {

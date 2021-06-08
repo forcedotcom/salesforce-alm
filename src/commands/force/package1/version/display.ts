@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -26,13 +26,13 @@ export class Package1VersionDisplayCommand extends ToolbeltCommand {
       char: 'i',
       description: messages.getMessage('package1VersionDisplayCommandPackageId'),
       longDescription: messages.getMessage('package1VersionDisplayCommandPackageIdLong'),
-      required: true
-    })
+      required: true,
+    }),
   };
 
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const Package1VersionDisplayCommand = require('../../../../lib/package1/package1VersionDisplayCommand');
-    return this.execLegacyCommand(new Package1VersionDisplayCommand(context.org), context);
+    const Package1VersionDisplayCommandImpl = require('../../../../lib/package1/package1VersionDisplayCommand');
+    return this.execLegacyCommand(new Package1VersionDisplayCommandImpl(context.org), context);
   }
 }

@@ -1,19 +1,19 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
 
 // Local
-import logger = require('../core/logApi');
-import * as almError from '../core/almError';
-import * as mdApiUtil from './mdApiUtil';
 import { DescribeMetadataResult, MetadataObject } from 'jsforce';
 import * as fsx from 'fs-extra';
+import logger = require('../core/logApi');
+import * as almError from '../core/almError';
 import MetadataRegistry = require('../source/metadataRegistry');
+import * as mdApiUtil from './mdApiUtil';
 
 /**
  * API that wraps Metadata API to retrieve describemetadata result.
@@ -59,8 +59,10 @@ export class MdDescribemetadataApi {
   /**
    * Filter a DescribeMetadataResult based on whats found in metadata registry. This method is handy for determining
    * what not supported by the CLI.
+   *
    * @param result The result to filter
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async filterResult(result: DescribeMetadataResult): Promise<DescribeMetadataResult> {
     const registry = new MetadataRegistry();
     const registeredTypeDefs = registry.getMetadataTypeDefs();
@@ -71,12 +73,12 @@ export class MdDescribemetadataApi {
       map.set(mdObject.xmlName, mdObject);
     });
 
-    Object.keys(registeredTypeDefs).forEach(key => {
+    Object.keys(registeredTypeDefs).forEach((key) => {
       map.delete(key);
     });
     // End O2n Perf
     result.metadataObjects = [];
-    for (let key of map.keys()) {
+    for (const key of map.keys()) {
       result.metadataObjects.push(map.get(key));
     }
 
@@ -106,6 +108,7 @@ export class MdDescribemetadataApi {
     this.logger.log(message);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async validate(context) {
     const options = context.flags;
 

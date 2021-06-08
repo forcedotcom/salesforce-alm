@@ -1,15 +1,17 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as SourceUtil from './sourceUtil';
+import * as path from 'path';
+import { Logger, SfdxError } from '@salesforce/core';
+import { createOutputDir, containsMdBundle } from './sourceUtil';
+import { toManifest } from './manifestUtils';
+import { parseToManifestEntriesArray } from './parseManifestEntriesArray';
 import { ManifestEntry } from './types';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { Logger, SfdxError } from '@salesforce/core';
-import * as path from 'path';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import MetadataRegistry = require('./metadataRegistry');
@@ -29,17 +31,19 @@ export class SourceElementsResolver {
   /**
    * Returns all AggregateSourceElements in the project that match entries
    * from a manifest.
+   *
    * @param manifestPath - path to package.xml
    * @return {Map} aggregateSourceElements
    */
   public async getSourceElementsFromManifest(manifestPath: string): Promise<AggregateSourceElements> {
-    const typeNamePairs = await SourceUtil.parseToManifestEntriesArray(manifestPath);
+    const typeNamePairs = await parseToManifestEntriesArray(manifestPath);
     const sourceElements = await this.sourceWorkSpaceAdapter.getAggregateSourceElements(false);
     return this.parseTypeNamePairs(typeNamePairs, sourceElements);
   }
 
   /**
    * Filters all AggregateSourceElements in the project based on manifest file entries.
+   *
    * @param typeNamePairs - type name pairs from a manifest file
    * @param sourceElements - all AggregateSourceElements in the project
    * @return {Map} aggregateSoureElements
@@ -49,7 +53,7 @@ export class SourceElementsResolver {
     typeNamePairs: ManifestEntry[],
     sourceElements: AggregateSourceElements
   ): AggregateSourceElements {
-    let aggregateSourceElements = new AggregateSourceElements();
+    const aggregateSourceElements = new AggregateSourceElements();
     typeNamePairs.forEach((entry: ManifestEntry) => {
       let keyMetadataType = entry.type;
       const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
@@ -82,7 +86,7 @@ export class SourceElementsResolver {
         aggregateSourceElements.merge(filteredASEs);
       } else {
         //
-        // We can't call SourceUtil.loadSourceElement() here because we have to match the key across
+        // We can't call loadSourceElement() here because we have to match the key across
         // package directories.  E.g., a custom object can be defined in multiple package directories
         // and we need to return all matches from all package dirs based on a typeNamePair (i.e., key).
         //
@@ -121,9 +125,9 @@ export class SourceElementsResolver {
     aggregateSourceElements: AggregateSourceElements,
     tmpOutputDir?: string
   ): Promise<AggregateSourceElements> {
-    tmpOutputDir = tmpOutputDir || (await SourceUtil.createOutputDir('decomposition'));
-    const manifestPath: string = await SourceUtil.toManifest(this.org, options, tmpOutputDir);
-    const isPathABundleError = path.extname(options.metadata).length > 0 && SourceUtil.containsMdBundle(options);
+    tmpOutputDir = tmpOutputDir || (await createOutputDir('decomposition'));
+    const manifestPath: string = await toManifest(this.org, options, tmpOutputDir);
+    const isPathABundleError = path.extname(options.metadata).length > 0 && containsMdBundle(options);
 
     if (isPathABundleError) {
       throw SfdxError.create('salesforce-alm', 'source', 'SourcePathInvalid', [options.metadata]);

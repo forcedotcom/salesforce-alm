@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -12,8 +12,8 @@ import * as util from 'util';
 // 3pp
 import * as _ from 'lodash';
 
-import { TypeDefObj } from './typeDefObj';
 import { fs, SfdxProject } from '@salesforce/core';
+import { TypeDefObj } from './typeDefObj';
 
 interface TypeDefObjs {
   [key: string]: TypeDefObj;
@@ -29,166 +29,166 @@ const _lightningDefTypes = {
     defType: 'APPLICATION',
     format: 'XML',
     fileSuffix: '.app',
-    hasMetadata: true
+    hasMetadata: true,
   },
   CONTROLLER: {
     defType: 'CONTROLLER',
     format: 'JS',
-    fileSuffix: 'Controller.js'
+    fileSuffix: 'Controller.js',
   },
   COMPONENT: {
     defType: 'COMPONENT',
     format: 'XML',
     fileSuffix: '.cmp',
-    hasMetadata: true
+    hasMetadata: true,
   },
   EVENT: {
     defType: 'EVENT',
     format: 'XML',
     fileSuffix: '.evt',
-    hasMetadata: 'true'
+    hasMetadata: 'true',
   },
   HELPER: {
     defType: 'HELPER',
     format: 'JS',
-    fileSuffix: 'Helper.js'
+    fileSuffix: 'Helper.js',
   },
   INTERFACE: {
     defType: 'INTERFACE',
     format: 'XML',
     fileSuffix: '.intf',
-    hasMetadata: true
+    hasMetadata: true,
   },
   RENDERER: {
     defType: 'RENDERER',
     format: 'JS',
-    fileSuffix: 'Renderer.js'
+    fileSuffix: 'Renderer.js',
   },
   STYLE: {
     defType: 'STYLE',
     format: 'CSS',
-    fileSuffix: '.css'
+    fileSuffix: '.css',
   },
   PROVIDER: {
     defType: 'PROVIDER',
     format: 'JS',
-    fileSuffix: 'Provider.js'
+    fileSuffix: 'Provider.js',
   },
   MODEL: {
     defType: 'MODEL',
     format: 'JS',
-    fileSuffix: 'Model.js'
+    fileSuffix: 'Model.js',
   },
   TESTSUITE: {
     defType: 'TESTSUITE',
     format: 'JS',
-    fileSuffix: 'Test.js'
+    fileSuffix: 'Test.js',
   },
   DOCUMENTATION: {
     defType: 'DOCUMENTATION',
     format: 'XML',
-    fileSuffix: '.auradoc'
+    fileSuffix: '.auradoc',
   },
   TOKENS: {
     defType: 'TOKENS',
     format: 'XML',
     fileSuffix: '.tokens',
-    hasMetadata: true
+    hasMetadata: true,
   },
   DESIGN: {
     defType: 'DESIGN',
     format: 'XML',
-    fileSuffix: '.design'
+    fileSuffix: '.design',
   },
   SVG: {
     defType: 'SVG',
     format: 'SVG',
-    fileSuffix: '.svg'
-  }
+    fileSuffix: '.svg',
+  },
 };
 
 const _lwcDefTypes = {
   MODULE_RESOURCE_JS: {
     defType: 'MODULE',
     format: 'JS',
-    fileSuffix: '.js'
+    fileSuffix: '.js',
   },
   MODULE_RESOURCE_HTML: {
     defType: 'MODULE',
     format: 'HTML',
-    fileSuffix: '.html'
+    fileSuffix: '.html',
   },
   MODULE_RESOURCE_CSS: {
     defType: 'MODULE',
     format: 'CSS',
-    fileSuffix: '.css'
+    fileSuffix: '.css',
   },
   MODULE_RESOURCE_SVG: {
     defType: 'MODULE',
     format: 'SVG',
-    fileSuffix: '.svg'
+    fileSuffix: '.svg',
   },
   MODULE_RESOURCE_XML: {
     defType: 'MODULE',
     format: 'XML',
-    fileSuffix: '.xml'
-  }
+    fileSuffix: '.xml',
+  },
 };
 
 const _waveDefTypes = {
   JSON: {
     defType: 'JSON',
     format: 'JSON',
-    fileSuffix: '.json'
+    fileSuffix: '.json',
   },
   HTML: {
     defType: 'HTML',
     format: 'HTML',
-    fileSuffix: '.html'
+    fileSuffix: '.html',
   },
   CSV: {
     defType: 'CSV',
     format: 'CSV',
-    fileSuffix: '.csv'
+    fileSuffix: '.csv',
   },
   XML: {
     defType: 'XML',
     format: 'XML',
-    fileSuffix: '.xml'
+    fileSuffix: '.xml',
   },
   TXT: {
     defType: 'TXT',
     format: 'TXT',
-    fileSuffix: '.txt'
+    fileSuffix: '.txt',
   },
   IMG: {
     defType: 'IMG',
     format: 'IMG',
-    fileSuffix: '.img'
+    fileSuffix: '.img',
   },
   JPG: {
     defType: 'JPG',
     format: 'JPG',
-    fileSuffix: '.jpg'
+    fileSuffix: '.jpg',
   },
   JPEG: {
     defType: 'JPEG',
     format: 'JPEG',
-    fileSuffix: '.jpeg'
+    fileSuffix: '.jpeg',
   },
   GIF: {
     defType: 'GIF',
     format: 'GIF',
-    fileSuffix: '.gif'
+    fileSuffix: '.gif',
   },
   PNG: {
     defType: 'PNG',
     format: 'PNG',
-    fileSuffix: '.png'
-  }
+    fileSuffix: '.png',
+  },
 };
 
-const _typeDefMatchesDecompositionExtension = function(typeDef: TypeDefObj, typeExtension: string) {
+const _typeDefMatchesDecompositionExtension = function (typeDef: TypeDefObj, typeExtension: string) {
   if (
     !util.isNullOrUndefined(typeDef.decompositionConfig) &&
     !util.isNullOrUndefined(typeDef.decompositionConfig.decompositions)
@@ -202,7 +202,7 @@ const _typeDefMatchesDecompositionExtension = function(typeDef: TypeDefObj, type
   return false;
 };
 
-const _typeDefMatchesExtension = function(typeDef, typeExtension, includeDecomposedSubtypes) {
+const _typeDefMatchesExtension = function (typeDef, typeExtension, includeDecomposedSubtypes) {
   if (!util.isNullOrUndefined(typeDef.ext) && typeDef.ext.toLowerCase() === typeExtension) {
     return true;
   } else if (includeDecomposedSubtypes) {
@@ -212,15 +212,15 @@ const _typeDefMatchesExtension = function(typeDef, typeExtension, includeDecompo
   }
 };
 
-const _getDecompositionByName = function(typeDefs, value) {
+const _getDecompositionByName = function (typeDefs, value) {
   if (util.isNullOrUndefined(value)) {
     return null;
   }
 
   let foundDecomposition;
-  Object.keys(typeDefs).forEach(key => {
+  Object.keys(typeDefs).forEach((key) => {
     if (!util.isNullOrUndefined(typeDefs[key].decompositionConfig)) {
-      typeDefs[key].decompositionConfig.decompositions.forEach(decomposition => {
+      typeDefs[key].decompositionConfig.decompositions.forEach((decomposition) => {
         if (decomposition.metadataName === value) {
           foundDecomposition = decomposition;
         }
@@ -289,8 +289,8 @@ class MetadataRegistry {
   // Returns list of default directories for all metadata types
   private getTypeDirectories(): string[] {
     if (util.isNullOrUndefined(this.typeDirectories)) {
-      const metadataTypeInfos = this.getMetadataTypeDefs() as TypeDefObjs;
-      return Object.values(metadataTypeInfos).map(i => i.defaultDirectory);
+      const metadataTypeInfos = this.getMetadataTypeDefs();
+      return Object.values(metadataTypeInfos).map((i) => i.defaultDirectory);
     } else {
       return this.typeDirectories;
     }
@@ -298,7 +298,7 @@ class MetadataRegistry {
 
   private getTypeDefsByExtension() {
     const typeDefsByExtension = new Map();
-    Object.keys(this.typeDefs).forEach(metadataName => {
+    Object.keys(this.typeDefs).forEach((metadataName) => {
       const metadataTypeExtension = this.typeDefs[metadataName].ext;
       typeDefsByExtension.set(metadataTypeExtension, this.typeDefs[metadataName]);
     });
@@ -307,7 +307,7 @@ class MetadataRegistry {
 
   public getLightningDefByFileName(fileName) {
     return this.lightningDefTypes[
-      Object.keys(this.lightningDefTypes).find(key => {
+      Object.keys(this.lightningDefTypes).find((key) => {
         const lightningDefType = this.lightningDefTypes[key];
         return fileName.endsWith(lightningDefType.fileSuffix);
       })
@@ -316,7 +316,7 @@ class MetadataRegistry {
 
   public getWaveDefByFileName(fileName) {
     return this.waveDefTypes[
-      Object.keys(this.waveDefTypes).find(key => {
+      Object.keys(this.waveDefTypes).find((key) => {
         const waveDefType = this.waveDefTypes[key];
         return fileName.endsWith(waveDefType.fileSuffix);
       })
@@ -325,7 +325,7 @@ class MetadataRegistry {
 
   public getLightningDefByType(type) {
     return this.lightningDefTypes[
-      Object.keys(this.lightningDefTypes).find(key => {
+      Object.keys(this.lightningDefTypes).find((key) => {
         const lightningDefType = this.lightningDefTypes[key];
         return type === lightningDefType.defType;
       })
@@ -334,12 +334,13 @@ class MetadataRegistry {
 
   /**
    * Returns the array of typeDefs where the default directory of each typeDef matches the passed in 'name' param
+   *
    * @param name
    * @returns {any[]}
    */
   public getTypeDefinitionsByDirectoryName(name) {
-    const metadataNames = Object.keys(this.typeDefs).filter(key => this.typeDefs[key].defaultDirectory === name);
-    return metadataNames.map(metadataName => this.typeDefs[metadataName]);
+    const metadataNames = Object.keys(this.typeDefs).filter((key) => this.typeDefs[key].defaultDirectory === name);
+    return metadataNames.map((metadataName) => this.typeDefs[metadataName]);
   }
 
   public getTypeDefinitionByMetadataName(metadataName: string) {
@@ -410,11 +411,14 @@ class MetadataRegistry {
     const defaultDirectory = path
       .dirname(workspaceFilePath)
       .split(path.sep)
-      .find(i => !!i && this.typeDirectories.includes(i));
+      .find((i) => !!i && this.typeDirectories.includes(i));
     let typeDef: TypeDefObj;
-    if (defaultDirectory)
-      typeDef = defs.find(def => def.ext === typeExtension && def.defaultDirectory === defaultDirectory);
-    if (_.isNil(typeDef)) typeDef = this.typeDefsByExtension.get(typeExtension);
+    if (defaultDirectory) {
+      typeDef = defs.find((def) => def.ext === typeExtension && def.defaultDirectory === defaultDirectory);
+    }
+    if (_.isNil(typeDef)) {
+      typeDef = this.typeDefsByExtension.get(typeExtension);
+    }
 
     if (!_.isNil(typeDef)) {
       if (!_.isNil(useTrueExtType) && useTrueExtType) {
@@ -463,7 +467,8 @@ class MetadataRegistry {
     }
 
     const fullName = path.basename(fileName, path.extname(fileName));
-    const typeDef = typeDefsToCheck.find(typeDef =>
+    // eslint-disable-next-line @typescript-eslint/no-shadow
+    const typeDef = typeDefsToCheck.find((typeDef) =>
       fs.existsSync(path.join(dir, `${fullName}.${typeDef.ext}${this.metadataFileExt}`))
     );
     if (!util.isNullOrUndefined(typeDef)) {
@@ -505,7 +510,7 @@ class MetadataRegistry {
   }
 
   public isValidAuraSuffix(suffix) {
-    const auraTypeDefKey = Object.keys(this.lightningDefTypes).find(key => {
+    const auraTypeDefKey = Object.keys(this.lightningDefTypes).find((key) => {
       const fileSuffix = this.lightningDefTypes[key].fileSuffix;
       return fileSuffix && fileSuffix === suffix;
     });
@@ -513,7 +518,7 @@ class MetadataRegistry {
   }
 
   private isValidWaveTemplateSuffix(suffix) {
-    const wtTypeDefKey = Object.keys(this.waveDefTypes).find(key => {
+    const wtTypeDefKey = Object.keys(this.waveDefTypes).find((key) => {
       const fileSuffix = this.waveDefTypes[key].fileSuffix;
       return fileSuffix && fileSuffix === suffix;
     });
@@ -521,7 +526,7 @@ class MetadataRegistry {
   }
 
   public isValidLwcSuffix(suffix) {
-    const lwcTypeDefKey = Object.keys(this.lwcDefTypes).find(key => {
+    const lwcTypeDefKey = Object.keys(this.lwcDefTypes).find((key) => {
       const fileSuffix = this.lwcDefTypes[key].fileSuffix;
       return fileSuffix && fileSuffix === suffix;
     });
@@ -538,7 +543,7 @@ class MetadataRegistry {
   private isValidDecompositionExtension(ext) {
     const extWithoutPeriod = ext.replace('.', '');
     const includeDecomposedSubtypes = true;
-    const typeDefKey = Object.keys(this.typeDefs).find(key =>
+    const typeDefKey = Object.keys(this.typeDefs).find((key) =>
       _typeDefMatchesExtension(this.typeDefs[key], extWithoutPeriod, includeDecomposedSubtypes)
     );
     const typeDef = this.typeDefs[typeDefKey];
@@ -552,11 +557,11 @@ class MetadataRegistry {
     )[1];
     const relativePathArray = relativeFilePath.split(path.sep);
     if (relativePathArray.length == 1) {
-      //it should be a meta file
+      // it should be a meta file
       const META_FILE_SUFFIX = '.site';
       return relativePathArray[0].endsWith(`${META_FILE_SUFFIX}${this.metadataFileExt}`);
     }
-    //There should be 2 folders /siteName/type and the file name should have a json suffix
+    // There should be 2 folders /siteName/type and the file name should have a json suffix
     return relativePathArray.length == 3 && path.extname(relativePathArray[2]).replace('.', '') === 'json';
   }
 
@@ -614,7 +619,7 @@ class MetadataRegistry {
           this.isValidMetadataExtension(fileName) ||
           this.getTypeDefinitionByFileNameMatchingDefaultDirectory(workspaceSourcePath, false, [
             this.typeDefs.Document,
-            this.typeDefs.StaticResource
+            this.typeDefs.StaticResource,
           ]) !== null
         );
       }

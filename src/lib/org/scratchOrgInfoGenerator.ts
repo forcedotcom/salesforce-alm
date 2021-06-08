@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as _ from 'lodash';
@@ -10,10 +10,10 @@ import * as _ from 'lodash';
 // Local
 import * as ConfigApi from '../core/configApi';
 import pkg2Utils = require('../package/packageUtils');
+import Messages = require('../messages');
 import { ScratchOrgFeatureDeprecation } from './scratchOrgFeatureDeprecation';
 
 const defaultConnectedAppInfo = require('../core/defaultConnectedApp');
-import Messages = require('../messages');
 const messages = Messages();
 
 // constants
@@ -21,12 +21,13 @@ const DEFAULT_COMPANY = 'Company';
 
 /**
  * Helper method to read the namespace configured for this workspace.
+ *
  * @param configApi
  * @throws Formatting exceptions associated with reading the workspace config.
  * @returns {*} The namespace associated with the workspace.
  * @private
  */
-const _getNamespace = function(configApi) {
+const _getNamespace = function (configApi) {
   const namespace = configApi.getAppConfigIfInWorkspace().namespace;
 
   if (_.isNil(namespace)) {
@@ -43,6 +44,7 @@ const _getNamespace = function(configApi) {
 const scratchOrgInfoGenerator = {
   /**
    * Generates the package2AncestorIds flag
+   *
    * @param scratchOrgInfo - the scratchOrgInfo passed in by the user
    * @param config - the app config
    * @param org
@@ -59,12 +61,15 @@ const scratchOrgInfoGenerator = {
         const result = Promise.resolve(pkg2Utils.getAncestorId(packageDir, org.force, org));
         getAncestorPromises.push(result);
       }
-      return Promise.all(getAncestorPromises).then(ancestorIds => [...new Set(ancestorIds.filter(Boolean))].join(';'));
+      return Promise.all(getAncestorPromises).then((ancestorIds) =>
+        [...new Set(ancestorIds.filter(Boolean))].join(';')
+      );
     }
   },
 
   /**
    * Takes in a scratchOrgInfo and fills in the missing fields
+   *
    * @param masterOrg
    * @param scratchOrgInfo - the scratchOrgInfo passed in by the user
    * @param orgType
@@ -86,7 +91,7 @@ const scratchOrgInfoGenerator = {
       scratchOrgInfo.Country = config.country;
     }
 
-    return this._getAncestorIds(scratchOrgInfo, config, masterOrg, ignoreAncestorIds).then(ancestorIds => {
+    return this._getAncestorIds(scratchOrgInfo, config, masterOrg, ignoreAncestorIds).then((ancestorIds) => {
       scratchOrgInfo.package2AncestorIds = ancestorIds;
 
       // convert various supported array and string formats to a semi-colon-delimited string
@@ -106,7 +111,7 @@ const scratchOrgInfoGenerator = {
 
       return masterOrg
         .getConfig()
-        .then(hubConfig => {
+        .then((hubConfig) => {
           // Use the Hub org's client ID value, if one wasn't provided to us
           if (_.isNil(scratchOrgInfo.connectedAppConsumerKey)) {
             scratchOrgInfo.connectedAppConsumerKey = hubConfig.clientId;
@@ -127,7 +132,7 @@ const scratchOrgInfoGenerator = {
           return scratchOrgInfo;
         });
     });
-  }
+  },
 };
 
 export = scratchOrgInfoGenerator;

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -37,64 +37,79 @@ class Stash {
   public static readonly Commands = {
     MDAPI_RETRIEVE: 'MDAPI_RETRIEVE',
     MDAPI_DEPLOY: 'MDAPI_DEPLOY',
-    SOURCE_DEPLOY: 'SOURCE_DEPLOY'
+    SOURCE_DEPLOY: 'SOURCE_DEPLOY',
   };
 
   /**
    * Set a group of stashed values in a bulk save.
+   *
    * @param {object} newStashValues An object of key value pairs that should be set in stash
    * @param {string} command The command the alias belongs to.
    * @returns {Promise<object>} The new aliases that were saved.
    */
   static setValues(newStashValues: any, command: string): Promise<any> {
-    if (!isValidCommand(command)) return Promise.reject(almError('InvalidCommandGroup'));
+    if (!isValidCommand(command)) {
+      return Promise.reject(almError('InvalidCommandGroup'));
+    }
     return stashFileStore.setValues(newStashValues, command);
   }
 
   /**
    * Set an alias on a command group
+   *
    * @param {string} alias The name of the alias to set
    * @param {string} property The value of the alias
    * @param {string} command The command the alias belongs to. Defaults to Orgs
    * @returns {Promise} The promise resolved when the alias is set
    */
   static set(alias: string, property: string | number, command: string): Promise<any> {
-    if (!isValidCommand(command)) return Promise.reject(almError('InvalidCommandGroup'));
+    if (!isValidCommand(command)) {
+      return Promise.reject(almError('InvalidCommandGroup'));
+    }
 
     return stashFileStore.set(alias, property, command);
   }
 
   /**
    * Unset one or more aliases on a command group
+   *
    * @param {string|string[]} aliases The names of the aliases to unset
    * @param {string} command The command the alias belongs to. Defaults to Orgs
    * @returns {Promise} The promise resolved when the aliases are unset
    */
   static unset(aliasesToUnset: string | string[], command: string): Promise<any> {
-    if (!isValidCommand(command)) return Promise.reject(almError('InvalidCommandGroup'));
+    if (!isValidCommand(command)) {
+      return Promise.reject(almError('InvalidCommandGroup'));
+    }
 
     return stashFileStore.unset(Array.isArray(aliasesToUnset) ? aliasesToUnset : [aliasesToUnset], command);
   }
 
   /**
    * Get an alias from a command group
+   *
    * @param {string} alias The name of the alias to get
    * @param {string} command The command the alias belongs to. Defaults to Orgs
    * @returns {Promise} The promise resolved when the alias is retrieved
    */
   static get(alias: string | number, command: string): Promise<any> {
-    if (!isValidCommand(command)) return Promise.reject(almError('InvalidCommandGroup'));
+    if (!isValidCommand(command)) {
+      return Promise.reject(almError('InvalidCommandGroup'));
+    }
 
     return stashFileStore.get(alias as string, command);
   }
 
   /**
    * Get all alias from a command group
+   *
    * @param {string} command The command of aliases to retrieve. Defaults to Orgs
    * @returns {Promise} The promise resolved when the aliases are retrieved
    */
   static list(command: string): Promise<any> {
-    if (!isValidCommand(command)) return Promise.reject(almError('InvalidCommandGroup'));
+    if (!isValidCommand(command)) {
+      return Promise.reject(almError('InvalidCommandGroup'));
+    }
 
     return stashFileStore.list(command);
   }

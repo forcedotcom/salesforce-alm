@@ -1,16 +1,17 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import * as path from 'path';
 
-import { DefaultMetadataType } from './defaultMetadataType';
 import { TypeDefObj } from '../typeDefObj';
 import * as PathUtil from '../sourcePathUtil';
 import { BundlePathHelper } from '../bundlePathHelper';
+import { DefaultMetadataType } from './defaultMetadataType';
 
 export class BundleMetadataType extends DefaultMetadataType {
   constructor(typeDefObj: TypeDefObj) {
@@ -99,14 +100,14 @@ export class BundleMetadataType extends DefaultMetadataType {
     const clonedProps = JSON.parse(JSON.stringify(fileProperties));
     const { MetadataTypeFactory } = require('../metadataTypeFactory');
     return clonedProps
-      .filter(fileProperty => {
+      .filter((fileProperty) => {
         const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(fileProperty.type, metadataRegistry);
         if (metadataType instanceof BundleMetadataType) {
           return metadataType.isDefinitionFile(fileProperty.fileName, metadataRegistry);
         }
         return false;
       })
-      .map(fileProperty => {
+      .map((fileProperty) => {
         fileProperty.fullName = PathUtil.replaceForwardSlashes(fileProperty.fullName);
         fileProperty.fileName = PathUtil.replaceForwardSlashes(fileProperty.fileName);
         return fileProperty;

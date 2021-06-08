@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -28,26 +28,26 @@ export class PackageDeleteCommand extends ToolbeltCommand {
       char: 'n',
       description: messages.getMessage('noPrompt', [], 'package_delete'),
       longDescription: messages.getMessage('noPrompt', [], 'package_delete'),
-      required: false
+      required: false,
     }),
     package: flags.string({
       char: 'p',
       description: messages.getMessage('package', [], 'package_delete'),
       longDescription: messages.getMessage('packageLong', [], 'package_delete'),
-      required: true
+      required: true,
     }),
     undelete: flags.boolean({
       description: messages.getMessage('undelete', [], 'package_delete'),
       longDescription: messages.getMessage('undeleteLong', [], 'package_delete'),
       required: false,
-      hidden: true
-    })
+      hidden: true,
+    }),
   };
 
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
-    const PackageDeleteCommand = require('../../../lib/package/packageDeleteCommand');
+    const PackageDeleteCommandImpl = require('../../../lib/package/packageDeleteCommand');
     const heroku = require('heroku-cli-util');
-    return this.execLegacyCommand(new PackageDeleteCommand(heroku.prompt), context);
+    return this.execLegacyCommand(new PackageDeleteCommandImpl(heroku.prompt), context);
   }
 }

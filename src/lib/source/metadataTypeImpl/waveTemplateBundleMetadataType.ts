@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import * as path from 'path';
 
-import { BundleMetadataType } from './bundleMetadataType';
 import { TypeDefObj } from '../typeDefObj';
 import { BundlePathHelper } from '../bundlePathHelper';
 import * as PathUtil from '../sourcePathUtil';
 
 import Messages = require('../../messages');
+import { BundleMetadataType } from './bundleMetadataType';
 const messages = Messages();
 
-//Required file to represent WaveTemplateBundles definitions
+// Required file to represent WaveTemplateBundles definitions
 const waveTemplateBundleDefinitionFile = 'template-info.json';
 
 export class WaveTemplateBundleMetadataType extends BundleMetadataType {
@@ -38,7 +39,7 @@ export class WaveTemplateBundleMetadataType extends BundleMetadataType {
     const bundle = bundleFileProperties[0];
     if (bundle) {
       const name = bundle.fileName;
-      let baseFileName = path.basename(name);
+      const baseFileName = path.basename(name);
       const additionalPath = BundlePathHelper.getExtendedBundlePath(name, fullName);
       if (additionalPath) {
         return path.join(defaultSourceDir, this.typeDefObj.defaultDirectory, fullName, additionalPath, baseFileName);
@@ -133,7 +134,9 @@ export class WaveTemplateBundleMetadataType extends BundleMetadataType {
   validateDeletedContentPath(deletedContentPath: string, contentPaths: string[], metadataRegistry): void {
     const wtTypeDef = metadataRegistry.getWaveDefByFileName(deletedContentPath);
     if (wtTypeDef && wtTypeDef.hasMetadata) {
-      const otherWaveTemplateFilesExist = contentPaths.some(contentPath => !contentPath.endsWith(wtTypeDef.fileSuffix));
+      const otherWaveTemplateFilesExist = contentPaths.some(
+        (contentPath) => !contentPath.endsWith(wtTypeDef.fileSuffix)
+      );
       if (otherWaveTemplateFilesExist) {
         const err = new Error();
         err['message'] = messages.getMessage('MissingContentFile', deletedContentPath);

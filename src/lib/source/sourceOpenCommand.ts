@@ -1,19 +1,19 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import MetadataRegistry = require('./metadataRegistry');
-import OrgOpenCommand = require('../org/orgOpenCommand');
 import * as path from 'path';
 import { fs } from '@salesforce/core';
 import * as request from 'request';
+import OrgOpenCommand = require('../org/orgOpenCommand');
 import * as Display from '../force-cli/force-cli-display';
 import * as Config from '../force-cli/force-cli-config';
 import * as Messages from '../force-cli/force-cli-messages';
 import logApi = require('../core/logApi');
+import MetadataRegistry = require('./metadataRegistry');
 
 let logger;
 
@@ -28,13 +28,14 @@ export class SourceOpenCommand {
     logger = logApi.child('source:open');
   }
 
-  validate(context) {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  validate() {}
 
   async execute(context): Promise<any> {
     if (context && context.flags && context.flags.sourcefile) {
       try {
         fs.realpathSync(context.flags.sourcefile);
-        let editOp = new SourceOpenOperation(context);
+        const editOp = new SourceOpenOperation(context);
         return await editOp.execute();
       } catch (err) {
         logger.error(err);
@@ -64,7 +65,7 @@ export class SourceOpenOperation {
   private get factory(): StrategyFactory {
     if (this._factory === undefined) {
       try {
-        let metadataFactory = new MetadataRegistry();
+        const metadataFactory = new MetadataRegistry();
         this._factory = new StrategyFactory(this.context, metadataFactory);
       } catch (e) {
         throw remapError(e);
@@ -75,8 +76,8 @@ export class SourceOpenOperation {
 
   public async execute(): Promise<UrlObject> {
     try {
-      let strategy: EditStrategy = this.factory.strategize();
-      let url: UrlObject = await strategy.open();
+      const strategy: EditStrategy = this.factory.strategize();
+      const url: UrlObject = await strategy.open();
       if (this.context.flags.json) {
         return url;
       } else {
@@ -89,7 +90,7 @@ export class SourceOpenOperation {
 }
 
 export function remapError(e: Error): Error {
-  let stack = <string>e.stack;
+  const stack = e.stack;
   if (stack.includes('MetadataRegistry.getTypeDefsByExtension')) {
     return new Error(Messages.get('SourceOpenCommandUnpushedError'));
   } else {
@@ -98,15 +99,15 @@ export function remapError(e: Error): Error {
 }
 
 export async function isSalesforceOneEnabled(cmd: OrgOpenCommand, requestApi: any, context: any): Promise<boolean> {
-  let localContext = Object.assign({}, context, {
+  const localContext = Object.assign({}, context, {
     flags: {
       urlonly: true,
-      path: 'one/one.app'
-    }
+      path: 'one/one.app',
+    },
   });
 
-  let url: UrlObject = await cmd.execute(await cmd.validate(localContext));
-  return new Promise<boolean>((resolve, reject) => {
+  const url: UrlObject = await cmd.execute(await cmd.validate(localContext));
+  return new Promise<boolean>((resolve) => {
     requestApi(url.url, (error, response, body: string) => {
       if (body && !body.includes('lightning/access/orgAccessDenied.jsp')) {
         resolve(true);
@@ -127,8 +128,8 @@ export class StrategyFactory {
   }
 
   public strategize(): EditStrategy {
-    let absoluteFilePath = path.resolve(this.context.flags.sourcefile);
-    let type = this.metadataRegistry.getTypeDefinitionByFileName(absoluteFilePath);
+    const absoluteFilePath = path.resolve(this.context.flags.sourcefile);
+    const type = this.metadataRegistry.getTypeDefinitionByFileName(absoluteFilePath);
 
     if (type) {
       if (type.metadataName === 'FlexiPage') {
@@ -155,11 +156,11 @@ export class FlexipageStrategy implements EditStrategy {
   }
 
   public async deriveFlexipageURL(flexipage: string): Promise<string | undefined> {
-    let connection = await Config.getActiveConnection(this.context);
+    const connection = await Config.getActiveConnection(this.context);
     try {
-      let queryResult = await connection.tooling.query(`SELECT id FROM flexipage WHERE DeveloperName='${flexipage}'`);
+      const queryResult = await connection.tooling.query(`SELECT id FROM flexipage WHERE DeveloperName='${flexipage}'`);
       if (queryResult.totalSize === 1 && queryResult.records) {
-        let record: any = queryResult.records[0];
+        const record: any = queryResult.records[0];
         return record.Id;
       } else {
         return FlexipageStrategy.NO_ID;
@@ -170,9 +171,9 @@ export class FlexipageStrategy implements EditStrategy {
   }
 
   public async setUpOpenContext(): Promise<any> {
-    let openContext = Object.assign({}, this.context);
-    let id = await this.deriveFlexipageURL(path.basename(this.context.flags.sourcefile, '.flexipage-meta.xml'));
-    let salesforceOne = await exports.isSalesforceOneEnabled(this.cmd, request, openContext);
+    const openContext = Object.assign({}, this.context);
+    const id = await this.deriveFlexipageURL(path.basename(this.context.flags.sourcefile, '.flexipage-meta.xml'));
+    const salesforceOne = await exports.isSalesforceOneEnabled(this.cmd, request, openContext);
     if (id) {
       openContext.flags.path = `/visualEditor/appBuilder.app?pageId=${id}`;
     } else {
@@ -186,7 +187,7 @@ export class FlexipageStrategy implements EditStrategy {
   }
 
   public async open(): Promise<UrlObject> {
-    let context = await this.cmd.validate(await this.setUpOpenContext());
+    const context = await this.cmd.validate(await this.setUpOpenContext());
     return await this.cmd.execute(context);
   }
 }

@@ -1,18 +1,19 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import srcDevUtil = require('../core/srcDevUtil');
+import Messages = require('../messages');
 import ActiveScratchOrgDeleteApi = require('./activeScratchOrgDeleteApi');
 
-import Messages = require('../messages');
 const messages = Messages();
 
 class OrgDeleteCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   async execute(context) {
@@ -32,10 +33,11 @@ class OrgDeleteCommand {
     await this.org.deleteConfig();
     return {
       orgId: orgData.orgId,
-      username: orgData.userName
+      username: orgData.userName,
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async validate(context) {
     this.org = context.org;
     const fixedContext = srcDevUtil.fixCliContext(context);

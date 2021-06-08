@@ -1,19 +1,19 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
+import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
+import { AsyncCreatable } from '@salesforce/kit';
+import { Logger, SfdxProject } from '@salesforce/core';
 import MetadataRegistry = require('./metadataRegistry');
 import { WorkspaceFileState } from './workspaceFileState';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { MetadataTypeFactory } from './metadataTypeFactory';
-import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
-import { AsyncCreatable } from '@salesforce/kit';
-import { Logger, SfdxProject } from '@salesforce/core';
 import { RemoteSourceTrackingService, ChangeElement } from './remoteSourceTrackingService';
 
 export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
@@ -41,13 +41,13 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
   protected async init(): Promise<void> {
     this.logger = await Logger.child(this.constructor.name);
     this.remoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
-      username: this.scratchOrg.name
+      username: this.scratchOrg.name,
     });
     if (!this.swa) {
       const options: SourceWorkspaceAdapter.Options = {
         org: this.scratchOrg,
         metadataRegistryImpl: MetadataRegistry,
-        defaultPackagePath: this.force.getConfig().getAppConfig().defaultPackagePath
+        defaultPackagePath: this.force.getConfig().getAppConfig().defaultPackagePath,
       };
 
       this.swa = await SourceWorkspaceAdapter.create(options);
@@ -66,9 +66,9 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
     }
 
     const localSourceElementsMapByPkg = this.swa.changedSourceElementsCache;
-    return localSourceElementsMapByPkg.forEach(localSourceElementsMap => {
-      return localSourceElementsMap.forEach(value => {
-        value.getWorkspaceElements().forEach(workspaceElement => {
+    return localSourceElementsMapByPkg.forEach((localSourceElementsMap) =>
+      localSourceElementsMap.forEach((value) => {
+        value.getWorkspaceElements().forEach((workspaceElement) => {
           value.validateIfDeletedWorkspaceElement(workspaceElement);
           if (options.local && !options.remote) {
             this.localChanges.push(workspaceElement.toObject());
@@ -79,8 +79,8 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
             this.locallyChangedWorkspaceElements.push(workspaceElement);
           }
         });
-      });
-    });
+      })
+    );
   }
 
   // Retrieve metadata CRUD changes from the org, filtering any forceignored metadata,
@@ -137,12 +137,12 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
             correspondingWorkspaceElements.length > 0 &&
             !sourceMemberMetadataType.displayAggregateRemoteChangesOnly()
           ) {
-            correspondingWorkspaceElements.forEach(workspaceElement => {
+            correspondingWorkspaceElements.forEach((workspaceElement) => {
               const remoteChangeElement = {
                 state,
                 fullName: workspaceElement.getFullName(),
                 type: sourceMemberMetadataType.getDisplayNameForRemoteChange(changeElement.type),
-                filePath: workspaceElement.getSourcePath()
+                filePath: workspaceElement.getSourcePath(),
               };
 
               remoteChangeElements.push(remoteChangeElement);
@@ -152,7 +152,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
               const remoteChangeElement = {
                 state,
                 fullName: changeElement.name,
-                type: sourceMemberMetadataType.getDisplayNameForRemoteChange(changeElement.type)
+                type: sourceMemberMetadataType.getDisplayNameForRemoteChange(changeElement.type),
               };
               remoteChangeElements.push(remoteChangeElement);
             } else {
@@ -199,7 +199,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
         if (localAggregateSourceElement) {
           const workspaceElements = localAggregateSourceElement.getWorkspaceElements();
           if (workspaceElements.length > 0) {
-            return workspaceElements.filter(workspaceElement => {
+            return workspaceElements.filter((workspaceElement) => {
               const workspaceElementMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
                 workspaceElement.getMetadataName(),
                 this.swa.metadataRegistry
@@ -210,7 +210,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
                   workspaceElement.getFullName()
                 ) ||
                 workspaceElementMetadataType.sourceMemberFullNameCorrespondsWithWorkspaceFullName(
-                  `${changeElement.type}s`, //for nonDecomposedTypesWithChildrenMetadataTypes we need to check their type
+                  `${changeElement.type}s`, // for nonDecomposedTypesWithChildrenMetadataTypes we need to check their type
                   workspaceElement.getFullName()
                 )
               );
@@ -224,21 +224,21 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
 
   private markConflicts(options) {
     if (options.local && options.remote) {
-      return this.locallyChangedWorkspaceElements.forEach(workspaceElement => {
+      return this.locallyChangedWorkspaceElements.forEach((workspaceElement) => {
         // a metadata element with same name and type modified both locally and in the server is considered a conflict
         const localChange: any = {
           state: workspaceElement.getState(),
           fullName: workspaceElement.getFullName(),
           type: workspaceElement.getMetadataName(),
           filePath: workspaceElement.getSourcePath(),
-          deleteSupported: workspaceElement.getDeleteSupported()
+          deleteSupported: workspaceElement.getDeleteSupported(),
         };
 
         const workspaceElementMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
           workspaceElement.getMetadataName(),
           this.swa.metadataRegistry
         );
-        const remoteChanges = this.remoteChanges.filter(remoteChange =>
+        const remoteChanges = this.remoteChanges.filter((remoteChange) =>
           workspaceElementMetadataType.conflictDetected(
             remoteChange.type,
             remoteChange.fullName,
@@ -247,7 +247,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
         );
         if (remoteChanges && remoteChanges.length > 0) {
           localChange.isConflict = true;
-          remoteChanges.forEach(remoteChange => {
+          remoteChanges.forEach((remoteChange) => {
             remoteChange.isConflict = true;
           });
         }
@@ -269,7 +269,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
   getLocalConflicts() {
     const aggregateKeys = new Set();
     return this.localChanges
-      .filter(item => {
+      .filter((item) => {
         const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(item.type, this.swa.metadataRegistry);
         if (item.isConflict && metadataType.onlyDisplayOneConflictPerAggregate()) {
           const aggregateFullName = metadataType.getAggregateFullNameFromWorkspaceFullName(item.fullName);
@@ -282,7 +282,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
         }
         return item.isConflict;
       })
-      .map(item => {
+      .map((item) => {
         const metadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(item.type, this.swa.metadataRegistry);
         if (metadataType.onlyDisplayOneConflictPerAggregate()) {
           return {
@@ -290,7 +290,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
             fullName: metadataType.getAggregateFullNameFromWorkspaceFullName(item.fullName),
             type: item.type,
             filePath: metadataType.getDisplayPathForLocalConflict(item.filePath),
-            deleteSupported: item.deleteSupported
+            deleteSupported: item.deleteSupported,
           };
         }
         return item;
@@ -298,6 +298,7 @@ export class SrcStatusApi extends AsyncCreatable<SrcStatusApi.Options> {
   }
 }
 
+// eslint-disable-next-line no-redeclare
 export namespace SrcStatusApi {
   export interface Options {
     org: any;

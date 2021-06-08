@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -40,7 +40,7 @@ export class FineGrainTrackingCommitStrategy implements DecompositionCommitStrat
     let deletedPaths: string[] = []; // With fine grain tracking any deletes are handled independently of the decomposition.
     let dupPaths: string[] = [];
 
-    const pathPromises = updatedPaths.map(async updatedPath => {
+    const pathPromises = updatedPaths.map(async (updatedPath) => {
       if (
         forceoverwrite ||
         (await FineGrainTrackingCommitStrategy.isUpdatedFile(updatedPath, documents.get(updatedPath)))
@@ -61,7 +61,7 @@ export class FineGrainTrackingCommitStrategy implements DecompositionCommitStrat
     });
 
     const pathResults = await Promise.all(pathPromises);
-    updatedPaths = pathResults.filter(val => !!val) as string[];
+    updatedPaths = pathResults.filter((val) => !!val) as string[];
     for (const newPath of newPaths) {
       srcDevUtil.ensureDirectoryExistsSync(path.dirname(newPath));
       await fscore.writeFile(newPath, documents.get(newPath).getRepresentation());

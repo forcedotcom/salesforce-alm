@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2020, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { NonDecomposedElementsIndex } from './nonDecomposedElementsIndex';
 import { WorkspaceElement } from './workspaceElement';
@@ -5,7 +11,7 @@ import { WorkspaceElement } from './workspaceElement';
 export type PackageName = string;
 export type SourceElementKey = string;
 export type AggregateSourceElementMap = Map<SourceElementKey, AggregateSourceElement>;
-type AggregateSourceElementEntries = [PackageName, AggregateSourceElementMap][] | null;
+type AggregateSourceElementEntries = Array<[PackageName, AggregateSourceElementMap]> | null;
 
 // Configure filter options such as fuzzy matching on metadata types.
 // E.g., "Document" fuzzy matches "Document" and "DocumentFolder"
@@ -25,7 +31,7 @@ export class AggregateSourceElements extends Map<PackageName, AggregateSourceEle
    */
   public findSourceElementByKey(key: SourceElementKey): AggregateSourceElement {
     let returnValue: AggregateSourceElement;
-    this.forEach(aggregateSourceElements => {
+    this.forEach((aggregateSourceElements) => {
       if (aggregateSourceElements.has(key)) {
         returnValue = aggregateSourceElements.get(key);
       }
@@ -42,7 +48,7 @@ export class AggregateSourceElements extends Map<PackageName, AggregateSourceEle
    */
   public filterSourceElementsByKey(key: SourceElementKey, options: FilterOptions = {}): AggregateSourceElements {
     const filteredElements = new AggregateSourceElements();
-    this.forEach(aseMap => {
+    this.forEach((aseMap) => {
       if (options.fuzzy) {
         const [fuzzyMdType, mdName = ''] = key.split('__');
         aseMap.forEach((ase, aseKey) => {
@@ -91,14 +97,14 @@ export class AggregateSourceElements extends Map<PackageName, AggregateSourceEle
   public findParentElement(parentKey: SourceElementKey, childType: string, childName: string): AggregateSourceElement {
     let returnValue: AggregateSourceElement;
     // debug(`finding parent element: ${parentKey} containing child: ${childKey}`);
-    this.forEach(aggregateSourceElements => {
+    this.forEach((aggregateSourceElements) => {
       if (aggregateSourceElements.has(parentKey)) {
         const ase = aggregateSourceElements.get(parentKey);
         if (childType && childName) {
           let matchingWorkspaceElement: WorkspaceElement;
 
           // Match the childType and childName with the workspace elements
-          const matchFound = ase.getWorkspaceElements().some(we => {
+          const matchFound = ase.getWorkspaceElements().some((we) => {
             if (we.getFullName() === childName && we.getMetadataName() === childType) {
               matchingWorkspaceElement = we;
               return true;
@@ -151,7 +157,7 @@ export class AggregateSourceElements extends Map<PackageName, AggregateSourceEle
    */
   public getAllSourceElements(): AggregateSourceElement[] {
     let elements = [];
-    this.forEach(sourceElements => {
+    this.forEach((sourceElements) => {
       elements = elements.concat([...sourceElements.values()]);
     });
     return elements;
@@ -159,8 +165,8 @@ export class AggregateSourceElements extends Map<PackageName, AggregateSourceEle
 
   public getAllWorkspaceElements(): WorkspaceElement[] {
     let elements = [];
-    this.forEach(sourceElements => {
-      [...sourceElements.values()].forEach(el => {
+    this.forEach((sourceElements) => {
+      [...sourceElements.values()].forEach((el) => {
         elements = elements.concat(el.workspaceElements);
       });
     });
@@ -169,7 +175,7 @@ export class AggregateSourceElements extends Map<PackageName, AggregateSourceEle
 
   public getAllSourceKeys(): SourceElementKey[] {
     let keys = [];
-    this.forEach(sourceElements => {
+    this.forEach((sourceElements) => {
       keys = keys.concat([...sourceElements.keys()]);
     });
     return keys;
@@ -198,8 +204,8 @@ export class AggregateSourceElements extends Map<PackageName, AggregateSourceEle
             // Both AggregateSourceElements have an ASE key in the same package,
             // so add any missing WorkspaceElements from the merging ASE
             // to the existing ASE.
-            const weFullNames = existingAse.getWorkspaceElements().map(we => we.getFullName());
-            ase.getWorkspaceElements().forEach(we => {
+            const weFullNames = existingAse.getWorkspaceElements().map((we) => we.getFullName());
+            ase.getWorkspaceElements().forEach((we) => {
               if (!weFullNames.includes(we.getFullName())) {
                 existingAse.addWorkspaceElement(we);
               }

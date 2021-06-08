@@ -1,24 +1,24 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Thirdparty
-import * as optional from 'optional-js';
 import * as os from 'os';
+import * as optional from 'optional-js';
 
 // Local
 
+import { SfdxProject } from '@salesforce/core';
 import * as Force from '../core/force';
-import MdapiConvertApi = require('./mdapiConvertApi');
 import ScratchOrg = require('../core/scratchOrgApi');
 import messages = require('../messages');
 import srcDevUtil = require('../core/srcDevUtil');
-import * as syncCommandHelper from './syncCommandHelper';
 import logger = require('../core/logApi');
-import { SfdxProject } from '@salesforce/core';
+import * as syncCommandHelper from './syncCommandHelper';
+import MdapiConvertApi = require('./mdapiConvertApi');
 const { Messages } = require('@salesforce/core');
 
 Messages.importMessagesDirectory(__dirname);
@@ -27,6 +27,7 @@ const COMMAND_TEMP_ORG = 'mdapiConvertTemp@org.org';
 
 class MdapiConvertCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor(force?) {
@@ -55,7 +56,7 @@ class MdapiConvertCommand {
     this.api.unsupportedMimeTypes = []; // for logging unsupported static resource mime types
     return this.api
       .convertSource(this.org, sourceConvertOptions)
-      .then(outputElements =>
+      .then((outputElements) =>
         srcDevUtil
           .logUnsupportedMimeTypeError(this.api.unsupportedMimeTypes, this.logger, this.force)
           .then(() => outputElements)
@@ -76,7 +77,7 @@ class MdapiConvertCommand {
     const converted = [];
     const duplicates = [];
 
-    data.forEach(e => {
+    data.forEach((e) => {
       if (e.state === 'Duplicate') {
         duplicates.push(e);
       } else {

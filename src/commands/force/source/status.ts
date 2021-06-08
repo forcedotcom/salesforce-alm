@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -27,20 +27,20 @@ export class SourceStatusCommand extends ToolbeltCommand {
       char: 'a',
       description: messages.getMessage('statusCommandAllOptionDescription'),
       longDescription: messages.getMessage('statusCommandAllOptionDescriptionLong'),
-      required: false
+      required: false,
     }),
     local: flags.boolean({
       char: 'l',
       description: messages.getMessage('statusCommandLocalOptionDescription'),
       longDescription: messages.getMessage('statusCommandLocalOptionDescriptionLong'),
-      required: false
+      required: false,
     }),
     remote: flags.boolean({
       char: 'r',
       description: messages.getMessage('statusCommandRemoteOptionDescription'),
       longDescription: messages.getMessage('statusCommandRemoteOptionDescriptionLong'),
-      required: false
-    })
+      required: false,
+    }),
   };
 
   public async run(): Promise<unknown> {

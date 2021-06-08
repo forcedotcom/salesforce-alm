@@ -1,14 +1,13 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as _ from 'lodash';
 import * as urlLib from 'url';
 
-//Node
+// Node
 import * as BBPromise from 'bluebird';
 
 import PackageVersionCreateRequestApi = require('./packageVersionCreateRequestApi');
@@ -17,34 +16,36 @@ import { SfdxError, Messages } from '@salesforce/core';
 
 Messages.importMessagesDirectory(__dirname);
 
-import Messages_old = require('../messages');
 import ux from 'cli-ux';
+import Messages_old = require('../messages');
 
 const messages = Messages_old();
+const messagesPackaging = Messages.loadMessages('salesforce-alm', 'packaging');
 
 const NOT_FOUND_MESSAGE = 'The requested resource does not exist';
 const INVALID_TYPE_REGEX = /[\w]*(sObject type '[A-Za-z]*Package[2]?[A-Za-z]*' is not supported)[\w]*/im;
 const ID_REGISTRY = [
   {
     prefix: '0Ho',
-    label: 'Package Id'
+    label: 'Package Id',
   },
   {
     prefix: '05i',
-    label: 'Package Version Id'
+    label: 'Package Version Id',
   },
   {
     prefix: '08c',
-    label: 'Package Version Create Request Id'
+    label: 'Package Version Create Request Id',
   },
   {
     prefix: '04t',
-    label: 'Subscriber Package Version Id'
-  }
+    label: 'Subscriber Package Version Id',
+  },
 ];
 
 const LATEST_BUILD_NUMBER_TOKEN = 'LATEST';
 const NEXT_BUILD_NUMBER_TOKEN = 'NEXT';
+const RELEASED_BUILD_NUMBER_TOKEN = 'RELEASED';
 const VERSION_NUMBER_SEP = '.';
 
 const INSTALL_URL_BASE = 'https://login.salesforce.com/packaging/installPackage.apexp?p0=';
@@ -52,28 +53,28 @@ const INSTALL_URL_BASE = 'https://login.salesforce.com/packaging/installPackage.
 // https://developer.salesforce.com/docs/atlas.en-us.salesforce_app_limits_cheatsheet.meta/salesforce_app_limits_cheatsheet/salesforce_app_limits_platform_soslsoql.htm
 const SOQL_WHERE_CLAUSE_MAX_LENGTH = 4000;
 
-const POLL_INTERVAL_SECONDS: number = 30;
+const POLL_INTERVAL_SECONDS = 30;
 
 const DEFAULT_PACKAGE_DIR = {
   path: '',
   package: '',
   versionName: 'ver 0.1',
   versionNumber: '0.1.0.NEXT',
-  default: true
+  default: true,
 };
 
 export = {
-  BY_PREFIX: (function() {
+  BY_PREFIX: (function () {
     const byIds: any = {};
-    ID_REGISTRY.forEach(id => {
+    ID_REGISTRY.forEach((id) => {
       byIds[id.prefix] = id;
     });
     return byIds;
   })(),
 
-  BY_LABEL: (function() {
+  BY_LABEL: (function () {
     const byLabels: any = {};
-    ID_REGISTRY.forEach(id => {
+    ID_REGISTRY.forEach((id) => {
       byLabels[id.label.replace(/ /g, '_').toUpperCase()] = id;
     });
     return byLabels;
@@ -84,9 +85,9 @@ export = {
       const msg = messages.getMessage(
         'invalidIdOrAlias',
         [
-          Array.isArray(idObj) ? idObj.map(e => e.label).join(' or ') : idObj.label,
+          Array.isArray(idObj) ? idObj.map((e) => e.label).join(' or ') : idObj.label,
           value,
-          Array.isArray(idObj) ? idObj.map(e => e.prefix).join(' or ') : idObj.prefix
+          Array.isArray(idObj) ? idObj.map((e) => e.prefix).join(' or ') : idObj.prefix,
         ],
         'packaging'
       );
@@ -98,10 +99,10 @@ export = {
     if (!value || (value.length !== 15 && value.length !== 18)) {
       return false;
     }
-    return Array.isArray(idObj) ? idObj.some(e => value.startsWith(e.prefix)) : value.startsWith(idObj.prefix);
+    return Array.isArray(idObj) ? idObj.some((e) => value.startsWith(e.prefix)) : value.startsWith(idObj.prefix);
   },
 
-  validateVersionNumber(versionNumberString, supportedBuildNumberToken) {
+  validateVersionNumber(versionNumberString, supportedBuildNumberToken, supportedBuildNumberToken2) {
     if (!versionNumberString) {
       throw new Error(messages.getMessage('errorMissingVersionNumber', [], 'packaging'));
     }
@@ -112,10 +113,25 @@ export = {
       throw new Error(messages.getMessage('errorInvalidVersionNumber', versionNumberString, 'packaging'));
     }
 
-    if (versionNumber[3] !== supportedBuildNumberToken && Number.isNaN(parseInt(versionNumber[3]))) {
-      throw new Error(
-        messages.getMessage('errorInvalidBuildNumber', [versionNumberString, supportedBuildNumberToken], 'packaging')
-      );
+    // build number can be a number or valid token
+    if (
+      Number.isNaN(parseInt(versionNumber[3])) &&
+      versionNumber[3] !== supportedBuildNumberToken &&
+      versionNumber[3] !== supportedBuildNumberToken2
+    ) {
+      if (supportedBuildNumberToken2) {
+        throw new Error(
+          messages.getMessage(
+            'errorInvalidBuildNumberForKeywords',
+            [versionNumberString, supportedBuildNumberToken, supportedBuildNumberToken2],
+            'packaging'
+          )
+        );
+      } else {
+        throw new Error(
+          messages.getMessage('errorInvalidBuildNumber', [versionNumberString, supportedBuildNumberToken], 'packaging')
+        );
+      }
     }
 
     if (Number.isNaN(parseInt(versionNumber[1]))) {
@@ -154,6 +170,7 @@ export = {
   // check that the provided url has a valid format
   validUrl(url) {
     try {
+      // eslint-disable-next-line no-new
       new urlLib.URL(url);
       return true;
     } catch (err) {
@@ -265,6 +282,7 @@ export = {
 
   /**
    * Given a subscriber package version ID (04t) or package version ID (05i), return the package version ID (05i)
+   *
    * @param versionId The suscriber package version ID
    * @param force For tooling query
    * @param org For tooling query
@@ -275,7 +293,7 @@ export = {
       return versionId;
     }
     const query = `SELECT Id FROM Package2Version WHERE SubscriberPackageVersionId = '${versionId}'`;
-    return force.toolingQuery(org, query).then(queryResult => {
+    return force.toolingQuery(org, query).then((queryResult) => {
       if (!queryResult || !queryResult.totalSize) {
         throw new Error(
           messages.getMessage(
@@ -291,6 +309,7 @@ export = {
 
   /**
    * Given 0Ho the package type type (Managed, Unlocked, Locked(deprecated?))
+   *
    * @param package2Id the 0Ho
    * @param force For tooling query
    * @param org For tooling query
@@ -308,6 +327,7 @@ export = {
 
   /**
    * Given 04t the package type type (Managed, Unlocked, Locked(deprecated?))
+   *
    * @param package2VersionId the 04t
    * @param force For tooling query
    * @param org For tooling query
@@ -331,6 +351,7 @@ export = {
 
   /**
    * Given a package version ID (05i) or subscriber package version ID (04t), return the subscriber package version ID (04t)
+   *
    * @param versionId The suscriber package version ID
    * @param force For tooling query
    * @param org For tooling query
@@ -341,7 +362,7 @@ export = {
       return versionId;
     }
     const query = `SELECT SubscriberPackageVersionId FROM Package2Version WHERE Id = '${versionId}'`;
-    return force.toolingQuery(org, query).then(queryResult => {
+    return force.toolingQuery(org, query).then((queryResult) => {
       if (!queryResult || !queryResult.totalSize) {
         throw new Error(
           messages.getMessage(
@@ -357,21 +378,23 @@ export = {
 
   /**
    * Get the ContainerOptions for the specified Package2 (0Ho) IDs.
+   *
    * @return Map of 0Ho id to container option api value
    * @param poackage2Ids The list of package IDs
    * @param force For tooling query
    * @param org For tooling query
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getContainerOptions(package2Ids, force, org) {
-    let results = new Map();
+    const results = new Map();
     if (!package2Ids || package2Ids.length === 0) {
       return results;
     }
     const query = 'SELECT Id, ContainerOptions FROM Package2 WHERE Id IN (%IDS%)';
 
-    return this.queryWithInConditionChunking(query, package2Ids, '%IDS%', force, org).then(records => {
+    return this.queryWithInConditionChunking(query, package2Ids, '%IDS%', force, org).then((records) => {
       if (records && records.length > 0) {
-        records.forEach(record => {
+        records.forEach((record) => {
           results.set(record.Id, record.ContainerOptions);
         });
       }
@@ -381,6 +404,7 @@ export = {
 
   /**
    * Return the Package2Version.HasMetadataRemoved field value for the given Id (05i)
+   *
    * @param packageVersionId package version ID (05i)
    * @param force For tooling query
    * @param org For tooling query
@@ -403,33 +427,37 @@ export = {
 
   /**
    * Given a list of subscriber package version IDs (04t), return the associated version strings (e.g., Major.Minor.Patch.Build)
+   *
    * @return Map of subscriberPackageVersionId to versionString
    * @param versionIds The list of suscriber package version IDs
    * @param force For tooling query
    * @param org For tooling query
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getPackageVersionStrings(subscriberPackageVersionIds, force, org) {
-    let results = new Map();
+    const results = new Map();
     if (!subscriberPackageVersionIds || subscriberPackageVersionIds.length === 0) {
       return results;
     }
     const query =
       'SELECT SubscriberPackageVersionId, MajorVersion, MinorVersion, PatchVersion, BuildNumber FROM Package2Version WHERE SubscriberPackageVersionId IN (%IDS%)';
 
-    return this.queryWithInConditionChunking(query, subscriberPackageVersionIds, '%IDS%', force, org).then(records => {
-      if (records && records.length > 0) {
-        records.forEach(record => {
-          const version = this.concatVersion(
-            record.MajorVersion,
-            record.MinorVersion,
-            record.PatchVersion,
-            record.BuildNumber
-          );
-          results.set(record.SubscriberPackageVersionId, version);
-        });
+    return this.queryWithInConditionChunking(query, subscriberPackageVersionIds, '%IDS%', force, org).then(
+      (records) => {
+        if (records && records.length > 0) {
+          records.forEach((record) => {
+            const version = this.concatVersion(
+              record.MajorVersion,
+              record.MinorVersion,
+              record.PatchVersion,
+              record.BuildNumber
+            );
+            results.set(record.SubscriberPackageVersionId, version);
+          });
+        }
+        return results;
       }
-      return results;
-    });
+    );
   },
 
   /**
@@ -444,6 +472,7 @@ export = {
    * @param org For tooling query
    */
   async queryWithInConditionChunking(query, items, replaceToken, force, org) {
+    // eslint-disable-next-line @typescript-eslint/no-shadow
     const SOQL_WHERE_CLAUSE_MAX_LENGTH = this.getSoqlWhereClauseMaxLength();
     let records = [];
     if (!query || !items || !replaceToken) {
@@ -455,9 +484,9 @@ export = {
 
     let itemsQueried = 0;
     while (itemsQueried < items.length) {
-      let chunkCount = this.getInClauseItemsCount(items, itemsQueried, inClauseItemsMaxLength);
+      const chunkCount = this.getInClauseItemsCount(items, itemsQueried, inClauseItemsMaxLength);
       const itemsStr = "'" + items.slice(itemsQueried, itemsQueried + chunkCount).join("','") + "'";
-      let queryChunk = query.replace(replaceToken, itemsStr);
+      const queryChunk = query.replace(replaceToken, itemsStr);
       const result = await this.toolingQuery(queryChunk, force, org);
       if (result && result.length > 0) {
         records = records.concat(result);
@@ -477,7 +506,7 @@ export = {
     while (startIndex + includedCount < items.length) {
       let itemLength = 0;
       if (items[startIndex + includedCount]) {
-        itemLength = items[startIndex + includedCount].length + 3; //3 = length of '',
+        itemLength = items[startIndex + includedCount].length + 3; // 3 = length of '',
         if (resultLength + itemLength > maxLength) {
           // the limit has been exceeded, return the current count
           return includedCount;
@@ -492,10 +521,9 @@ export = {
   /**
    *   Execute a tooling query
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   async toolingQuery(query, force, org) {
-    return force.toolingQuery(org, query).then(queryResult => {
-      return queryResult.records;
-    });
+    return force.toolingQuery(org, query).then((queryResult) => queryResult.records);
   },
 
   /**
@@ -507,6 +535,7 @@ export = {
 
   /**
    * Given a package descriptor, return the ancestor ID.
+   *
    * @param packageDescriptorJson JSON for packageDirectories element in sfdx-project.json
    * @param force For tooling query
    * @param org For tooling query
@@ -525,7 +554,7 @@ export = {
       if (!packageDescriptorJson.ancestorVersion) {
         return ancestorId;
       } else {
-        var regNumbers = new RegExp('^[0-9]+$');
+        const regNumbers = new RegExp('^[0-9]+$');
         const versionNumber = packageDescriptorJson.ancestorVersion.split(VERSION_NUMBER_SEP);
         if (
           versionNumber.length < 3 ||
@@ -548,7 +577,8 @@ export = {
           'SELECT Id, IsReleased FROM Package2Version ' +
           `WHERE Package2Id = '${packageId}' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]}`;
 
-        return force.toolingQuery(org, query).then(queryResult => {
+        let queriedAncestorId;
+        return force.toolingQuery(org, query).then((queryResult) => {
           if (!queryResult || !queryResult.totalSize) {
             throw new Error(
               messages.getMessage(
@@ -558,17 +588,17 @@ export = {
               )
             );
           } else {
-            const releasedAncestor = queryResult.records.find(rec => rec.IsReleased === true);
+            const releasedAncestor = queryResult.records.find((rec) => rec.IsReleased === true);
             if (!releasedAncestor) {
               throw new Error(
                 messages.getMessage('errorAncestorNotReleased', [packageDescriptorJson.ancestorVersion], 'packaging')
               );
             } else {
-              var queriedAncestorId = releasedAncestor.Id;
+              queriedAncestorId = releasedAncestor.Id;
             }
           }
 
-          // check for discrpancy between queried ancestorId and descriptor's ancestorId
+          // check for discrepancy between queried ancestorId and descriptor's ancestorId
           if (
             Object.prototype.hasOwnProperty.call(packageDescriptorJson, 'ancestorId') &&
             ancestorId !== queriedAncestorId
@@ -595,13 +625,14 @@ export = {
   getConfigPackageDirectory(packageDirs, lookupProperty, lookupValue) {
     let packageDir;
     if (packageDirs) {
-      packageDir = packageDirs.find(x => x[lookupProperty] === lookupValue);
+      packageDir = packageDirs.find((x) => x[lookupProperty] === lookupValue);
     }
     return packageDir;
   },
 
   /**
    * Given a packageAlias, attempt to return the associated id from the config
+   *
    * @param packageAlias string representing a package alias
    * @param force for obtaining the project config
    * @returns the associated id or the arg given.
@@ -624,7 +655,7 @@ export = {
    * @returns space delimited and lower-cased (except for 1st char) string (e.g. in "AbcdEfghIj" => "Abcd efgh ij")
    */
   convertCamelCaseStringToSentence(stringIn) {
-    function upperToSpaceLower(match, offset, string) {
+    function upperToSpaceLower(match, offset) {
       return offset > 0 ? ' ' + match.toLowerCase() : '' + match;
     }
 
@@ -633,6 +664,7 @@ export = {
 
   /**
    * Given a package id, attempt to return the associated aliases from the config
+   *
    * @param packageid string representing a package id
    * @param force for obtaining the project config
    * @returns an array of alias for the given id.
@@ -647,9 +679,9 @@ export = {
     }
 
     // otherwise check for a matching alias
-    const matchingAliases = Object.entries(packageAliases).filter(alias => alias[1] === packageId);
+    const matchingAliases = Object.entries(packageAliases).filter((alias) => alias[1] === packageId);
 
-    return matchingAliases.map(alias => alias[0]);
+    return matchingAliases.map((alias) => alias[0]);
   },
 
   async findOrCreatePackage2(seedPackage: string, force, org) {
@@ -657,7 +689,7 @@ export = {
     const queryResult = await force.toolingQuery(org, query);
     const records = queryResult.records;
     if (records && records.length > 1) {
-      const ids = records.map(r => r.Id);
+      const ids = records.map((r) => r.Id);
       throw new Error(messages.getMessage('errorMoreThanOnePackage2WithSeed', ids, 'package_convert'));
     }
 
@@ -679,7 +711,7 @@ export = {
       Description: subscriberRecords[0].Description,
       NamespacePrefix: subscriberRecords[0].NamespacePrefix,
       ContainerOptions: 'Managed',
-      ConvertedFromPackageId: seedPackage
+      ConvertedFromPackageId: seedPackage,
     };
 
     const createResult = await force.toolingCreate(org, 'Package2', request);
@@ -700,7 +732,7 @@ export = {
 
     const pvcrApi = this._getPackageVersionCreateRequestApi(force, org);
 
-    return pvcrApi.byId(id).then(async results => {
+    return pvcrApi.byId(id).then(async (results) => {
       if (this._isStatusEqualTo(results, [STATUS_SUCCESS, STATUS_ERROR])) {
         // complete
         if (this._isStatusEqualTo(results, [STATUS_SUCCESS])) {
@@ -714,7 +746,7 @@ export = {
           // update sfdx-project.json
           if (withProject && !process.env.SFDX_PROJECT_AUTOUPDATE_DISABLE_FOR_PACKAGE_VERSION_CREATE) {
             const query = `SELECT MajorVersion, MinorVersion, PatchVersion, BuildNumber FROM Package2Version WHERE Id = '${results[0].Package2VersionId}'`;
-            const package2VersionVersionString = await force.toolingQuery(org, query).then(pkgQueryResult => {
+            const package2VersionVersionString = await force.toolingQuery(org, query).then((pkgQueryResult) => {
               const record = pkgQueryResult.records[0];
               return `${record.MajorVersion}.${record.MinorVersion}.${record.PatchVersion}-${record.BuildNumber}`;
             });
@@ -731,7 +763,15 @@ export = {
         } else {
           let status = 'Unknown Error';
           if (results && results.length > 0 && results[0].Error.length > 0) {
-            status = results[0].Error;
+            const errors = [];
+            // for multiple errors, display one per line prefixed with (x)
+            if (results[0].Error.length > 1) {
+              results[0].Error.forEach((error) => {
+                errors.push(`(${errors.length + 1}) ${error}`);
+              });
+              errors.unshift(messagesPackaging.getMessage('version_create.multipleErrors'));
+            }
+            status = errors.length !== 0 ? errors.join('\n') : results[0].Error;
           }
           throw new Error(status);
         }
@@ -743,13 +783,22 @@ export = {
             currentStatus = results[0].Status;
           }
           logger.log(
-            `Request in progress. Sleeping ${interval} seconds. Will wait a total of ${interval *
-              retries} more seconds before timing out. Current Status='${this.convertCamelCaseStringToSentence(
-              currentStatus
-            )}'`
+            `Request in progress. Sleeping ${interval} seconds. Will wait a total of ${
+              interval * retries
+            } more seconds before timing out. Current Status='${this.convertCamelCaseStringToSentence(currentStatus)}'`
           );
           return BBPromise.delay(interval * 1000).then(() =>
-            this.pollForStatus(context, id, retries - 1, packageId, logger, withProject, force, org)
+            this.pollForStatusWithInterval(
+              context,
+              id,
+              retries - 1,
+              packageId,
+              logger,
+              withProject,
+              force,
+              org,
+              interval
+            )
           );
         } else {
           // Timed out
@@ -775,6 +824,7 @@ export = {
 
   /**
    * Writes objects specified in the config to the sfdx-project.json file on disk.
+   *
    * @param context
    * @private
    */
@@ -786,7 +836,7 @@ export = {
         .then(() => {
           logger.log(messages.getMessage('updatedSfdxProject', null, 'packaging'));
         })
-        .catch(err => {
+        .catch((err) => {
           logger.warnUser(
             context,
             messages.getMessage('errorSfdxProjectFileWrite', [JSON.stringify(config, null, 4), err], 'packaging')
@@ -804,6 +854,7 @@ export = {
 
   /**
    * Generate package alias json entry for this package version that can be written to sfdx-project.json
+   *
    * @param context
    * @param packageVersionId 04t id of the package to create the alias entry for
    * @param packageVersionNumber that will be appended to the package name to form the alias
@@ -818,7 +869,7 @@ export = {
     let packageName;
     if (!aliasForPackageId || aliasForPackageId.length === 0) {
       const query = `SELECT Name FROM Package2 WHERE Id = '${packageId}'`;
-      packageName = await context.org.force.toolingQuery(context.org, query).then(pkgQueryResult => {
+      packageName = await context.org.force.toolingQuery(context.org, query).then((pkgQueryResult) => {
         const record = pkgQueryResult.records[0];
         return record.Name;
       });
@@ -836,6 +887,7 @@ export = {
 
   /**
    * Return true if the queryResult.records[0].Status is equal to one of the values in statuses.
+   *
    * @param results to examine
    * @param statuses array of statuses to look for
    * @returns {boolean} if one of the values in status is found.
@@ -861,9 +913,10 @@ export = {
 
   LATEST_BUILD_NUMBER_TOKEN,
   NEXT_BUILD_NUMBER_TOKEN,
+  RELEASED_BUILD_NUMBER_TOKEN,
   VERSION_NUMBER_SEP,
   INSTALL_URL_BASE,
   DEFAULT_PACKAGE_DIR,
   SOQL_WHERE_CLAUSE_MAX_LENGTH,
-  POLL_INTERVAL_SECONDS
+  POLL_INTERVAL_SECONDS,
 };

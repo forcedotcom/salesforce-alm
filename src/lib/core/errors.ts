@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ export function InvalidProjectWorkspace() {
 InvalidProjectWorkspace.prototype = Object.create(Error.prototype);
 InvalidProjectWorkspace.prototype.constructor = InvalidProjectWorkspace;
 
-//----
+// ----
 
 export function MissingAppConfig() {
   this.name = 'MissingAppConfig';
@@ -39,56 +39,7 @@ export function MissingAppConfig() {
 MissingAppConfig.prototype = Object.create(Error.prototype);
 MissingAppConfig.prototype.constructor = MissingAppConfig;
 
-//----
-// todo rename this to MissingHubConfig.
-export function MissingClientConfig() {
-  this.name = 'MissingClientConfig';
-  this.message = messages.getMessage(this.name);
-  this.code = this.name;
-}
-MissingClientConfig.prototype = Object.create(Error.prototype);
-MissingClientConfig.prototype.constructor = MissingClientConfig;
-
-//----
-
-export function UndefinedLocalizationLabel(locale, label) {
-  this.name = 'UndefinedLocalizationLabel';
-  this.message = messages.getMessage(this.name, [label, locale]);
-  this.code = this.name;
-}
-UndefinedLocalizationLabel.prototype = Object.create(Error.prototype);
-UndefinedLocalizationLabel.prototype.constructor = UndefinedLocalizationLabel;
-
-//-----
-
-export function LoginServerNotFound(host, port) {
-  this.name = 'LoginServerNotFound';
-  this.message = messages.getMessage(this.name, [host, port]);
-  this.code = this.name;
-}
-LoginServerNotFound.prototype = Object.create(Error.prototype);
-LoginServerNotFound.prototype.constructor = LoginServerNotFound;
-
-//-----
-
-export function InvalidProjectDescriptor(attributeName) {
-  this.name = 'InvalidProjectDescriptor';
-  this.message = messages.getMessage(this.name, [attributeName]);
-  this.code = this.name;
-}
-InvalidProjectDescriptor.prototype = Object.create(Error.prototype);
-InvalidProjectDescriptor.prototype.constructor = InvalidProjectDescriptor;
-
-//---
-export function MissingScratchOrgNamespace() {
-  this.name = 'MissingScratchOrgNamespace';
-  this.message = messages.getMessage(this.name);
-  this.code = this.name;
-}
-MissingScratchOrgNamespace.prototype = Object.create(Error.prototype);
-MissingScratchOrgNamespace.prototype.constructor = MissingScratchOrgNamespace;
-
-//---
+// ---
 
 export function MissingRequiredParameter(paramName) {
   this.name = 'MissingRequiredParameter';
@@ -98,7 +49,7 @@ export function MissingRequiredParameter(paramName) {
 MissingRequiredParameter.prototype = Object.create(Error.prototype);
 MissingRequiredParameter.prototype.constructor = MissingRequiredParameter;
 
-//---
+// ---
 
 export function InvalidParameter(paramName, reason) {
   this.name = 'InvalidParameter';

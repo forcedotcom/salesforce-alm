@@ -1,25 +1,25 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { EventEmitter } from 'events';
 import { Org, Logger, AuthInfo, AuthFields, Messages } from '@salesforce/core';
 import { SfdxError, SfdxErrorConfig } from '@salesforce/core';
+import { Duration, sleep } from '@salesforce/kit';
+import { SandboxOrgConfig } from '@salesforce/core/lib/config/sandboxOrgConfig';
+import * as ConfigApi from '../../../lib/core/configApi';
+import srcDevUtil = require('../../core/srcDevUtil');
 import { SandboxConstants, SandboxEventNames } from './sandboxConstants';
 import {
   SandboxOrgApi,
   SandboxRequest,
   SandboxProcessObject,
   SandboxUserAuthRequest,
-  SandboxUserAuthResponse
+  SandboxUserAuthResponse,
 } from './sandboxOrgApi';
-import { Duration, sleep } from '@salesforce/kit';
-import { EventEmitter } from 'events';
-import * as ConfigApi from '../../../lib/core/configApi';
-import srcDevUtil = require('../../core/srcDevUtil');
-import { SandboxOrgConfig } from '@salesforce/core/lib/config/sandboxOrgConfig';
 
 Messages.importMessagesDirectory(__dirname);
 
@@ -71,7 +71,7 @@ export class SandboxOrg extends EventEmitter {
   }
 
   private async authWithRetries(sandboxProcessObj: SandboxProcessObject): Promise<SandboxProcessObject> {
-    let maxPollingRetries = this.getMaxPollingRetries();
+    const maxPollingRetries = this.getMaxPollingRetries();
     this.logger.debug(
       'AuthWithRetries sandboxProcessObj %s, maxPollingRetries %i',
       sandboxProcessObj,
@@ -88,10 +88,11 @@ export class SandboxOrg extends EventEmitter {
 
   private async getAuthInfoFields(): Promise<AuthFields> {
     if (this.userSuppliedClientId) {
-      //give out warning we do not support -i flag for the command
+      // give out warning we do not support -i flag for the command
       this.emit(SandboxEventNames.EVENT_CLIENTID_NOTSUPPORT, this.userSuppliedClientId);
     } else {
-      //return the prod org auth file client id
+      // return the prod org auth file client id
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       return await this.prodOrg.getConnection().getAuthInfoFields();
     }
   }
@@ -99,16 +100,16 @@ export class SandboxOrg extends EventEmitter {
   private async writeAuthFile(sandboxProcessObj: SandboxProcessObject, sandboxRes: SandboxUserAuthResponse) {
     this.logger.debug('writeAuthFile sandboxProcessObj: %s, sandboxRes: %s', sandboxProcessObj, sandboxRes);
     if (sandboxRes.authUserName) {
-      let authFields: AuthFields = await this.getAuthInfoFields();
+      const authFields: AuthFields = await this.getAuthInfoFields();
       this.logger.debug('Result from getAuthInfoFields: AuthFields %s', authFields);
 
-      //let's do headless auth via jwt (if we have privateKey) or web auth
+      // let's do headless auth via jwt (if we have privateKey) or web auth
       const oauth2Options: AuthFields & {
         redirectUri?: string;
       } = {
         loginUrl: sandboxRes.loginUrl,
         instanceUrl: sandboxRes.instanceUrl,
-        username: sandboxRes.authUserName
+        username: sandboxRes.authUserName,
       };
 
       // If we don't have a privateKey then we assume it's web auth.
@@ -121,18 +122,18 @@ export class SandboxOrg extends EventEmitter {
       const authInfo = await AuthInfo.create({
         username: sandboxRes.authUserName,
         oauth2Options,
-        parentUsername: authFields.username
+        parentUsername: authFields.username,
       });
       await authInfo.save();
-      let sandboxOrg = await Org.create({ aliasOrUsername: authInfo.getUsername() });
+      const sandboxOrg = await Org.create({ aliasOrUsername: authInfo.getUsername() });
       await sandboxOrg.setSandboxOrgConfigField(SandboxOrgConfig.Fields.PROD_ORG_USERNAME, authFields.username);
 
       this.emit(SandboxEventNames.EVENT_RESULT, {
         sandboxProcessObj,
-        sandboxRes
+        sandboxRes,
       });
     } else {
-      //no authed sandbox user, error
+      // no authed sandbox user, error
       throw SfdxError.create(
         new SfdxErrorConfig('salesforce-alm', 'org', 'missingAuthUsername', [sandboxProcessObj.SandboxName])
       );
@@ -146,15 +147,15 @@ export class SandboxOrg extends EventEmitter {
       'validateSandboxCompleteAndGetAuthenticationInfo called with SandboxProcessObject %s',
       sandboxProcessObj
     );
-    let endDate = sandboxProcessObj.EndDate;
+    const endDate = sandboxProcessObj.EndDate;
     let result: SandboxUserAuthResponse = null;
     if (endDate) {
       try {
-        //call server side /sandboxAuth API to auth the sandbox org user with the connected app
+        // call server side /sandboxAuth API to auth the sandbox org user with the connected app
         const config = new ConfigApi.Config();
-        let authFields: AuthFields = await this.getAuthInfoFields();
+        const authFields: AuthFields = await this.getAuthInfoFields();
 
-        let sandboxReq: SandboxUserAuthRequest = new SandboxUserAuthRequest();
+        const sandboxReq: SandboxUserAuthRequest = new SandboxUserAuthRequest();
         sandboxReq.clientId = authFields.clientId;
         sandboxReq.callbackUrl = config.getOauthCallbackUrl();
         sandboxReq.sandboxName = sandboxProcessObj.SandboxName;
@@ -163,13 +164,13 @@ export class SandboxOrg extends EventEmitter {
         result = await this.api.sandboxAuth(sandboxReq);
         this.logger.debug('Result of calling sandboxAuth %s', result);
       } catch (err) {
-        //THere are cases where the endDate is set before the sandbox has actually completed.
+        // THere are cases where the endDate is set before the sandbox has actually completed.
         // In that case, the sandboxAuth call will throw a specific exception.
         // TODO when we fix the SandboxProcess.Status field to be a proper enum, remove extra checks
         if (err.name == SandboxConstants.SANDBOX_INCOMPLETE_EXCEPTION_MESSAGE) {
           this.logger.debug('Error while authenticating the user %s', err.toString());
         } else {
-          //If it fails for any unexpected reason, just pass that through
+          // If it fails for any unexpected reason, just pass that through
           throw err;
         }
       }
@@ -192,7 +193,7 @@ export class SandboxOrg extends EventEmitter {
     this.logger.debug('PollStatusAndAuth called with SandboxProcessObject %s, retries %1', sandboxProcessObj, retries);
     let pollFinished = false;
     let waitingOnAuth = false;
-    let response: SandboxUserAuthResponse = await this.validateSandboxCompleteAndGetAuthenticationInfo(
+    const response: SandboxUserAuthResponse = await this.validateSandboxCompleteAndGetAuthenticationInfo(
       sandboxProcessObj
     );
     if (response) {
@@ -217,22 +218,22 @@ export class SandboxOrg extends EventEmitter {
           sandboxProcessObj,
           interval: SandboxConstants.DEFAULT_POLL_INTERVAL.seconds,
           retries,
-          waitingOnAuth
+          waitingOnAuth,
         });
         await sleep(SandboxConstants.DEFAULT_POLL_INTERVAL);
-        let polledSandboxProcessObj: SandboxProcessObject = await this.api.querySandboxProcessById(
+        const polledSandboxProcessObj: SandboxProcessObject = await this.api.querySandboxProcessById(
           sandboxProcessObj.Id
         );
         return this.pollStatusAndAuth(polledSandboxProcessObj, retries - 1, shouldPoll);
       } else {
         if (shouldPoll) {
-          //timed out on retries
+          // timed out on retries
           throw SfdxError.create(
             new SfdxErrorConfig('salesforce-alm', 'org', 'pollingTimeout', [sandboxProcessObj.Status])
           );
         } else {
-          //The user didn't want us to poll, so simply return the status
-          //simply report status and exit
+          // The user didn't want us to poll, so simply return the status
+          // simply report status and exit
           this.emit(SandboxEventNames.EVENT_ASYNCRESULT, { sandboxProcessObj });
         }
       }
@@ -248,8 +249,8 @@ export class SandboxOrg extends EventEmitter {
    * @param logapi
    */
   public async deleteSandbox(sandboxOrgId: string) {
-    let shortId = srcDevUtil.trimTo15(sandboxOrgId);
-    let sandboxProcessObject: SandboxProcessObject = await this.api.querySandboxProcessBySandboxOrgId(shortId);
+    const shortId = srcDevUtil.trimTo15(sandboxOrgId);
+    const sandboxProcessObject: SandboxProcessObject = await this.api.querySandboxProcessBySandboxOrgId(shortId);
     await this.api.deleteSandbox(sandboxProcessObject.SandboxInfoId);
   }
 }

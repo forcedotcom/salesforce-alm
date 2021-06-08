@@ -1,41 +1,41 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
 import * as path from 'path';
-import * as BBPromise from 'bluebird';
-const fs = BBPromise.promisifyAll(require('fs-extra'));
 import * as util from 'util';
 import * as os from 'os';
 import * as crypto from 'crypto';
+import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
-
-const xml2js = BBPromise.promisifyAll(require('xml2js'));
-
 // Local
 // New messages (move to this)
-import { SfdxError, Messages } from '@salesforce/core';
+import { LoggerLevel, Messages, SfdxError } from '@salesforce/core';
+BBPromise.promisifyAll(require('fs-extra'));
+BBPromise.promisifyAll(require('xml2js'));
 Messages.importMessagesDirectory(__dirname);
 
-// Old style messages
+import ux from 'cli-ux';
 import MessagesLocal = require('../messages');
-const messages = MessagesLocal();
-
-import * as almError from '../core/almError';
-import logApi = require('../core/logApi');
-import srcDevUtil = require('../core/srcDevUtil');
-import PackageVersionCreateRequestApi = require('./packageVersionCreateRequestApi');
-import SourceConvertCommand = require('../source/sourceConvertCommand');
-import pkgUtils = require('./packageUtils');
-import ProfileApi = require('../package/profileApi');
 import SettingsGenerator = require('../org/scratchOrgSettingsGenerator');
+import ProfileApi = require('../package/profileApi');
+
+import SourceConvertCommand = require('../source/sourceConvertCommand');
+import srcDevUtil = require('../core/srcDevUtil');
+import logApi = require('../core/logApi');
+import * as almError from '../core/almError';
+import pkgUtils = require('./packageUtils');
+import PackageVersionCreateRequestApi = require('./packageVersionCreateRequestApi');
+const fs = BBPromise.promisifyAll(require('fs-extra'));
+const xml2js = BBPromise.promisifyAll(require('xml2js'));
 
 import consts = require('../core/constants');
-import ux from 'cli-ux';
+
+const messages = MessagesLocal();
 
 const DESCRIPTOR_FILE = 'package2-descriptor.json';
 
@@ -45,6 +45,7 @@ const POLL_INTERVAL_WITHOUT_VALIDATION_SECONDS = 5;
 
 class PackageVersionCreateCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -59,12 +60,12 @@ class PackageVersionCreateCommand {
     const context = {
       flags: {
         rootdir: options.sourcedir,
-        outputdir: options.deploydir
-      }
+        outputdir: options.deploydir,
+      },
     };
     return BBPromise.resolve()
       .then(() => convertCmd.validate(context))
-      .then(fixedcontext => convertCmd.execute(fixedcontext));
+      .then((fixedcontext) => convertCmd.execute(fixedcontext));
   }
 
   _validateDependencyValues(dependency) {
@@ -98,11 +99,15 @@ class PackageVersionCreateCommand {
     dependency.packageId = packageIdFromAlias;
 
     pkgUtils.validateId(pkgUtils.BY_LABEL.PACKAGE_ID, dependency.packageId);
-    pkgUtils.validateVersionNumber(dependency.versionNumber, pkgUtils.LATEST_BUILD_NUMBER_TOKEN);
+    pkgUtils.validateVersionNumber(
+      dependency.versionNumber,
+      pkgUtils.LATEST_BUILD_NUMBER_TOKEN,
+      pkgUtils.RELEASED_BUILD_NUMBER_TOKEN
+    );
 
     // Validate that the Package2 id exists on the server
     const query = `SELECT Id FROM Package2 WHERE Id = '${dependency.packageId}'`;
-    return this.force.toolingQuery(this.org, query).then(pkgQueryResult => {
+    return this.force.toolingQuery(this.org, query).then((pkgQueryResult) => {
       const subRecords = pkgQueryResult.records;
       if (!subRecords || subRecords.length !== 1) {
         throw new Error(messages.getMessage('errorNoIdInHub', [dependency.packageId], 'package_version_create'));
@@ -112,12 +117,13 @@ class PackageVersionCreateCommand {
 
   /**
    *  A dependency in the workspace config file may be specified using either a subscriber package version id (04t)
-   *  or a package Id (0Ho) + a version number.  Additionally, a build number may be the actual build number, or the
-   *  LATEST keyword (meaning the latest build number for a given major.minor.patch).  This method resolves a
-   *  package Id + version number to a subscriber package version id (04t) and adds it as a SubscriberPackageVersionId
-   *  parameter in the dependency object.
+   *  or a package Id (0Ho) + a version number.  Additionally, a build number may be the actual build number, or a
+   *  keyword: LATEST or RELEASED (meaning the latest or released build number for a given major.minor.patch).
+   *
+   *  This method resolves a package Id + version number to a subscriber package version id (04t)
+   *  and adds it as a SubscriberPackageVersionId parameter in the dependency object.
    */
-  _retrieveSubscriberPackageVersionId(dependency, branch) {
+  _retrieveSubscriberPackageVersionId(dependency, branchFromFlagOrDef) {
     return BBPromise.resolve().then(() =>
       this._validateDependencyValues(dependency).then(() => {
         if (dependency.subscriberPackageVersionId) {
@@ -128,35 +134,90 @@ class PackageVersionCreateCommand {
         }
 
         const versionNumber = dependency.versionNumber.split(pkgUtils.VERSION_NUMBER_SEP);
-        return this._resolveBuildNumber(versionNumber, dependency.packageId, branch).then(queryResult => {
+        const buildNumber = versionNumber[3];
+
+        // use the dependency.branch if present otherwise use the branch of the version being created
+        const branch = dependency.branch || dependency.branch === '' ? dependency.branch : branchFromFlagOrDef;
+        const branchString = _.isNil(branch) || branch === '' ? 'null' : `'${branch}'`;
+
+        // resolve a build number keyword to an actual number, if needed
+        return this._resolveBuildNumber(versionNumber, dependency.packageId, branch).then((queryResult) => {
           const records = queryResult.records;
           if (!records || records.length === 0 || records[0].expr0 == null) {
-            throw new Error(
-              `No version number was found in Dev Hub for package id ${
-                dependency.packageId
-              } and branch ${branch} and version number ${versionNumber.join(pkgUtils.VERSION_NUMBER_SEP)}`
-            );
+            if (buildNumber === pkgUtils.RELEASED_BUILD_NUMBER_TOKEN) {
+              throw new Error(
+                `No released version was found in Dev Hub for package id ${
+                  dependency.packageId
+                } and version number ${versionNumber.join(pkgUtils.VERSION_NUMBER_SEP)}`
+              );
+            } else {
+              throw new Error(
+                `No version number was found in Dev Hub for package id ${
+                  dependency.packageId
+                } and branch ${branchString} and version number ${versionNumber.join(pkgUtils.VERSION_NUMBER_SEP)}`
+              );
+            }
           }
 
-          const buildNumber = records[0].expr0;
-          const branchString = _.isNil(branch) ? 'null' : `'${branch}'`;
-          const query = `SELECT SubscriberPackageVersionId FROM Package2Version WHERE Package2Id = '${dependency.packageId}' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]} AND BuildNumber = ${buildNumber} AND Branch = ${branchString}`;
-          return this.force.toolingQuery(this.org, query).then(pkgVerQueryResult => {
+          // now that we have a full build number, query for the associated 04t.
+          // because the build number may not be unique across versions, add in conditionals for
+          // the branch or the RELEASED token (if used)
+          const resolvedBuildNumber = records[0].expr0;
+          const branchOrReleasedCondition =
+            buildNumber === pkgUtils.RELEASED_BUILD_NUMBER_TOKEN
+              ? 'AND IsReleased = true'
+              : `AND Branch = ${branchString}`;
+          const query = `SELECT SubscriberPackageVersionId FROM Package2Version WHERE Package2Id = '${dependency.packageId}' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]} AND BuildNumber = ${resolvedBuildNumber} ${branchOrReleasedCondition}`;
+          return this.force.toolingQuery(this.org, query).then((pkgVerQueryResult) => {
             const subRecords = pkgVerQueryResult.records;
             if (!subRecords || subRecords.length !== 1) {
               throw new Error(
                 `No version number was found in Dev Hub for package id ${
                   dependency.packageId
-                } and branch ${branch} and version number ${versionNumber.join(
+                } and branch ${branchString} and version number ${versionNumber.join(
                   pkgUtils.VERSION_NUMBER_SEP
-                )} that resolved to build number ${buildNumber}`
+                )} that resolved to build number ${resolvedBuildNumber}`
               );
             }
 
             dependency.subscriberPackageVersionId = pkgVerQueryResult.records[0].SubscriberPackageVersionId;
+
+            // warn user of the resolved build number when LATEST and RELEASED keywords are used
+            if (Number.isNaN(parseInt(buildNumber))) {
+              versionNumber[3] = resolvedBuildNumber;
+
+              if (buildNumber === pkgUtils.LATEST_BUILD_NUMBER_TOKEN) {
+                logger.log(
+                  messages.getMessage(
+                    'buildNumberResolvedForLatest',
+                    [
+                      dependency.package,
+                      versionNumber.join(pkgUtils.VERSION_NUMBER_SEP),
+                      branchString,
+                      dependency.subscriberPackageVersionId,
+                    ],
+                    'package_version_create'
+                  )
+                );
+              } else if (buildNumber === pkgUtils.RELEASED_BUILD_NUMBER_TOKEN) {
+                logger.log(
+                  messages.getMessage(
+                    'buildNumberResolvedForReleased',
+                    [
+                      dependency.package,
+                      versionNumber.join(pkgUtils.VERSION_NUMBER_SEP),
+                      dependency.subscriberPackageVersionId,
+                    ],
+                    'package_version_create'
+                  )
+                );
+              }
+            }
+
             delete dependency.packageId;
             delete dependency.package;
             delete dependency.versionNumber;
+            delete dependency.branch;
 
             return dependency;
           });
@@ -167,15 +228,22 @@ class PackageVersionCreateCommand {
 
   _resolveBuildNumber(versionNumber, packageId, branch) {
     return BBPromise.resolve().then(() => {
-      if (versionNumber[3] === pkgUtils.LATEST_BUILD_NUMBER_TOKEN) {
-        // branch?
-        const branchString = _.isNil(branch) ? 'null' : `'${branch}'`;
-        const query = `SELECT MAX(BuildNumber) FROM Package2Version WHERE Package2Id = '${packageId}' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]} AND branch=${branchString}`;
-        return this.force.toolingQuery(this.org, query);
-      } else {
+      if (!Number.isNaN(parseInt(versionNumber[3]))) {
         // The build number is already specified so just return it using the tooling query result obj structure
         return { records: [{ expr0: versionNumber[3] }] };
       }
+      // query for the LATEST or RELEASED build number
+      let branchCondition = '';
+      let releasedCondition = '';
+      if (versionNumber[3] === pkgUtils.LATEST_BUILD_NUMBER_TOKEN) {
+        // respect the branch when querying for LATEST
+        const branchString = _.isNil(branch) || branch === '' ? 'null' : `'${branch}'`;
+        branchCondition = `AND Branch = ${branchString}`;
+      } else if (versionNumber[3] === pkgUtils.RELEASED_BUILD_NUMBER_TOKEN) {
+        releasedCondition = 'AND IsReleased = true';
+      }
+      const query = `SELECT MAX(BuildNumber) FROM Package2Version WHERE Package2Id = '${packageId}' AND MajorVersion = ${versionNumber[0]} AND MinorVersion = ${versionNumber[1]} AND PatchVersion = ${versionNumber[2]} ${branchCondition} ${releasedCondition}`;
+      return this.force.toolingQuery(this.org, query);
     });
   }
 
@@ -190,7 +258,7 @@ class PackageVersionCreateCommand {
       Instance: context.flags.buildinstance,
       SourceOrg: context.flags.sourceorg,
       CalculateCodeCoverage: context.flags.codecoverage,
-      SkipValidation: context.flags.skipvalidation
+      SkipValidation: context.flags.skipvalidation,
     };
 
     if (preserveFiles) {
@@ -204,7 +272,7 @@ class PackageVersionCreateCommand {
   _getPackageDescriptorJsonFromPackageId(packageId, flags) {
     const artDir = flags.path;
 
-    const packageDescriptorJson = this.packageDirs.find(packageDir => {
+    const packageDescriptorJson = this.packageDirs.find((packageDir) => {
       const packageDirPackageId = pkgUtils.getPackageIdFromAlias(packageDir.package, this.force);
       return !_.isNil(packageDirPackageId) && packageDirPackageId === packageId ? packageDir : null;
     });
@@ -218,6 +286,7 @@ class PackageVersionCreateCommand {
 
   /**
    * Convert the list of command line options to a JSON object that can be used to create an Package2VersionCreateRequest entity.
+   *
    * @param context
    * @param packageId
    * @returns {{Package2Id: (*|p|boolean), Package2VersionMetadata: *, Tag: *, Branch: number}}
@@ -228,10 +297,7 @@ class PackageVersionCreateCommand {
     const preserveFiles = !util.isNullOrUndefined(
       context.flags.preserve || process.env.SFDX_PACKAGE2_VERSION_CREATE_PRESERVE
     );
-    const uniqueHash = crypto
-      .createHash('sha1')
-      .update(`${Date.now()}${Math.random()}`)
-      .digest('hex');
+    const uniqueHash = crypto.createHash('sha1').update(`${Date.now()}${Math.random()}`).digest('hex');
     const packageVersTmpRoot = path.join(os.tmpdir(), `${packageId}-${uniqueHash}`);
     const packageVersMetadataFolder = path.join(packageVersTmpRoot, 'md-files');
     const unpackagedMetadataFolder = path.join(packageVersTmpRoot, 'unpackaged-md-files');
@@ -245,8 +311,11 @@ class PackageVersionCreateCommand {
 
     const mdOptions = {
       deploydir: packageVersMetadataFolder,
-      sourcedir: sourceBaseDir
+      sourcedir: sourceBaseDir,
     };
+
+    // Stores any additional client side info that might be needed later on in the process
+    const clientSideInfo = new Map();
 
     const settingsGenerator = new SettingsGenerator();
     let hasUnpackagedMetadata = false;
@@ -282,7 +351,7 @@ class PackageVersionCreateCommand {
               'features',
               'orgPreferences',
               'snapshot',
-              'release'
+              'release',
             ];
 
             // Load any settings from the definition
@@ -293,7 +362,7 @@ class PackageVersionCreateCommand {
               return BBPromise.reject(almError('signupDuplicateSettingsSpecified'));
             }
 
-            pkgProperties.forEach(prop => {
+            pkgProperties.forEach((prop) => {
               const propValue = definitionFileJson[prop];
               if (propValue) {
                 packageDescriptorJson[prop] = propValue;
@@ -303,7 +372,7 @@ class PackageVersionCreateCommand {
 
           return [packageDescriptorJson];
         })
-        .spread(packageDescriptorJson => {
+        .spread((packageDescriptorJson) => {
           let unpackagedPromise = null;
           // Add the Unpackaged Metadata, if any, to the output directory, only when code coverage is specified
           if (
@@ -323,12 +392,14 @@ class PackageVersionCreateCommand {
             srcDevUtil.ensureDirectoryExistsSync(unpackagedMetadataFolder);
             unpackagedPromise = this._generateMDFolderForArtifact({
               deploydir: unpackagedMetadataFolder,
-              sourcedir: unpackagedPath
+              sourcedir: unpackagedPath,
             });
+            // Set which package is the "unpackaged" package
+            clientSideInfo.set('UnpackagedMetadataPath', packageDescriptorJson.unpackagedMetadata.path);
           }
           return [packageDescriptorJson, unpackagedPromise];
         })
-        .spread(packageDescriptorJson => {
+        .spread((packageDescriptorJson) => {
           // Process permissionSet and permissionSetLicenses that should be enabled when running Apex tests
           // This only applies if code coverage is enabled
           if (context.flags.codecoverage) {
@@ -338,7 +409,7 @@ class PackageVersionCreateCommand {
               if (!Array.isArray(permSets)) {
                 permSets = permSets.split(',');
               }
-              packageDescriptorJson.permissionSetNames = permSets.map(s => s.trim());
+              packageDescriptorJson.permissionSetNames = permSets.map((s) => s.trim());
             }
 
             if (packageDescriptorJson.apexTestAccess && packageDescriptorJson.apexTestAccess.permissionSetLicenses) {
@@ -346,7 +417,7 @@ class PackageVersionCreateCommand {
               if (!Array.isArray(permissionSetLicenses)) {
                 permissionSetLicenses = permissionSetLicenses.split(',');
               }
-              packageDescriptorJson.permissionSetLicenseDeveloperNames = permissionSetLicenses.map(s => s.trim());
+              packageDescriptorJson.permissionSetLicenseDeveloperNames = permissionSetLicenses.map((s) => s.trim());
             }
           }
 
@@ -354,22 +425,27 @@ class PackageVersionCreateCommand {
 
           return [packageDescriptorJson];
         })
-        .spread(packageDescriptorJson => {
+        .spread((packageDescriptorJson) => {
           // All dependencies for the packaging dir should be resolved to an 04t id to be passed to the server.
           // (see _retrieveSubscriberPackageVersionId for details)
           const dependencies = packageDescriptorJson.dependencies;
+
+          // branch can be set via flag or descriptor; flag takes precedence
+          context.flags.branch = context.flags.branch ? context.flags.branch : packageDescriptorJson.branch;
+
           const operations = _.isNil(dependencies)
             ? []
-            : dependencies.map(dependency =>
+            : dependencies.map((dependency) =>
                 this._retrieveSubscriberPackageVersionId(dependency, context.flags.branch)
               );
 
           return [
             BBPromise.all(operations),
             pkgUtils.getAncestorId(packageDescriptorJson, this.force, this.org),
-            packageDescriptorJson
+            packageDescriptorJson,
           ];
         })
+        // eslint-disable-next-line @typescript-eslint/require-await
         .spread(async (resultValues, ancestorId, packageDescriptorJson) => {
           // If dependencies exist, the resultValues array will contain the dependencies populated with a resolved
           // subscriber pkg version id.
@@ -394,36 +470,59 @@ class PackageVersionCreateCommand {
         // The package.xml may need to be manipulated due to processing profiles in the workspace or additional
         // metadata exclusions. If necessary, read the existing package.xml and then re-write it.
         .then(() => fs.readFileAsync(path.join(packageVersMetadataFolder, 'package.xml'), 'utf8'))
-        .then(currentPackageXml =>
+        .then((currentPackageXml) =>
           // convert to json
           xml2js.parseStringAsync(currentPackageXml)
         )
-        .then(packageJson => {
+        .then((packageJson) => {
           srcDevUtil.ensureDirectoryExistsSync(packageVersMetadataFolder);
           srcDevUtil.ensureDirectoryExistsSync(packageVersProfileFolder);
 
           // Apply any necessary exclusions to typesArr.
           let typesArr = packageJson.Package.types;
 
-          typesArr = this.profileApi.filterAndGenerateProfilesForManifest(typesArr);
+          // if we're using unpackaged metadata, don't package the profiles located there
+          if (hasUnpackagedMetadata) {
+            typesArr = this.profileApi.filterAndGenerateProfilesForManifest(typesArr, [
+              clientSideInfo.get('UnpackagedMetadataPath'),
+            ]);
+          } else {
+            typesArr = this.profileApi.filterAndGenerateProfilesForManifest(typesArr);
+          }
 
           // Next generate profiles and retrieve any profiles that were excluded because they had no matching nodes.
-          const excludedProfiles = this.profileApi.generateProfiles(packageVersProfileFolder, {
-            Package: { types: typesArr }
-          });
+          const excludedProfiles = this.profileApi.generateProfiles(
+            packageVersProfileFolder,
+            {
+              Package: { types: typesArr },
+            },
+            [clientSideInfo.get('UnpackagedMetadataPath')]
+          );
 
           if (excludedProfiles.length > 0) {
-            const profileIdx = typesArr.findIndex(e => e.name[0] === 'Profile');
-            typesArr[profileIdx].members = typesArr[profileIdx].members.filter(e => excludedProfiles.indexOf(e) === -1);
+            const profileIdx = typesArr.findIndex((e) => e.name[0] === 'Profile');
+            typesArr[profileIdx].members = typesArr[profileIdx].members.filter(
+              (e) => excludedProfiles.indexOf(e) === -1
+            );
           }
 
           packageJson.Package.types = typesArr;
 
           // Re-write the package.xml in case profiles have been added or removed
           const xmlBuilder = new xml2js.Builder({
-            xmldec: { version: '1.0', encoding: 'UTF-8' }
+            xmldec: { version: '1.0', encoding: 'UTF-8' },
           });
           const xml = xmlBuilder.buildObject(packageJson);
+
+          // Log information about the profiles being packaged up
+          let profiles = this.profileApi.getProfileInformation();
+          profiles.forEach((profile) => {
+            if (logger.shouldLog(LoggerLevel.DEBUG)) {
+              logger.log(profile.logDebug());
+            } else if (logger.shouldLog(LoggerLevel.INFO)) {
+              logger.log(profile.logInfo());
+            }
+          });
 
           return fs.writeFileAsync(path.join(packageVersMetadataFolder, 'package.xml'), xml);
         })
@@ -442,7 +541,7 @@ class PackageVersionCreateCommand {
           if (settingsGenerator.hasSettings()) {
             return settingsGenerator
               .createDeployDir(context.org.force.config.apiVersion)
-              .then(settingsRoot => srcDevUtil.zipDir(settingsRoot, settingsZipFile));
+              .then((settingsRoot) => srcDevUtil.zipDir(settingsRoot, settingsZipFile));
           }
           return BBPromise.resolve();
         })
@@ -455,8 +554,8 @@ class PackageVersionCreateCommand {
   }
 
   _getPackagePropertyFromPackage(packageDirs, packageValue, context) {
-    let foundByPackage = packageDirs.find(x => x['package'] === packageValue);
-    let foundById = packageDirs.find(x => x['id'] === packageValue);
+    let foundByPackage = packageDirs.find((x) => x['package'] === packageValue);
+    let foundById = packageDirs.find((x) => x['id'] === packageValue);
 
     if (foundByPackage && foundById) {
       throw new Error(messages.getMessage('errorPackageAndIdCollision', [], 'package_version_create'));
@@ -472,17 +571,17 @@ class PackageVersionCreateCommand {
         const aliases = pkgUtils.getPackageAliasesFromId(packageValue, this.force);
 
         // if we found an alias, try to look that up in the config.
-        foundByPackage = aliases.some(alias => packageDirs.find(x => x['package'] === alias));
+        foundByPackage = aliases.some((alias) => packageDirs.find((x) => x['package'] === alias));
       } else {
         // it is an alias; try to lookup it's id in the config
-        foundByPackage = packageDirs.find(x => x['package'] === pkgId);
-        foundById = packageDirs.find(x => x['id'] === pkgId);
+        foundByPackage = packageDirs.find((x) => x['package'] === pkgId);
+        foundById = packageDirs.find((x) => x['id'] === pkgId);
 
         if (!foundByPackage && !foundById) {
           // check if any configs use a different alias to that same id
           const aliases = pkgUtils.getPackageAliasesFromId(pkgId, this.force);
-          foundByPackage = aliases.some(alias => {
-            const pd = packageDirs.find(x => x['package'] === alias);
+          foundByPackage = aliases.some((alias) => {
+            const pd = packageDirs.find((x) => x['package'] === alias);
             if (pd) {
               // if so, set context.flags.package to be this alias instead of the alternate
               context.flags.package = alias;
@@ -527,12 +626,12 @@ class PackageVersionCreateCommand {
     } else if (packageValue) {
       packagePropVal = {
         packageProperty: 'package',
-        packageValue
+        packageValue,
       };
     } else {
       packagePropVal = {
         packageProperty: 'id',
-        packageValue: packageIdValue
+        packageValue: packageIdValue,
       };
     }
 
@@ -544,6 +643,7 @@ class PackageVersionCreateCommand {
    * package directory element that matches the knownProperty and knownValue.  In other words, we locate a package
    * directory element whose knownProperty matches the knownValue, then we grab the value for the propertyToLookup
    * and return it.
+   *
    * @param context
    * @param packageDirs The list of all the package directories from the sfdx-project.json
    * @param propertyToLookup The property ID whose value we want to find
@@ -553,11 +653,11 @@ class PackageVersionCreateCommand {
    */
   _getConfigPackageDirectoriesValue(context, packageDirs, propertyToLookup, knownProperty, knownValue, knownFlag) {
     let value;
-    let packageDir = packageDirs.find(x => x[knownProperty] === knownValue);
+    let packageDir = packageDirs.find((x) => x[knownProperty] === knownValue);
     if (!packageDir && knownFlag.name === 'path' && knownValue.endsWith(path.sep)) {
       // if this is the directory flag, try removing the trailing slash added by CLI auto-complete
       const dirWithoutTrailingSlash = knownValue.slice(0, -1);
-      packageDir = packageDirs.find(x => x[knownProperty] === dirWithoutTrailingSlash);
+      packageDir = packageDirs.find((x) => x[knownProperty] === dirWithoutTrailingSlash);
       if (packageDir) {
         context.flags.path = dirWithoutTrailingSlash;
       }
@@ -566,11 +666,11 @@ class PackageVersionCreateCommand {
     if (!packageDir && knownProperty === 'package') {
       const pkgId = pkgUtils.getPackageIdFromAlias(knownValue, this.force);
       if (pkgId !== knownValue) {
-        packageDir = packageDirs.find(x => x[knownProperty] === pkgId);
+        packageDir = packageDirs.find((x) => x[knownProperty] === pkgId);
       } else {
         const aliases = pkgUtils.getPackageAliasesFromId(knownValue, this.force);
-        aliases.some(alias => {
-          packageDir = packageDirs.find(x => x[knownProperty] === alias);
+        aliases.some((alias) => {
+          packageDir = packageDirs.find((x) => x[knownProperty] === alias);
           return packageDir;
         });
       }
@@ -591,7 +691,7 @@ class PackageVersionCreateCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // TODO
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       err = pkgUtils.massageErrorMessage(err);
@@ -599,10 +699,13 @@ class PackageVersionCreateCommand {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async _execute(context) {
     this.org = context.org;
     this.force = this.org.force;
     this.packageVersionCreateRequestApi = new PackageVersionCreateRequestApi(this.force, this.org);
+    logger.setLevel(context.flags.loglevel);
+
     if (!context.flags.json && context.flags.skipvalidation === true) {
       ux.warn(messages.getMessage('skipValidationWarning', [], 'package_version_create'));
     }
@@ -617,8 +720,8 @@ class PackageVersionCreateCommand {
     // other needed value can be looked up from sfdx-project.json. As
     // this concept is not supported by the framework, manually check if
     // we have at least one of the flags
-    const pathFlag = context.command.flags.find(x => x.name === 'path');
-    const packageFlag = context.command.flags.find(x => x.name === 'package');
+    const pathFlag = context.command.flags.find((x) => x.name === 'path');
+    const packageFlag = context.command.flags.find((x) => x.name === 'package');
     if (!context.flags.package && !context.flags.path) {
       const errorString = messages.getMessage(
         'errorMissingFlags',
@@ -632,8 +735,8 @@ class PackageVersionCreateCommand {
 
     // This command does not allow --codecoverage and --skipvalidation at the same time
     if (context.flags.skipvalidation && context.flags.codecoverage) {
-      const codeCovFlag = context.command.flags.find(x => x.name === 'codecoverage');
-      const skipValFlag = context.command.flags.find(x => x.name === 'skipvalidation');
+      const codeCovFlag = context.command.flags.find((x) => x.name === 'codecoverage');
+      const skipValFlag = context.command.flags.find((x) => x.name === 'skipvalidation');
 
       const errorString = messages.getMessage(
         'errorCannotSupplyCodeCoverageAndSkipValidation',
@@ -641,7 +744,7 @@ class PackageVersionCreateCommand {
           `--${codeCovFlag.name} (-${codeCovFlag.char})`,
           `--${skipValFlag.name}`,
           `--${codeCovFlag.name} (-${codeCovFlag.char})`,
-          `--${skipValFlag.name}`
+          `--${skipValFlag.name}`,
         ],
         'package_version_create'
       );
@@ -652,13 +755,13 @@ class PackageVersionCreateCommand {
 
     // This command also requires either the installationkey flag or installationkeybypass flag
     if (!context.flags.installationkey && !context.flags.installationkeybypass) {
-      const installationKeyFlag = context.command.flags.find(x => x.name === 'installationkey');
-      const installationKeyBypassFlag = context.command.flags.find(x => x.name === 'installationkeybypass');
+      const installationKeyFlag = context.command.flags.find((x) => x.name === 'installationkey');
+      const installationKeyBypassFlag = context.command.flags.find((x) => x.name === 'installationkeybypass');
       const errorString = messages.getMessage(
         'errorMissingFlagsInstallationKey',
         [
           `--${installationKeyFlag.name} (-${installationKeyFlag.char})`,
-          `--${installationKeyBypassFlag.name} (-${installationKeyBypassFlag.char})`
+          `--${installationKeyBypassFlag.name} (-${installationKeyBypassFlag.char})`,
         ],
         'package_version_create'
       );
@@ -679,7 +782,7 @@ class PackageVersionCreateCommand {
     let canonicalPackageProperty;
 
     // Look up the missing value or confirm a match
-    return configContentPromise.then(async configContent => {
+    return configContentPromise.then(async (configContent) => {
       this.packageDirs = configContent.packageDirectories;
 
       // Check for empty packageDirectories
@@ -749,7 +852,7 @@ class PackageVersionCreateCommand {
                 `--${pathFlag.name} (-${pathFlag.char})`,
                 context.flags.path,
                 `--${packageFlag.name} (-${packageFlag.char})`,
-                context.flags.package
+                context.flags.package,
               ],
               'package_version_create'
             )
@@ -777,7 +880,7 @@ class PackageVersionCreateCommand {
             packageFlag
           );
 
-      pkgUtils.validateVersionNumber(versionNumber, pkgUtils.NEXT_BUILD_NUMBER_TOKEN);
+      pkgUtils.validateVersionNumber(versionNumber, pkgUtils.NEXT_BUILD_NUMBER_TOKEN, null);
       await pkgUtils.validatePatchVersion(this.force, this.org, versionNumber, resolvedPackageId);
 
       try {
@@ -808,12 +911,14 @@ class PackageVersionCreateCommand {
           )
         );
       }
-      this.profileApi = new ProfileApi(this.org, includeProfileUserLicenses);
+      const shouldGenerateProfileInformation =
+        logger.shouldLog(LoggerLevel.INFO) || logger.shouldLog(LoggerLevel.DEBUG);
+      this.profileApi = new ProfileApi(this.org, includeProfileUserLicenses, shouldGenerateProfileInformation);
 
       // If we are polling check to see if the package is Org-Dependent, if so, update the poll time
       if (context.flags.wait) {
         const query = `SELECT IsOrgDependent FROM Package2 WHERE Id = '${resolvedPackageId}'`;
-        this.force.toolingQuery(this.org, query).then(pkgQueryResult => {
+        this.force.toolingQuery(this.org, query).then((pkgQueryResult) => {
           const subRecords = pkgQueryResult.records;
           if (subRecords && subRecords.length === 1 && subRecords[0].IsOrgDependent) {
             this.pollInterval = POLL_INTERVAL_WITHOUT_VALIDATION_SECONDS;
@@ -824,8 +929,8 @@ class PackageVersionCreateCommand {
 
       return Promise.resolve().then(() =>
         this._createPackageVersionCreateRequestFromOptions(context, resolvedPackageId)
-          .then(request => this.force.toolingCreate(this.org, 'Package2VersionCreateRequest', request))
-          .then(createResult => {
+          .then((request) => this.force.toolingCreate(this.org, 'Package2VersionCreateRequest', request))
+          .then((createResult) => {
             if (createResult.success) {
               return createResult.id;
             } else {
@@ -836,7 +941,7 @@ class PackageVersionCreateCommand {
               throw new Error(`Failed to create request${createResult.id ? ` [${createResult.id}]` : ''}: ${errStr}`);
             }
           })
-          .then(id => {
+          .then((id) => {
             if (context.flags.wait) {
               if (this.pollInterval) {
                 return pkgUtils.pollForStatusWithInterval(
@@ -866,20 +971,20 @@ class PackageVersionCreateCommand {
               return this.packageVersionCreateRequestApi.byId(id);
             }
           })
-          .then(result => (util.isArray(result) ? result[0] : result))
+          .then((result) => (util.isArray(result) ? result[0] : result))
       );
     });
   }
 
   public rejectWithInstallKeyError(context: any) {
     // This command also requires either the installationkey flag or installationkeybypass flag
-    const installationKeyFlag = context.command.flags.find(x => x.name === 'installationkey');
-    const installationKeyBypassFlag = context.command.flags.find(x => x.name === 'installationkeybypass');
+    const installationKeyFlag = context.command.flags.find((x) => x.name === 'installationkey');
+    const installationKeyBypassFlag = context.command.flags.find((x) => x.name === 'installationkeybypass');
     const errorString = messages.getMessage(
       'errorMissingFlagsInstallationKey',
       [
         `--${installationKeyFlag.name} (-${installationKeyFlag.char})`,
-        `--${installationKeyBypassFlag.name} (-${installationKeyBypassFlag.char})`
+        `--${installationKeyBypassFlag.name} (-${installationKeyBypassFlag.char})`,
       ],
       'package_version_create'
     );
@@ -889,7 +994,7 @@ class PackageVersionCreateCommand {
   }
 
   async _validateFlagsForPackageType(packageId: string, flags: any) {
-    let packageType = await pkgUtils.getPackage2Type(packageId, this.force, this.org);
+    const packageType = await pkgUtils.getPackage2Type(packageId, this.force, this.org);
 
     if (packageType == 'Unlocked') {
       if (flags.postinstallscript || flags.uninstallscript) {
@@ -904,8 +1009,8 @@ class PackageVersionCreateCommand {
 
       const packageDescriptorJson = this._getPackageDescriptorJsonFromPackageId(packageId, flags);
 
-      let ancestorId = packageDescriptorJson.ancestorId;
-      let ancestorVersion = packageDescriptorJson.ancestorVersion;
+      const ancestorId = packageDescriptorJson.ancestorId;
+      const ancestorVersion = packageDescriptorJson.ancestorVersion;
 
       if (ancestorId || ancestorVersion) {
         throw SfdxError.create(
@@ -956,6 +1061,10 @@ class PackageVersionCreateCommand {
 
     if (typeof packageDescriptorJson.unpackagedMetadata !== 'undefined') {
       delete packageDescriptorJson.unpackagedMetadata; // for client-side use only, not needed
+    }
+
+    if (typeof packageDescriptorJson.branch !== 'undefined') {
+      delete packageDescriptorJson.branch; // for client-side use only, not needed
     }
   }
 

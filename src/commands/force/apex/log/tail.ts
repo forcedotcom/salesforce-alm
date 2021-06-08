@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -24,27 +24,28 @@ export class ApexLogTailCommand extends ToolbeltCommand {
       required: false,
       hidden: false,
       description: Messages.get('ApexLogTailColorizeDescription'),
-      longDescription: Messages.get('ApexLogTailColorizeLongDescription')
+      longDescription: Messages.get('ApexLogTailColorizeLongDescription'),
     }),
     debuglevel: flags.string({
       char: 'd',
       required: false,
       hidden: false,
       description: Messages.get('ApexLogTailDebugLevelDescription'),
-      longDescription: Messages.get('ApexLogTailDebugLevelLongDescription')
+      longDescription: Messages.get('ApexLogTailDebugLevelLongDescription'),
     }),
     skiptraceflag: flags.boolean({
       char: 's',
       required: false,
       hidden: false,
       description: Messages.get('ApexLogTailSkipTraceFlagDescription'),
-      longDescription: Messages.get('ApexLogTailSkipTraceFlagLongDescription')
-    })
+      longDescription: Messages.get('ApexLogTailSkipTraceFlagLongDescription'),
+    }),
   };
 
   public static readonly requiresUsername = true;
   public async run(): Promise<unknown> {
     const context = await this.resolveLegacyContext();
+    // eslint-disable-next-line @typescript-eslint/no-shadow
     const { ApexLogTailCommand } = require('../../../../lib/apex/apexLogTailCommand');
     return await this.execLegacyCommand(new ApexLogTailCommand(), context);
   }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /**
@@ -17,6 +17,7 @@ const DEFAULT_MAX_POLL = 0;
 
 class Package1VersionCreateGetCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -34,6 +35,7 @@ class Package1VersionCreateGetCommand {
 
   /**
    * returns a human readable message for a cli output
+   *
    * @returns {string}
    */
   getHumanSuccessMessage(result) {
