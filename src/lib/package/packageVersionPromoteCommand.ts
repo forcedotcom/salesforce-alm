@@ -1,20 +1,20 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
-import * as _ from 'lodash';
+import ux from 'cli-ux';
 import pkgUtils = require('../package/packageUtils');
 
 import Messages = require('../messages');
-import ux from 'cli-ux';
 const messages = Messages();
 
 class PackageVersionPromoteCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -22,7 +22,7 @@ class PackageVersionPromoteCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       err = pkgUtils.massageErrorMessage(err);
       throw pkgUtils.applyErrorAction(err);
@@ -66,7 +66,7 @@ class PackageVersionPromoteCommand {
           ),
           {}
         )
-        .then(answer => {
+        .then((answer) => {
           if (answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y') {
             confirmed = true;
           }
@@ -82,7 +82,7 @@ class PackageVersionPromoteCommand {
 
     return this.force
       .toolingUpdate(this.org, 'Package2Version', request)
-      .then(async updateResult => {
+      .then(async (updateResult) => {
         if (!updateResult.success) {
           throw new Error(updateResult.errors);
         }
@@ -90,7 +90,7 @@ class PackageVersionPromoteCommand {
         updateResult.id = await pkgUtils.getSubscriberPackageVersionId(packageId, this.force, this.org);
         return updateResult;
       })
-      .catch(err => {
+      .catch((err) => {
         if (err.name === 'DUPLICATE_VALUE' && err.message.includes('previously released')) {
           err['message'] = messages.getMessage('previouslyReleasedMessage', [], 'package_version_promote');
           err['action'] = messages.getMessage('previouslyReleasedAction', [], 'package_version_promote');

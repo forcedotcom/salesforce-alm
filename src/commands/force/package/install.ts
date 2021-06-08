@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -26,31 +26,31 @@ export class PackageInstallCommand extends ToolbeltCommand {
       char: 'w',
       description: messages.getMessage('wait', [], 'package_install'),
       longDescription: messages.getMessage('waitLong', [], 'package_install'),
-      required: false
+      required: false,
     }),
     installationkey: flags.string({
       char: 'k',
       description: messages.getMessage('installationKey', [], 'package_install'),
       longDescription: messages.getMessage('installationKeyLong', [], 'package_install'),
-      required: false
+      required: false,
     }),
     publishwait: flags.minutes({
       char: 'b',
       description: messages.getMessage('publishWait', [], 'package_install'),
       longDescription: messages.getMessage('publishWaitLong', [], 'package_install'),
-      required: false
+      required: false,
     }),
     noprompt: flags.boolean({
       char: 'r',
       description: messages.getMessage('noPrompt', [], 'package_install'),
       longDescription: messages.getMessage('noPromptLong', [], 'package_install'),
-      required: false
+      required: false,
     }),
     package: flags.string({
       char: 'p',
       description: messages.getMessage('package', [], 'package_install'),
       longDescription: messages.getMessage('packageLong', [], 'package_install'),
-      required: false
+      required: false,
     }),
     apexcompile: flags.enum({
       char: 'a',
@@ -58,7 +58,7 @@ export class PackageInstallCommand extends ToolbeltCommand {
       longDescription: messages.getMessage('apexCompileLong', [], 'package_install'),
       required: false,
       default: 'all',
-      options: ['all', 'package']
+      options: ['all', 'package'],
     }),
     securitytype: flags.enum({
       char: 's',
@@ -66,7 +66,7 @@ export class PackageInstallCommand extends ToolbeltCommand {
       longDescription: messages.getMessage('securityTypeLong', [], 'package_install'),
       required: false,
       default: 'AdminsOnly',
-      options: ['AllUsers', 'AdminsOnly']
+      options: ['AllUsers', 'AdminsOnly'],
     }),
     upgradetype: flags.enum({
       char: 't',
@@ -74,8 +74,8 @@ export class PackageInstallCommand extends ToolbeltCommand {
       longDescription: messages.getMessage('upgradeTypeLong', [], 'package_install'),
       required: false,
       default: 'Mixed',
-      options: ['DeprecateOnly', 'Mixed', 'Delete']
-    })
+      options: ['DeprecateOnly', 'Mixed', 'Delete'],
+    }),
   };
 
   public async run(): Promise<unknown> {

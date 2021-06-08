@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -28,38 +28,38 @@ export class PackageVersionUpdateCommand extends ToolbeltCommand {
       char: 'p',
       description: messages.getMessage('package', [], 'package_version_update'),
       longDescription: messages.getMessage('packageLong', [], 'package_version_update'),
-      required: true
+      required: true,
     }),
     versionname: flags.string({
       char: 'a',
       description: messages.getMessage('name', [], 'package_version_update'),
       longDescription: messages.getMessage('nameLong', [], 'package_version_update'),
-      required: false
+      required: false,
     }),
     versiondescription: flags.string({
       char: 'e',
       description: messages.getMessage('description', [], 'package_version_update'),
       longDescription: messages.getMessage('descriptionLong', [], 'package_version_update'),
-      required: false
+      required: false,
     }),
     branch: flags.string({
       char: 'b',
       description: messages.getMessage('branch', [], 'package_version_update'),
       longDescription: messages.getMessage('branchLong', [], 'package_version_update'),
-      required: false
+      required: false,
     }),
     tag: flags.string({
       char: 't',
       description: messages.getMessage('tag', [], 'package_version_update'),
       longDescription: messages.getMessage('tagLong', [], 'package_version_update'),
-      required: false
+      required: false,
     }),
     installationkey: flags.string({
       char: 'k',
       description: messages.getMessage('key', [], 'package_version_update'),
       longDescription: messages.getMessage('longKey', [], 'package_version_update'),
-      required: false
-    })
+      required: false,
+    }),
   };
 
   public async run(): Promise<unknown> {

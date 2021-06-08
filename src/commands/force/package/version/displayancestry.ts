@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as fs from 'fs';
 import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
+import { AuthInfo, Connection, Logger } from '@salesforce/core';
+import { OutputFlags } from '@oclif/parser';
 import * as ConfigApi from '../../../../lib/core/configApi';
 import consts = require('../../../../lib/core/constants');
-import { AuthInfo, Connection, Logger } from '@salesforce/core';
 import pkgUtils = require('../../../../lib/package/packageUtils');
-import { OutputFlags } from '@oclif/parser';
-import * as fs from 'fs';
 
 // Import i18n messages
 import Messages = require('../../../../lib/messages');
@@ -52,21 +52,21 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
       char: 'p',
       description: messages.getMessage('package', [], 'package_displayancestry'),
       longDescription: messages.getMessage('packageLong', [], 'package_displayancestry'),
-      required: true
+      required: true,
     }),
     dotcode: flags.boolean({
       description: messages.getMessage('dotcode', [], 'package_displayancestry'),
-      longDescription: messages.getMessage('dotcodeLong', [], 'package_displayancestry')
+      longDescription: messages.getMessage('dotcodeLong', [], 'package_displayancestry'),
     }),
     verbose: flags.builtin({
       description: messages.getMessage('verbose', [], 'package_displayancestry'),
-      longDescription: messages.getMessage('verboseLong', [], 'package_displayancestry')
-    })
+      longDescription: messages.getMessage('verboseLong', [], 'package_displayancestry'),
+    }),
   };
 
   public async run(): Promise<unknown> {
     const org = this.org || this.hubOrg;
-    let username: string = org.getUsername();
+    const username: string = org.getUsername();
 
     return await this._findAncestry(username, this.flags);
   }
@@ -76,6 +76,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
    *  <p>This was separated out from the run() method so that unit testing could actually be done. This is admittedly a bit of a hack, but I think every other command does it too?
    *  // TODO: Maybe some CLI whiz could make this not be needed
    *  </p>
+   *
    * @param username - username of the org
    * @param flags - the flags passed in
    * @private
@@ -86,7 +87,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
     this.flags = flags; // Needed incase we're running from a unit test.
 
     const connection = await Connection.create({
-      authInfo: await AuthInfo.create({ username })
+      authInfo: await AuthInfo.create({ username }),
     });
 
     // Connection.create() defaults to the latest API version, but the user can override it with this flag.
@@ -96,9 +97,9 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
 
     let dotcodeOutput = 'strict graph G {\n';
     let unicodeOutput = '';
-    let forest: TreeNode[] = [];
-    let packageId: string = flags.package;
-    let roots: string[] = [];
+    const forest: TreeNode[] = [];
+    const packageId: string = flags.package;
+    const roots: string[] = [];
 
     // Get the roots based on what packageId is.
     switch (packageId.substr(0, 3)) {
@@ -115,9 +116,9 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
         // if so, throw and error since ancestry only applies to managed packages
         const query =
           PackageVersionDisplayAncestryCommand.SELECT_PACKAGE_CONTAINER_OPTIONS + ` WHERE Id = '${packageId}'`;
-        let packageTypeResults: {
+        const packageTypeResults: Array<{
           ContainerOptions?: string;
-        }[] = await this.executeQuery(connection, query);
+        }> = await this.executeQuery(connection, query);
 
         if (packageTypeResults && packageTypeResults.length === 0) {
           throw new Error(messages.getMessage('invalidId', packageId, 'package_displayancestry'));
@@ -129,19 +130,19 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
           throw new Error(messages.getMessage('unlockedPackageError', [], 'package_displayancestry'));
         }
 
-        let normalQuery =
+        const normalQuery =
           PackageVersionDisplayAncestryCommand.SELECT_ALL_ROOTS +
           ` WHERE AncestorId = NULL AND Package2Id = '${packageId}' ${this.releasedOnlyFilter}`;
-        let results: {
+        const results: Array<{
           SubscriberPackageVersionId?: string;
-        }[] = await this.executeQuery(connection, normalQuery);
+        }> = await this.executeQuery(connection, normalQuery);
 
         // The package exists, but there are no versions for the provided package
         if (results.length == 0) {
           throw new Error(messages.getMessage('noVersionsError', [], 'package_displayancestry'));
         }
 
-        results.forEach(row => roots.push(row.SubscriberPackageVersionId));
+        results.forEach((row) => roots.push(row.SubscriberPackageVersionId));
         break;
 
       // If this is an 04t, we were already given our root id, and we also want to go up
@@ -157,9 +158,9 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
         // if so, throw and error since ancestry only applies to managed packages
         const versionQuery =
           PackageVersionDisplayAncestryCommand.SELECT_PACKAGE_VERSION_CONTAINER_OPTIONS + ` WHERE Id = '${packageId}'`;
-        let packageVersionTypeResults: {
+        const packageVersionTypeResults: Array<{
           ContainerOptions?: string;
-        }[] = await this.executeQuery(connection, versionQuery);
+        }> = await this.executeQuery(connection, versionQuery);
 
         if (
           packageVersionTypeResults &&
@@ -179,7 +180,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
       // Else, this is likely an alias. So attempt to find the package information from the alias.
       default:
         let id;
-        let workspaceConfigFilename = new ConfigApi.Config().getWorkspaceConfigFilename();
+        const workspaceConfigFilename = new ConfigApi.Config().getWorkspaceConfigFilename();
         try {
           const parseConfigFile = JSON.parse(fs.readFileSync(workspaceConfigFilename, 'utf8'));
           id = parseConfigFile.packageAliases[packageId];
@@ -200,7 +201,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
 
     // For every root node, build the tree below it.
     for (const rootId of roots) {
-      let { root, dotOutput } = await this.exploreTreeFromRoot(connection, rootId);
+      const { root, dotOutput } = await this.exploreTreeFromRoot(connection, rootId);
       forest.push(root);
       dotcodeOutput += dotOutput;
     }
@@ -210,12 +211,11 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
     // Determine proper output based on flags
     if (!flags.json) {
       if (flags.dotcode) {
-        console.log(dotcodeOutput);
+        this.ux.log(dotcodeOutput);
         return dotcodeOutput;
       } else {
         unicodeOutput += this.createUnicodeTreeOutput(forest);
-
-        console.log(unicodeOutput);
+        this.ux.log(unicodeOutput);
         return unicodeOutput;
       }
     } else {
@@ -230,6 +230,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
 
   /**
    * Builds the bottom-up view from a leaf.
+   *
    * @param nodeId - the 04t of this node
    * @param connection - the connection object
    */
@@ -238,50 +239,51 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
 
     // Start with the node, and shoot up
     while (nodeId != null) {
-      let query = `${PackageVersionDisplayAncestryCommand.SELECT_PARENT_INFO} WHERE SubscriberPackageVersionId = '${nodeId}' ${this.releasedOnlyFilter}`;
+      const query = `${PackageVersionDisplayAncestryCommand.SELECT_PARENT_INFO} WHERE SubscriberPackageVersionId = '${nodeId}' ${this.releasedOnlyFilter}`;
 
-      let results: {
+      const results: Array<{
         MajorVersion?: string;
         MinorVersion?: string;
         PatchVersion?: string;
         AncestorId?: string;
         BuildNumber?: string;
-      }[] = await this.executeQuery(connection, query);
+      }> = await this.executeQuery(connection, query);
 
       if (results.length == 0) {
         throw new Error(messages.getMessage('versionNotFound', nodeId, 'package_displayancestry'));
       }
 
       // @ts-ignore - ignoring this error, since results is guaranteed at runtime to have Major/Minor/etc, but TS doesn't know this at compile time.
-      let node = new TreeNode({ ...results[0], depthCounter: 0, SubscriberPackageVersionId: nodeId });
+      const node = new TreeNode({ ...results[0], depthCounter: 0, SubscriberPackageVersionId: nodeId });
       output += `${PackageVersionDisplayAncestryCommand.buildVersionOutput(node)} -> `;
       nodeId = results[0].AncestorId;
     }
 
     // remove the last " -> " from the output string
     output = output.substr(0, output.length - 4);
-    output += ` (root)`;
+    output += ' (root)';
     return output;
   }
 
   /**
    * Makes this tree from starting root this is so that we can be given a package Id and then create the forest of versions
+   *
    * @param connection
    * @param rootId the subscriber package version id for this root version.
    */
   private async exploreTreeFromRoot(connection, rootId: string): Promise<{ root: TreeNode; dotOutput: string }> {
     // Before we do anything, we need *all* the package information for this node, and they just gave us the ID
-    let query =
+    const query =
       PackageVersionDisplayAncestryCommand.SELECT_ROOT_INFO +
       ` WHERE SubscriberPackageVersionId = '${rootId}' ${this.releasedOnlyFilter}`;
 
-    let results: {
+    const results: Array<{
       MajorVersion?: string;
       MinorVersion?: string;
       PatchVersion?: string;
       BuildNumber?: string;
-    }[] = await this.executeQuery(connection, query);
-    let rootInfo = new PackageInformation(
+    }> = await this.executeQuery(connection, query);
+    const rootInfo = new PackageInformation(
       rootId,
       results[0].MajorVersion,
       results[0].MinorVersion,
@@ -290,16 +292,17 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
     );
 
     // Setup our BFS
-    let visitedSet = new Set<string>(); // If this is *always* a tree, not needed. But if there's somehow a cycle (a dev screwed something up, maybe?), this will prevent an infinite loop.
-    let dfsStack = new Array<TreeNode>();
-    let root = new TreeNode(rootInfo);
+    const visitedSet = new Set<string>(); // If this is *always* a tree, not needed. But if there's somehow a cycle (a dev screwed something up, maybe?), this will prevent an infinite loop.
+    // eslint-disable-next-line no-array-constructor
+    const dfsStack = new Array<TreeNode>();
+    const root = new TreeNode(rootInfo);
     dfsStack.push(root);
 
     // Traverse!
     let dotOutput = PackageVersionDisplayAncestryCommand.buildDotNode(root);
 
     while (dfsStack.length > 0) {
-      let currentNode = dfsStack.pop(); // DFS
+      const currentNode = dfsStack.pop(); // DFS
 
       // Skip already visited elements
       if (visitedSet.has(currentNode.data.SubscriberPackageVersionId)) {
@@ -309,24 +312,25 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
       visitedSet.add(currentNode.data.SubscriberPackageVersionId);
 
       // Find all children, ordered from smallest -> largest
-      let query =
+      const query =
         PackageVersionDisplayAncestryCommand.SELECT_CHILD_INFO +
-        ` WHERE AncestorId = '${currentNode.data.SubscriberPackageVersionId}' ${this.releasedOnlyFilter} 
+        ` WHERE AncestorId = '${currentNode.data.SubscriberPackageVersionId}' ${this.releasedOnlyFilter}
         ORDER BY MajorVersion ASC, MinorVersion ASC, PatchVersion ASC`;
 
-      let results: {
+      const results: Array<{
         SubscriberPackageVersionId?: string;
         MajorVersion?: string;
         MinorVersion?: string;
         PatchVersion?: string;
         BuildNumber?: string;
-      }[] = await this.executeQuery(connection, query);
+      }> = await this.executeQuery(connection, query);
 
       // We want to print in-order, but add to our stack in reverse-order so that we both print *and* visit nodes
       // left -> right, as the dfaStack will visit right -> left if we don't do this.
-      let reversalStack: TreeNode[] = [];
-      results.forEach(row => {
-        let childPackageInfo = new PackageInformation(
+      const reversalStack: TreeNode[] = [];
+      // eslint-disable-next-line no-loop-func
+      results.forEach((row) => {
+        const childPackageInfo = new PackageInformation(
           row.SubscriberPackageVersionId,
           row.MajorVersion,
           row.MinorVersion,
@@ -334,7 +338,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
           row.BuildNumber,
           currentNode.data.depthCounter + 1
         );
-        let childNode = new TreeNode(childPackageInfo);
+        const childNode = new TreeNode(childPackageInfo);
 
         currentNode.addChild(childNode);
         reversalStack.push(childNode);
@@ -344,22 +348,23 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
       });
 
       // Important to reverse, so that we visit the children left -> right, not right -> left.
-      reversalStack.reverse().forEach(child => dfsStack.push(child));
+      reversalStack.reverse().forEach((child) => dfsStack.push(child));
     }
 
-    return { root, dotOutput: dotOutput };
+    return { root, dotOutput };
   }
 
   /**
    * Creates the fancy NPM-LS unicode tree output
    * Idea from: https://github.com/substack/node-archy
+   *
    * @param forest
    */
   private createUnicodeTreeOutput(forest: TreeNode[]): string {
     let result = '';
 
     // DFS from each root
-    for (let root of forest) {
+    for (const root of forest) {
       result += this.unicodeOutputTraversal(root, null, '');
     }
 
@@ -372,6 +377,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
    *      Root is handled differently, to make it look better / stand out as the root.
    *      This complicates the code flow somewhat.
    *  </p>
+   *
    * @param node - current node
    * @param parent - the parent of the current node
    * @param prefix - the current prefix, so that we 'indent' far enough
@@ -424,7 +430,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
         prefix += '│ ';
       }
 
-      for (let child of node.children) {
+      for (const child of node.children) {
         result += this.unicodeOutputTraversal(child, node, prefix);
       }
     }
@@ -434,6 +440,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
 
   /**
    * Builds a node line in DOT, of the form nodeID [label="MAJOR.MINOR.PATCH"]
+   *
    * @param currentNode
    */
   private static buildDotNode(currentNode: TreeNode): string {
@@ -444,6 +451,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
 
   /**
    * Builds an edge line in DOT, of the form fromNode -- toNode
+   *
    * @param fromNode
    * @param toNode
    */
@@ -453,15 +461,16 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
 
   /**
    * Runs a single query, and returns a promise with the results
+   *
    * @param connection
    * @param query
    */
-  private executeQuery(connection: Connection, query: string): Promise<{}[]> {
+  private executeQuery(connection: Connection, query: string): Promise<Array<{}>> {
     return connection.tooling
       .autoFetchQuery(query)
-      .then(queryResult => {
-        const records: { attributes?: {} }[] = queryResult.records;
-        let results: {}[] = []; // Array of objects.
+      .then((queryResult) => {
+        const records: Array<{ attributes?: {} }> = queryResult.records;
+        const results: Array<{}> = []; // Array of objects.
 
         this.logger.debug('Query results: ');
         this.logger.debug(records);
@@ -471,11 +480,12 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
           return results;
         }
 
-        records.forEach(record => {
+        records.forEach((record) => {
           // This seems like a hack, but TypeScript is cool so we use it. Since we (usually) want
           // almost *everything* from this record, rather than specifying everything we *do* want,
           // instead specify only the things we do *NOT* want, and use `propertiesWeWant`
-          let { attributes, ...propertiesWeWant } = record;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { attributes, ...propertiesWeWant } = record;
           results.push(propertiesWeWant);
         });
 
@@ -484,13 +494,14 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
 
         return results;
       })
-      .catch(error => {
+      .catch(() => {
         throw new Error(messages.getMessage('invalidId', '', 'package_displayancestry'));
       });
   }
 
   /**
    * Building {Major}.{Minor}.{Patch}.{BuildNumber} is done in many places, so centralize.
+   *
    * @param node
    */
   private static buildVersionOutput(node: TreeNode): string {
@@ -503,7 +514,7 @@ export class PackageVersionDisplayAncestryCommand extends SfdxCommand {
  */
 export class TreeNode {
   data: PackageInformation;
-  children: Array<TreeNode>;
+  children: TreeNode[];
 
   constructor(data: PackageInformation) {
     this.data = data;
@@ -512,6 +523,7 @@ export class TreeNode {
 
   /**
    * Adds a child to this node
+   *
    * @param child
    */
   addChild(child: TreeNode): void {
@@ -536,7 +548,7 @@ class PackageInformation {
     MinorVersion: string,
     PatchVersion: string,
     BuildNumber: string,
-    depthCounter: number = 0
+    depthCounter = 0
   ) {
     this.SubscriberPackageVersionId = SubscriberPackageVersionId;
     this.MajorVersion = MajorVersion;

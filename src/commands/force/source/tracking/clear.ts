@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
@@ -23,9 +23,11 @@ export type SourceTrackingClearResult = {
 
 // ConfigFile reads the file on init. We don't want to read the file, just delete it.
 class OnlyDeletableMaxRevision extends RemoteSourceTrackingService {
+  // eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unused-vars
   public async read(throwOnNotFound?: boolean, force?: boolean): Promise<ConfigContents> {
     return {};
   }
+  // eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unused-vars
   public async write(newContents?: ConfigContents): Promise<ConfigContents> {
     return {};
   }
@@ -33,9 +35,11 @@ class OnlyDeletableMaxRevision extends RemoteSourceTrackingService {
 
 // ConfigFile reads the file on init. We don't want to read the file, just delete it.
 class OnlyDeletableWorkspace extends Workspace {
+  // eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unused-vars
   public async read(throwOnNotFound?: boolean, force?: boolean): Promise<ConfigContents> {
     return {};
   }
+  // eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unused-vars
   public async write(newContents?: ConfigContents): Promise<ConfigContents> {
     return {};
   }
@@ -51,8 +55,8 @@ export class SourceTrackingClearCommand extends SfdxCommand {
     noprompt: flags.boolean({
       char: 'p',
       description: messages.getMessage('nopromptDescription'),
-      required: false
-    })
+      required: false,
+    }),
   };
   public async run(): Promise<SourceTrackingClearResult> {
     const clearedFiles = [];
@@ -74,17 +78,19 @@ export class SourceTrackingClearCommand extends SfdxCommand {
     try {
       await revision.unlink();
       clearedFiles.push(revision.getPath());
+      // eslint-disable-next-line no-empty
     } catch (e) {}
 
     // // Reset sourcePathInfos locally
     const workspace = await OnlyDeletableWorkspace.create({
       org: legacyOrg,
       forceIgnore: null,
-      isStateless: true
+      isStateless: true,
     });
     try {
       await workspace.unlink();
       clearedFiles.push(workspace.getPath());
+      // eslint-disable-next-line no-empty
     } catch (e) {}
 
     this.ux.log('Cleared local tracking files.');

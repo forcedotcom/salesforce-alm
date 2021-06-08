@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -28,20 +28,23 @@ export class MdapiDescribemetadataCommand extends ToolbeltCommand {
       // @ts-ignore force char override for backward compat -- don't try this at home!
       char: 'a',
       description: messages.getMessage('mdDescribeMetadataCommandCliApiVersion', configInstance.getApiVersion()),
-      longDescription: messages.getMessage('mdDescribeMetadataCommandCliApiVersionLong', configInstance.getApiVersion())
+      longDescription: messages.getMessage(
+        'mdDescribeMetadataCommandCliApiVersionLong',
+        configInstance.getApiVersion()
+      ),
     }),
     resultfile: flags.filepath({
       char: 'f',
       description: messages.getMessage('mdDescribeMetadataCommandCliFilterKnown'),
       longDescription: messages.getMessage('mdDescribeMetadataCommandCliFilterKnownLong'),
-      required: false
+      required: false,
     }),
     filterknown: flags.boolean({
       char: 'k',
       description: messages.getMessage('mdDescribeMetadataCommandCliResultFile'),
       longDescription: messages.getMessage('mdDescribeMetadataCommandCliResultFileLong'),
-      hidden: true
-    })
+      hidden: true,
+    }),
   };
 
   public async run(): Promise<unknown> {

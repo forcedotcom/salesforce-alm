@@ -1,19 +1,19 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as path from 'path';
 import * as fs from 'fs-extra';
 import { fs as fscore } from '@salesforce/core';
-import * as path from 'path';
 
 import MetadataRegistry = require('../metadataRegistry');
 import srcDevUtil = require('../../core/srcDevUtil');
-import { ContentDecompositionStrategy } from './contentDecompositionStrategy';
 import { MetadataTypeFactory } from '../metadataTypeFactory';
 import { MetadataType } from '../metadataType';
+import { ContentDecompositionStrategy } from './contentDecompositionStrategy';
 
 /**
  *  Content strategy for content files that do not require decomposition e.g. ApexClass
@@ -22,6 +22,7 @@ export class NonDecomposedContentStrategy implements ContentDecompositionStrateg
   metadataType: any;
   metadataRegistry;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(metadataType: MetadataType, metadataRegistry, workspaceVersion) {
     this.metadataType = metadataType;
     this.metadataRegistry = metadataRegistry;
@@ -32,7 +33,7 @@ export class NonDecomposedContentStrategy implements ContentDecompositionStrateg
     const aggregateFullName = metadataType.getAggregateFullNameFromFilePath(metadataFilePath);
     const workspaceDir = path.dirname(metadataFilePath);
     const directoryItems = srcDevUtil.getDirectoryItems(workspaceDir, true, true);
-    return directoryItems.filter(directoryItem => {
+    return directoryItems.filter((directoryItem) => {
       const itemFullName = metadataType.getAggregateFullNameFromFilePath(directoryItem);
       return (
         !directoryItem.startsWith('.') &&

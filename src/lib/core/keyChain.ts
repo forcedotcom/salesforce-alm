@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -15,20 +15,20 @@
  * ----------------------------------------------------------------------------------------------------------------- */
 
 // Node
-import * as _ from 'lodash';
-import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import * as util from 'util';
+import * as fs from 'fs-extra';
+import * as _ from 'lodash';
 
 // Thirdparty
 import * as optional from 'optional-js';
 
 // Local
-import * as almError from './almError';
-import consts = require('./constants');
 import Messages = require('../messages');
+import consts = require('./constants');
+import * as almError from './almError';
 const messages = Messages();
 import srcDevUtil = require('./srcDevUtil');
 
@@ -36,6 +36,7 @@ const GET_PASSWORD_RETRY_COUNT = 3;
 
 /**
  * contents for platform type
+ *
  * @type {{WINDOWS: string, DARWIN: string, LINUX: string, GENERIC_UNIX: string}}
  */
 export const platforms = {
@@ -43,15 +44,16 @@ export const platforms = {
   DARWIN: 'darwin',
   LINUX: 'linux',
   GENERIC_UNIX: 'generic_unix',
-  GENERIC_WINDOWS: 'generic_windows'
+  GENERIC_WINDOWS: 'generic_windows',
 };
 
 /**
  * Helper to reduce an array of cli args down to a presentable string for logging.
+ *
  * @param optionsArray - cli command args.
  * @private
  */
-const _optionsToString = function(optionsArray) {
+const _optionsToString = function (optionsArray) {
   return optionsArray.reduce((accum, element) => `${accum} ${element}`);
 };
 
@@ -89,11 +91,12 @@ const _errors = {
     let message = messages.getMessage('keyChainCredentialParseError');
     message += `\n${stdout} - ${stderr}`;
     return srcDevUtil.getError(message, 'SetCredentialParseError');
-  }
+  },
 };
 
 /**
  * Helper to determine if a program is executable
+ *
  * @param mode - stats mode
  * @param gid - unix group id
  * @param uid - unix user id
@@ -114,6 +117,7 @@ const _isExe = (mode, gid, uid) => {
 
 /**
  * private helper to validate that a program exists on the files system and is executable
+ *
  * @param programPath - the absolute path of the program
  * @param fsIfc - the file system interface
  * @param isExeIfc - executable validation function
@@ -144,6 +148,7 @@ class KeychainAccess {
 
   /**
    * abstract prototype for general cross platform keychain interaction
+   *
    * @param osImpl - the platform impl for (linux, darwin, windows)
    * @param fsIfc - the file system interface
    * @constructor
@@ -159,6 +164,7 @@ class KeychainAccess {
 
   /**
    * gets a password using the native program for credential management.
+   *
    * @param opts - options for the credential lookup
    * @param fn - callback function (err, password)
    * @param retryCount - used internally to track the number of retries for getting a password out of the keychain.
@@ -181,14 +187,14 @@ class KeychainAccess {
     let stdout = '';
     let stderr = '';
 
-    credManager.stdout.on('data', data => {
+    credManager.stdout.on('data', (data) => {
       stdout += data;
     });
-    credManager.stderr.on('data', data => {
+    credManager.stderr.on('data', (data) => {
       stderr += data;
     });
 
-    credManager.on('close', code => {
+    credManager.on('close', (code) => {
       const currentCount = optional.ofNullable(retryCount).orElse(0);
 
       try {
@@ -214,6 +220,7 @@ class KeychainAccess {
 
   /**
    * sets a password using the native program for credential management.
+   *
    * @param opts - options for the credential lookup
    * @param fn - callback function (err, password)
    */
@@ -240,14 +247,14 @@ class KeychainAccess {
     let stdout = '';
     let stderr = '';
 
-    credManager.stdout.on('data', data => {
+    credManager.stdout.on('data', (data) => {
       stdout += data;
     });
-    credManager.stderr.on('data', data => {
+    credManager.stderr.on('data', (data) => {
       stderr += data;
     });
 
-    credManager.on('close', code => this.osImpl.onSetCommandClose(code, stdout, stderr, opts, fn));
+    credManager.on('close', (code) => this.osImpl.onSetCommandClose(code, stdout, stderr, opts, fn));
 
     credManager.stdin.end();
   }
@@ -277,7 +284,7 @@ const _windowsImpl = {
       '-Target',
       opts.service,
       '-User',
-      opts.account
+      opts.account,
     ];
   },
 
@@ -288,10 +295,7 @@ const _windowsImpl = {
   passwordRegex: /Password\s*:\s.*/,
 
   _filterPassword(passwordArray) {
-    return passwordArray[0]
-      .split(':')[1]
-      .trim()
-      .replace(/'/g, '');
+    return passwordArray[0].split(':')[1].trim().replace(/'/g, '');
   },
 
   _checkPasswordRegExResult(passwordArray) {
@@ -342,7 +346,7 @@ const _windowsImpl = {
       '-User',
       opts.account,
       '-Pass',
-      opts.password
+      opts.password,
     ];
   },
 
@@ -371,7 +375,7 @@ const _windowsImpl = {
       error['action'] = messages.getMessage('keychainPasswordNotFoundAction', [command]);
       fn(error);
     }
-  }
+  },
 };
 
 export const windows = new KeychainAccess(_windowsImpl, fs);
@@ -437,7 +441,7 @@ const _linuxImpl = {
     } else {
       fn(null);
     }
-  }
+  },
 };
 
 export const linux = new KeychainAccess(_linuxImpl, fs);
@@ -474,7 +478,7 @@ const _darwinImpl = {
         default:
           err = _errors.passwordNotFoundError(stdout, stderr);
           err.action = messages.getMessage('keychainPasswordNotFoundAction', [
-            `${_darwinImpl.getProgram()} ${_optionsToString(_darwinImpl.getProgramOptions(opts))}`
+            `${_darwinImpl.getProgram()} ${_optionsToString(_darwinImpl.getProgramOptions(opts))}`,
           ]);
       }
       fn(err, null);
@@ -511,7 +515,7 @@ const _darwinImpl = {
     } else {
       fn(null);
     }
-  }
+  },
 };
 
 export const darwin = new KeychainAccess(_darwinImpl, fs);
@@ -520,10 +524,10 @@ function _writeFile(opts, fn) {
   const obj = {
     service: opts.service,
     account: opts.account,
-    key: opts.password
+    key: opts.password,
   };
 
-  fs.writeJson(this.getSecretFile(), obj, writeError => {
+  fs.writeJson(this.getSecretFile(), obj, (writeError) => {
     if (writeError) {
       fn(writeError);
     } else {
@@ -548,7 +552,7 @@ class GenericKeychainAccess {
 
   getPassword(opts, fn) {
     // validate the file in .sfdx
-    this.isValidFileAccess(fileAccessError => {
+    this.isValidFileAccess((fileAccessError) => {
       // the file checks out.
       if (_.isNil(fileAccessError)) {
         // read it's contents
@@ -586,16 +590,16 @@ class GenericKeychainAccess {
 
   setPassword(opts, fn) {
     // validate the file in .sfdx
-    this.isValidFileAccess(fileAccessError => {
+    this.isValidFileAccess((fileAccessError) => {
       // if there is a validation error
       if (!_.isNil(fileAccessError)) {
         // file not found
         if (fileAccessError.code === 'ENOENT') {
           // create the file
-          fs.ensureFile(this.getSecretFile(), ensureFileError => {
+          fs.ensureFile(this.getSecretFile(), (ensureFileError) => {
             if (!ensureFileError) {
               // set up the perms correctly
-              fs.chmod(this.getSecretFile(), '600', chmodError => {
+              fs.chmod(this.getSecretFile(), '600', (chmodError) => {
                 // perms set so we can write the key
                 if (_.isNil(chmodError)) {
                   _writeFile.call(this, opts, fn);
@@ -632,7 +636,7 @@ class GenericUnixKeychainAccess extends GenericKeychainAccess {
           cb(
             almError('genericUnixKeychainInvalidPerms', null, 'genericUnixKeychainInvalidPermsAction', [
               this.getSecretFile(),
-              EXPECTED_OCTAL_PERM_VALUE
+              EXPECTED_OCTAL_PERM_VALUE,
             ])
           );
         }

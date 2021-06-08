@@ -1,10 +1,16 @@
+/*
+ * Copyright (c) 2020, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import { isString } from 'util';
 import { Logger, SfdxProject } from '@salesforce/core';
 import { AsyncCreatable, isEmpty } from '@salesforce/kit';
 import { Nullable } from '@salesforce/ts-types';
 import { MetadataType } from './metadataType';
 import { MetadataTypeFactory, MetadataTypeCache } from './metadataTypeFactory';
 import { SourcePathInfo } from './sourcePathStatusManager';
-import { isString } from 'util';
 import MetadataRegistry = require('./metadataRegistry');
 import { NonDecomposedElementsIndex } from './nonDecomposedElementsIndex';
 
@@ -119,11 +125,13 @@ export class SourceLocations extends AsyncCreatable<SourceLocationsOptions> {
   }
 
   private getPathByActivePackage(paths: string[]): string {
-    if (paths.length === 1) return paths[0];
+    if (paths.length === 1) {
+      return paths[0];
+    }
 
     const activePackage = SfdxProject.getInstance().getActivePackage();
 
-    const match = paths.find(p => {
+    const match = paths.find((p) => {
       const pkgName = SfdxProject.getInstance().getPackageNameFromPath(p);
       return pkgName === (activePackage && activePackage.name);
     });
@@ -133,7 +141,7 @@ export class SourceLocations extends AsyncCreatable<SourceLocationsOptions> {
   private async buildIndices() {
     SourceLocations._nonDecomposedElementsIndex = await NonDecomposedElementsIndex.getInstance({
       username: this.username,
-      metadataRegistry: this.metadataRegistry
+      metadataRegistry: this.metadataRegistry,
     });
 
     for (const sourcePathInfo of this.sourcePathInfos) {

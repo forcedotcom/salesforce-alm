@@ -30,34 +30,34 @@ export class PackageConvert extends ToolbeltCommand {
       char: 'p',
       description: messages.getMessage('package', [], 'package_convert'),
       longDescription: messages.getMessage('longPackage', [], 'package_convert'),
-      required: true
+      required: true,
     }),
     installationkey: flags.string({
       char: 'k',
       description: messages.getMessage('key', [], 'package_convert'),
       longDescription: messages.getMessage('longKey', [], 'package_convert'),
-      required: false
+      required: false,
     }),
     installationkeybypass: flags.boolean({
       char: 'x',
       description: messages.getMessage('keyBypass', [], 'package_convert'),
       longDescription: messages.getMessage('longKeyBypass', [], 'package_convert'),
-      required: false
+      required: false,
     }),
     wait: flags.minutes({
       char: 'w',
       description: messages.getMessage('wait', [], 'package_convert'),
       longDescription: messages.getMessage('longWait', [], 'package_convert'),
       required: false,
-      default: Duration.minutes(0)
+      default: Duration.minutes(0),
     }),
     buildinstance: flags.string({
       char: 's',
       description: messages.getMessage('instance', [], 'package_convert'),
       longDescription: messages.getMessage('longInstance', [], 'package_convert'),
       required: false,
-      hidden: true
-    })
+      hidden: true,
+    }),
   };
 
   public async run(): Promise<unknown> {

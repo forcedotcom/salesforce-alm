@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { NondecomposedTypesWithChildrenMetadataType } from './nondecomposedTypesWithChildrenMetadataType';
@@ -11,6 +11,7 @@ export class SharingRulesMetadataType extends NondecomposedTypesWithChildrenMeta
   /**
    * Sharing rules are tracked at the fine-grained level on the server, but they are nondecomposed in the workspace
    * If a child of a sharing rule type has been changed on the server, this corresponds to the aggregate file in the workspace
+   *
    * @param {string} sourceMemberFullName
    * @param {string} workspaceFullName
    * @returns {boolean}
@@ -22,6 +23,7 @@ export class SharingRulesMetadataType extends NondecomposedTypesWithChildrenMeta
     return sourceMemberFullName.split('.')[0] === workspaceFullName;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getDisplayNameForRemoteChange(sourceMemberType: string): string {
     return this.typeDefObj.metadataName;
   }
@@ -44,7 +46,7 @@ export class SharingRulesMetadataType extends NondecomposedTypesWithChildrenMeta
     return {
       fullName: sourceMemberName,
       type: sourceMemberType,
-      isNameObsolete
+      isNameObsolete,
     };
   }
 }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -10,11 +10,11 @@
 /* istanbul ignore file */
 
 import { flags, FlagsConfig } from '@salesforce/command';
-import { ToolbeltCommand } from '../../../ToolbeltCommand';
 import { Org, Messages } from '@salesforce/core';
-import { SandboxOrg } from '../../../lib/org/sandbox/sandboxOrg';
 import { SandboxOrgConfig } from '@salesforce/core/lib/config/sandboxOrgConfig';
 import { ensureString } from '@salesforce/ts-types';
+import { SandboxOrg } from '../../../lib/org/sandbox/sandboxOrg';
+import { ToolbeltCommand } from '../../../ToolbeltCommand';
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('salesforce-alm', 'org_delete');
@@ -31,8 +31,8 @@ export class OrgDeleteCommand extends ToolbeltCommand {
       char: 'p',
       description: messages.getMessage('forceFlagDescription'),
       longDescription: messages.getMessage('forceFlagDescriptionLong'),
-      required: false
-    })
+      required: false,
+    }),
   };
 
   public async run(): Promise<unknown> {
@@ -50,7 +50,7 @@ export class OrgDeleteCommand extends ToolbeltCommand {
     } else {
       return heroku
         .prompt(messages.getMessage('confirmDeleteYesNo', [deleteMsgKey, this.org.getUsername()]), {})
-        .then(answer => {
+        .then((answer) => {
           if (answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y') {
             return this.deleteOrg(prodOrgUsername);
           }
@@ -70,11 +70,11 @@ export class OrgDeleteCommand extends ToolbeltCommand {
   private async deleteSandbox(prodOrgUsername) {
     let successMessageKey = 'commandSandboxSuccess';
     this.logger.debug('Delete started for sandbox org %s ', this.org.getUsername());
-    let prodOrg = await Org.create({
+    const prodOrg = await Org.create({
       aliasOrUsername: ensureString(prodOrgUsername),
-      aggregator: this.configAggregator
+      aggregator: this.configAggregator,
     });
-    const prodSandboxOrg = await SandboxOrg.getInstance(prodOrg, this.flags.wait, this.logger, this.flags.clientid);
+    const prodSandboxOrg = SandboxOrg.getInstance(prodOrg, this.flags.wait, this.logger, this.flags.clientid);
     try {
       await prodSandboxOrg.deleteSandbox(this.org.getOrgId());
       this.logger.debug('Sandbox org %s successfully marked for deletion', this.org.getUsername());

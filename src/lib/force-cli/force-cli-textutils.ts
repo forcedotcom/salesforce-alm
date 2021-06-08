@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -14,8 +14,8 @@
  * contact the CLI team at alm-cli@salesforce.com.
  * ----------------------------------------------------------------------------------------------------------------- */
 
-import * as Messages from './force-cli-messages';
 import { isObject } from '@salesforce/ts-types';
+import * as Messages from './force-cli-messages';
 
 /**
  * Takes a sequence of key=value string pairs and produces an object out of them.
@@ -26,7 +26,7 @@ import { isObject } from '@salesforce/ts-types';
 export function transformKeyValueSequence(keyValuePairs: string[]): Object {
   const constructedObject = {};
 
-  keyValuePairs.forEach(pair => {
+  keyValuePairs.forEach((pair) => {
     // Look for the *first* '=' and splits there, ignores any subsequent '=' for this pair
     const eqPosition = pair.indexOf('=');
     if (eqPosition === -1) {
@@ -74,9 +74,9 @@ export function parseKeyValueSequence(text: string): string[] {
   let inSingleQuote = false,
     inDoubleQuote = false;
   let currentToken: string[] = [];
-  let keyValuePairs: string[] = [];
+  const keyValuePairs: string[] = [];
 
-  let trimmedText = text.trim();
+  const trimmedText = text.trim();
   for (let i = 0; i < trimmedText.length; i++) {
     const currentChar = trimmedText[i];
     const isSeparator = currentChar.match(separator);

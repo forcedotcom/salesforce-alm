@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
@@ -24,11 +24,13 @@ const ERROR_QUERY =
 
 /**
  * This uninstalls a package in to a target org.
+ *
  * @param context: heroku context
  * @returns {*|promise}
  */
 class PackageUninstallCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor(pollIntervalInMillis?) {
@@ -49,17 +51,17 @@ class PackageUninstallCommand {
     if (username) {
       orgApi.setName(username);
     }
-    return orgApi.force.toolingRetrieve(orgApi, 'SubscriberPackageVersionUninstallRequest', id).then(request => {
+    return orgApi.force.toolingRetrieve(orgApi, 'SubscriberPackageVersionUninstallRequest', id).then((request) => {
       switch (request.Status) {
         case 'Success': {
           return request;
         }
         case 'Error': {
           const err = messages.getMessage('defaultErrorMessage', [this.id, request.Id], 'package_uninstall');
-          return this.force.toolingQuery(this.org, util.format(ERROR_QUERY, id)).then(queryResult => {
+          return this.force.toolingQuery(this.org, util.format(ERROR_QUERY, id)).then((queryResult) => {
             const errors = [];
             if (queryResult.records && queryResult.records.length > 0) {
-              queryResult.records.forEach(record => {
+              queryResult.records.forEach((record) => {
                 errors.push(`(${errors.length + 1}) ${record.Message}`);
               });
             }
@@ -87,7 +89,7 @@ class PackageUninstallCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       throw pkgUtils.applyErrorAction(err);
     });
@@ -100,8 +102,8 @@ class PackageUninstallCommand {
 
     // either of the id or package flag is required, not both at the same time
     if ((!context.flags.id && !context.flags.package) || (context.flags.id && context.flags.package)) {
-      const idFlag = context.command.flags.find(x => x.name === 'id');
-      const packageFlag = context.command.flags.find(x => x.name === 'package');
+      const idFlag = context.command.flags.find((x) => x.name === 'id');
+      const packageFlag = context.command.flags.find((x) => x.name === 'package');
       throw new Error(
         messages.getMessage(
           'errorRequiredFlags',
@@ -140,7 +142,7 @@ class PackageUninstallCommand {
 
     // Construct SubscriberPackageVersionUnininstallRequest sobject used to trigger package uninstall.
     const packageUninstallRequest = {
-      SubscriberPackageVersionId: this.id
+      SubscriberPackageVersionId: this.id,
     };
 
     // TODO: should be able to remove org.setName since framework handles org setup via cmdDef.supportsTargetUsername (true or undefined)
@@ -149,7 +151,7 @@ class PackageUninstallCommand {
     }
     return this.force
       .toolingCreate(this.org, 'SubscriberPackageVersionUninstallRequest', packageUninstallRequest)
-      .then(result => {
+      .then((result) => {
         if (result.success) {
           return this.poll.bind(this)(context, result.id, this.maxRetries);
         } else {
@@ -160,6 +162,7 @@ class PackageUninstallCommand {
 
   /**
    * returns a human readable message for a cli output
+   *
    * @returns {string}
    */
   getHumanSuccessMessage(result) {

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -28,25 +28,25 @@ export class MdapiListmetadataCommand extends ToolbeltCommand {
       // @ts-ignore force char override for backward compat -- don't try this at home!
       char: 'a',
       description: messages.getMessage('mdListmetadataCommandCliApiVersion', configInstance.getApiVersion()),
-      longDescription: messages.getMessage('mdListmetadataCommandCliApiVersionLong', configInstance.getApiVersion())
+      longDescription: messages.getMessage('mdListmetadataCommandCliApiVersionLong', configInstance.getApiVersion()),
     }),
     resultfile: flags.filepath({
       char: 'f',
       description: messages.getMessage('mdListmetadataCommandCliResultFile'),
       longDescription: messages.getMessage('mdListmetadataCommandCliResultFileLong'),
-      required: false
+      required: false,
     }),
     metadatatype: flags.string({
       char: 'm',
       description: messages.getMessage('mdListmetadataCommandCliMetadatatype'),
       longDescription: messages.getMessage('mdListmetadataCommandCliMetadatatypeLong'),
-      required: true
+      required: true,
     }),
     folder: flags.string({
       description: messages.getMessage('mdListmetadataCommandCliFolder'),
       longDescription: messages.getMessage('mdListmetadataCommandCliFolderLong'),
-      required: false
-    })
+      required: false,
+    }),
   };
 
   public async run(): Promise<unknown> {

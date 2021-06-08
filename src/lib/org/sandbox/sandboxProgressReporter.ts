@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { SandboxProcessObject, SandboxUserAuthResponse } from './sandboxOrgApi';
@@ -31,15 +31,15 @@ export class SandboxProgressReporter {
         { key: 'SandboxOrg', value: processRecord.SandboxOrganization },
         { key: 'Created Date', value: processRecord.CreatedDate },
         { key: 'ApexClassId', value: processRecord.ApexClassId },
-        { key: 'Authorized Sandbox Username', value: sandboxRes.authUserName }
+        { key: 'Authorized Sandbox Username', value: sandboxRes.authUserName },
       ];
 
       ux.styledHeader('Sandbox Org Creation Status');
       ux.table(data, {
         columns: [
           { key: 'key', label: 'Name' },
-          { key: 'value', label: 'Value' }
-        ]
+          { key: 'value', label: 'Value' },
+        ],
       });
     }
   }
@@ -55,10 +55,10 @@ export class SandboxProgressReporter {
     let waitTimeInSec: number = retriesLeft * pollIntervalInSecond;
 
     let waitTime: string = SandboxProgressReporter.getSecondsToHms(waitTimeInSec);
-    let waitTimeMsg: string = `Sleeping ${pollIntervalInSecond} seconds. Will wait ${waitTime} more before timing out.`;
-    let sandboxIdentifierMsg: string = `${processRecord.SandboxName}(${processRecord.Id})`;
+    let waitTimeMsg = `Sleeping ${pollIntervalInSecond} seconds. Will wait ${waitTime} more before timing out.`;
+    let sandboxIdentifierMsg = `${processRecord.SandboxName}(${processRecord.Id})`;
     let waitingOnAuthMessage: string = waitingOnAuth ? ', waiting on JWT auth' : '';
-    let completionMessage: string = `(${processRecord.CopyProgress}% completed${waitingOnAuthMessage})`;
+    let completionMessage = `(${processRecord.CopyProgress}% completed${waitingOnAuthMessage})`;
 
     progressMsg = `Sandbox request ${sandboxIdentifierMsg} is ${processRecord.Status} ${completionMessage}. ${waitTimeMsg}`;
     ux.log(progressMsg);

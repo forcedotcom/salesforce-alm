@@ -1,14 +1,15 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
 
 class CheckStatus {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   /*
@@ -22,7 +23,7 @@ class CheckStatus {
     this._checkStatus = boundCheckMethod;
     this._reporter = reporter;
     if (!reporter) {
-      this._reporter = status => status;
+      this._reporter = (status) => status;
     }
 
     this._wait = +waitTime;
@@ -37,20 +38,21 @@ class CheckStatus {
   handleStatus() {
     // Check deploy status
     return this._getStatus()
-      .then(status => this._reporter(status))
+      .then((status) => this._reporter(status))
       .then(
-        status =>
+        (status) =>
           new Promise((resolve, reject) => {
             if (status.done) {
               resolve(status);
             } else if (this._wait === 0) {
               resolve(status);
             } else {
+              // eslint-disable-next-line @typescript-eslint/no-implied-eval
               setTimeout(this._pollForStatus.bind(this, resolve, reject), this._getCorrectInterval());
             }
           })
       )
-      .then(status => {
+      .then((status) => {
         this._pollLocationMs = 0;
         return status;
       });
@@ -63,7 +65,7 @@ class CheckStatus {
       finishedPolling = this._pollLocationMs >= this._pollTimeoutMs;
     }
 
-    this._getStatus().then(status => {
+    this._getStatus().then((status) => {
       if (finishedPolling) {
         if (!status.done) {
           status.timedOut = true;
@@ -72,6 +74,7 @@ class CheckStatus {
       } else if (status.done) {
         resolve(status);
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval
         setTimeout(this._pollForStatus.bind(this, resolve, reject), this._getCorrectInterval());
       }
       this._reporter(status);
@@ -98,7 +101,7 @@ class CheckStatus {
   }
 
   _getStatus() {
-    return this._checkStatus().then(status => {
+    return this._checkStatus().then((status) => {
       // If we're not waiting and the status is not done, the request will timeout.
       if (this._wait === 0 && !status.done) {
         status.timedOut = true;

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -32,20 +32,20 @@ export class SourcePushCommand extends ToolbeltCommand {
       char: 'f',
       description: messages.getMessage('forceoverwriteFlagDescription'),
       longDescription: messages.getMessage('forceoverwriteFlagDescriptionLong'),
-      required: false
+      required: false,
     }),
     ignorewarnings: flags.boolean({
       char: 'g',
       description: messages.getMessage('ignorewarningsFlagDescription'),
       longDescription: messages.getMessage('ignorewarningsFlagDescriptionLong'),
-      required: false
+      required: false,
     }),
     replacetokens: flags.boolean({
       char: 'r',
       description: messages.getMessage('replacetokensFlagDescription'),
       longDescription: messages.getMessage('replacetokensFlagDescriptionLong'),
       required: false,
-      hidden: true
+      hidden: true,
     }),
     wait: flags.minutes({
       char: 'w',
@@ -53,8 +53,8 @@ export class SourcePushCommand extends ToolbeltCommand {
       longDescription: messages.getMessage('waitFlagDescriptionLong'),
       required: false,
       default: Duration.minutes(consts.DEFAULT_SRC_WAIT_MINUTES),
-      min: Duration.minutes(consts.MIN_SRC_WAIT_MINUTES)
-    })
+      min: Duration.minutes(consts.MIN_SRC_WAIT_MINUTES),
+    }),
   };
   protected readonly lifecycleEventNames = ['predeploy', 'postdeploy'];
 

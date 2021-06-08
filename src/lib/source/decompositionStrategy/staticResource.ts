@@ -1,29 +1,29 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as process from 'process';
-import * as fs from 'fs-extra';
-import { fs as fscore } from '@salesforce/core';
 import * as os from 'os';
 import * as path from 'path';
 import * as util from 'util';
+import * as fs from 'fs-extra';
+import { fs as fscore } from '@salesforce/core';
 import * as mime from 'mime';
 import * as AdmZip from 'adm-zip';
-import srcDevUtil = require('../../core/srcDevUtil');
 import * as BBPromise from 'bluebird';
+import { SfdxError } from '@salesforce/core';
+import srcDevUtil = require('../../core/srcDevUtil');
 
 import { XmlMetadataDocument } from '../xmlMetadataDocument';
 import { MetadataType } from '../metadataType';
 import * as PathUtil from '../sourcePathUtil';
 import { checkForXmlParseError } from '../sourceUtil';
-import { SfdxError } from '@salesforce/core';
 
-const fallBackMimeTypeExtensions = require('../mimeTypes');
 const mimeTypeExtensions = require('mime/types.json');
+const fallBackMimeTypeExtensions = require('../mimeTypes');
 
 /**
  * Encapsulates logic for handling of static resources.
@@ -176,6 +176,7 @@ export class StaticResource {
    * Get the mime type from the npm mime library file.
    * If the mime type is not supported there, use our backup manually added mime types file
    * If the mime type is not supported there, throw an error
+   *
    * @param unsupportedMimeTypes - an array of unsupported mime types for the purpose of logging
    * @returns {string[]} the mime type extension(s)
    */
@@ -200,7 +201,7 @@ export class StaticResource {
     const stat = fs.statSync(file);
     if (stat.isDirectory()) {
       const nestedFiles = fs.readdirSync(file);
-      nestedFiles.forEach(nestedFile => {
+      nestedFiles.forEach((nestedFile) => {
         const nestedPath = path.join(file, nestedFile);
         const nestedStat = fs.statSync(nestedPath);
         if (nestedStat.isDirectory()) {
@@ -248,7 +249,7 @@ export class StaticResource {
   }
 
   private getSingleFilePathPreferExisting(): string {
-    const ext = this.fileExtensions.find(ext => srcDevUtil.pathExistsSync(this.getSingleFilePath(ext)));
+    const ext = this.fileExtensions.find((ext) => srcDevUtil.pathExistsSync(this.getSingleFilePath(ext)));
     return this.getSingleFilePath(ext);
   }
 
@@ -270,7 +271,7 @@ export class StaticResource {
     createDuplicates: boolean,
     forceoverwrite = false
   ): Promise<[string[], string[], string[]]> {
-    let updatedPaths = [];
+    const updatedPaths = [];
     const duplicatePaths = [];
 
     // expand the archive into a temp directory
@@ -284,14 +285,15 @@ export class StaticResource {
     }
 
     // compare exploded directories if needed
-    let isUpdatingExistingStaticResource = srcDevUtil.pathExistsSync(this.getExplodedFolderPath());
+    const isUpdatingExistingStaticResource = srcDevUtil.pathExistsSync(this.getExplodedFolderPath());
     if (isUpdatingExistingStaticResource && createDuplicates) {
       await this.compareExplodedDirs(tempDir, duplicatePaths, updatedPaths, forceoverwrite);
     }
 
     const existingPaths = new Set<string>();
     if (isUpdatingExistingStaticResource) {
-      await fscore.actOn(this.getExplodedFolderPath(), async file => {
+      // eslint-disable-next-line @typescript-eslint/require-await
+      await fscore.actOn(this.getExplodedFolderPath(), async (file) => {
         existingPaths.add(file);
       });
     }
@@ -302,13 +304,15 @@ export class StaticResource {
 
     // if this is a new static resource then simply report all files as changed
     if (!isUpdatingExistingStaticResource || forceoverwrite) {
-      await fscore.actOn(tempDir, async file => {
+      // eslint-disable-next-line @typescript-eslint/require-await
+      await fscore.actOn(tempDir, async (file) => {
         updatedPaths.push(file.replace(tempDir, this.getExplodedFolderPath()));
       });
     } else {
       // if this is an existing static resource then we want to figure which files are new
       // and add those to updatedPaths
-      await fscore.actOn(tempDir, async file => {
+      // eslint-disable-next-line @typescript-eslint/require-await
+      await fscore.actOn(tempDir, async (file) => {
         const filePath = file.replace(tempDir, this.getExplodedFolderPath());
         if (!existingPaths.has(filePath)) {
           updatedPaths.push(filePath);
@@ -331,7 +335,7 @@ export class StaticResource {
     updatedPaths: string[],
     forceoverwrite = false
   ) {
-    await fscore.actOn(tempDir, async file => {
+    await fscore.actOn(tempDir, async (file) => {
       if (!fs.statSync(file).isDirectory()) {
         const relativePath = file.substring(file.indexOf(tempDir) + tempDir.length);
         const workspaceFile = path.join(this.getExplodedFolderPath(), relativePath);

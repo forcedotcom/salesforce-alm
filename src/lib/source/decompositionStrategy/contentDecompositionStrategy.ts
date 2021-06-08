@@ -1,7 +1,8 @@
 /*
- * Copyright, 1999-2017, salesforce.com
- * All Rights Reserved
- * Company Confidential
+ * Copyright (c) 2020, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /**
@@ -11,6 +12,7 @@
 export interface ContentDecompositionStrategy {
   /**
    * Gets the list of paths to content files in the workspace for the given metadata entity
+   *
    * @param metadataFilePath
    */
   getContentPaths(metadataFilePath: string): string[];

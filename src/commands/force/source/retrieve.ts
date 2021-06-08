@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -36,7 +36,7 @@ export class SourceRetrieveCommand extends ToolbeltCommand {
       // @ts-ignore force char override for backward compat -- don't try this at home!
       char: 'a',
       description: mdapiMsgs.getMessage('apiversionFlagDescription', [configInstance.getApiVersion()]),
-      longDescription: mdapiMsgs.getMessage('apiversionFlagLongDescription')
+      longDescription: mdapiMsgs.getMessage('apiversionFlagLongDescription'),
     }),
     wait: flags.minutes({
       char: 'w',
@@ -45,39 +45,39 @@ export class SourceRetrieveCommand extends ToolbeltCommand {
       default: Duration.minutes(consts.DEFAULT_SRC_WAIT_MINUTES),
       min: Duration.minutes(consts.MIN_SRC_WAIT_MINUTES),
       description: commonMsgs.getMessage('waitParamDescription'),
-      longDescription: commonMsgs.getMessage('waitParamDescriptionLong')
+      longDescription: commonMsgs.getMessage('waitParamDescriptionLong'),
     }),
     manifest: flags.filepath({
       char: 'x',
       description: messages.getMessage('manifestParamDescription'),
       longDescription: messages.getMessage('manifestParamLongDescription'),
       required: false,
-      exclusive: ['metadata', 'sourcepath']
+      exclusive: ['metadata', 'sourcepath'],
     }),
     metadata: flags.array({
       char: 'm',
       description: messages.getMessage('metadataParamDescription'),
       longDescription: messages.getMessage('metadataParamLongDescription'),
       required: false,
-      exclusive: ['manifest', 'sourcepath']
+      exclusive: ['manifest', 'sourcepath'],
     }),
     packagenames: flags.array({
       char: 'n',
       description: mdapiMsgs.getMessage('packagenamesFlagDescription'),
       longDescription: mdapiMsgs.getMessage('packagenamesFlagLongDescription'),
-      required: false
+      required: false,
     }),
     sourcepath: flags.array({
       char: 'p',
       description: messages.getMessage('sourcePathParamDescription'),
       longDescription: messages.getMessage('sourcePathParamLongDescription'),
       required: false,
-      exclusive: ['manifest', 'metadata']
+      exclusive: ['manifest', 'metadata'],
     }),
     verbose: flags.builtin({
       description: mdapiMsgs.getMessage('verboseFlagDescription'),
-      longDescription: mdapiMsgs.getMessage('verboseFlagLongDescription')
-    })
+      longDescription: mdapiMsgs.getMessage('verboseFlagLongDescription'),
+    }),
   };
   protected readonly lifecycleEventNames = ['preretrieve', 'postretrieve', 'postsourceupdate'];
 

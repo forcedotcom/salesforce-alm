@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is a doc command
@@ -11,7 +11,7 @@
 import { SfdxCommand } from '@salesforce/command';
 import { Config } from '../lib/core/configApi';
 
-const _getAsciiSignature = apiVersion => `
+const _getAsciiSignature = (apiVersion) => `
                  DX DX DX
              DX DX DX DX DX DX          DX DX DX
           DX DX DX      DX DX DX    DX DX DX DX DX DX
@@ -50,6 +50,7 @@ DX DX                                                                   DX DX
 export class ForceCommand extends SfdxCommand {
   public static readonly hidden = true;
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   public async run(): Promise<{ apiVersion: string }> {
     const apiVersion = new Config().getApiVersion();
     this.ux.log(_getAsciiSignature(apiVersion));

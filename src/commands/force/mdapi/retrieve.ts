@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -31,48 +31,48 @@ export class MdapiRetrieveCommand extends ToolbeltCommand {
       // @ts-ignore force char override for backward compat -- don't try this at home!
       char: 'a',
       description: messages.getMessage('apiversionFlagDescription', [configInstance.getApiVersion()]),
-      longDescription: messages.getMessage('apiversionFlagLongDescription')
+      longDescription: messages.getMessage('apiversionFlagLongDescription'),
     }),
     wait: flags.minutes({
       char: 'w',
       description: messages.getMessage('waitFlagDescription', [consts.DEFAULT_MDAPI_RETRIEVE_WAIT_MINUTES]),
       longDescription: messages.getMessage('waitFlagLongDescription'),
-      required: false
+      required: false,
     }),
     retrievetargetdir: flags.directory({
       char: 'r',
       description: messages.getMessage('retrievetargetdirFlagDescription'),
       longDescription: messages.getMessage('retrievetargetdirFlagLongDescription'),
-      required: true
+      required: true,
     }),
     unpackaged: flags.filepath({
       char: 'k',
       description: messages.getMessage('unpackagedFlagDescription'),
       longDescription: messages.getMessage('unpackagedFlagLongDescription'),
-      required: false
+      required: false,
     }),
     verbose: flags.builtin({
       description: messages.getMessage('verboseFlagDescription'),
-      longDescription: messages.getMessage('verboseFlagLongDescription')
+      longDescription: messages.getMessage('verboseFlagLongDescription'),
     }),
     sourcedir: flags.directory({
       char: 'd',
       description: messages.getMessage('sourcedirFlagDescription', [consts.WORKSPACE_CONFIG_FILENAME]),
       longDescription: messages.getMessage('sourcedirFlagLongDescription', [consts.WORKSPACE_CONFIG_FILENAME]),
-      required: false
+      required: false,
     }),
     packagenames: flags.array({
       char: 'p',
       description: messages.getMessage('packagenamesFlagDescription'),
       longDescription: messages.getMessage('packagenamesFlagLongDescription'),
-      required: false
+      required: false,
     }),
     singlepackage: flags.boolean({
       char: 's',
       description: messages.getMessage('singlepackageFlagDescription'),
       longDescription: messages.getMessage('singlepackageFlagLongDescription'),
-      required: false
-    })
+      required: false,
+    }),
   };
 
   public async run(): Promise<unknown> {

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -21,13 +21,11 @@ import srcDevUtil = require('./srcDevUtil');
 
 const urls = require('../urls');
 
-export const getJwtAudienceUrl = function(oauthConfig) {
+export const getJwtAudienceUrl = function (oauthConfig) {
   // default audience must be...
   let audienceUrl = urls.production;
   const loginUrl = _.get(oauthConfig, 'loginUrl', '');
-  const createdOrgInstance = _.get(oauthConfig, 'createdOrgInstance', '')
-    .trim()
-    .toLowerCase();
+  const createdOrgInstance = _.get(oauthConfig, 'createdOrgInstance', '').trim().toLowerCase();
 
   if (process.env.SFDX_AUDIENCE_URL) {
     audienceUrl = process.env.SFDX_AUDIENCE_URL;

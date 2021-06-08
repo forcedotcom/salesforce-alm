@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -26,8 +26,8 @@ export class OrgShapeDeleteCommand extends ToolbeltCommand {
       char: 'p',
       description: messages.getMessage('noPrompt', [], 'org_shape_delete'),
       longDescription: messages.getMessage('noPromptLong', [], 'org_shape_delete'),
-      required: false
-    })
+      required: false,
+    }),
   };
 
   public async run(): Promise<unknown> {
@@ -43,7 +43,7 @@ export class OrgShapeDeleteCommand extends ToolbeltCommand {
     } else {
       return heroku
         .prompt(messages.getMessage('deleteCommandYesNo', this.org.getUsername(), 'org_shape_delete'))
-        .then(answer => {
+        .then((answer) => {
           if (answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y') {
             return this.execLegacyCommand(orgShapeDeleteCommand, context);
           }

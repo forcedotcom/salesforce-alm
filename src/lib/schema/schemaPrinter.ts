@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ class Schema {
     let definition = prop;
     const segments = prop.$ref.split('/');
 
-    segments.forEach(segment => {
+    segments.forEach((segment) => {
       if (segment === '#') {
         definition = this;
       } else {
@@ -68,7 +68,7 @@ class SchemaProperty {
     // Handle oneOfs
     if (this.oneOf) {
       // TODO Should this be = 'oneOf' and we show the different options below?
-      this.type = this.type || this.oneOf.map(oneOf => oneOf.type || oneOf.$ref).join('|');
+      this.type = this.type || this.oneOf.map((oneOf) => oneOf.type || oneOf.$ref).join('|');
     }
 
     // Handle items references
@@ -130,7 +130,7 @@ class SchemaPrinter {
         add('');
       }
 
-      Object.keys(this.schema.properties).forEach(key => {
+      Object.keys(this.schema.properties).forEach((key) => {
         this.parseProp(key, this.schema.properties[key], startLevel);
         add('');
       });
@@ -140,12 +140,12 @@ class SchemaPrinter {
   }
 
   print() {
-    this.lines.forEach(line => logger.log(line));
+    this.lines.forEach((line) => logger.log(line));
   }
 
   addFn(level) {
     const indent = ' '.repeat(level * 4);
-    return line => {
+    return (line) => {
       this.lines.push(`${indent}${line}`);
     };
   }
@@ -158,7 +158,7 @@ class SchemaPrinter {
     add(prop.getHeader());
 
     if (prop.type === 'object' && prop.properties) {
-      Object.keys(prop.properties).forEach(key => {
+      Object.keys(prop.properties).forEach((key) => {
         this.parseProp(key, prop.properties[key], level + 1);
       });
     }
@@ -166,12 +166,12 @@ class SchemaPrinter {
       add(`    ${prop.getArrayHeader()}`);
       if (prop.items.type === 'object') {
         if (prop.items.properties) {
-          Object.keys(prop.items.properties).forEach(key => {
+          Object.keys(prop.items.properties).forEach((key) => {
             this.parseProp(key, prop.items.properties[key], level + 2);
           });
         }
         if (prop.items.patternProperties) {
-          Object.keys(prop.items.patternProperties).forEach(key => {
+          Object.keys(prop.items.patternProperties).forEach((key) => {
             add(`${key} : ${prop.items.patternProperties[key].pattern}`);
           });
         }

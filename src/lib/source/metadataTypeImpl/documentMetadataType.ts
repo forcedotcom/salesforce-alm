@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import * as path from 'path';
 import * as _ from 'lodash';
@@ -12,8 +13,8 @@ import { WorkspaceFileState } from '../workspaceFileState';
 import MetadataRegistry = require('../metadataRegistry');
 
 import { WorkspaceElement } from '../workspaceElement';
-import { InFolderMetadataType } from './inFolderMetadataType';
 import * as PathUtil from '../sourcePathUtil';
+import { InFolderMetadataType } from './inFolderMetadataType';
 
 export class DocumentMetadataType extends InFolderMetadataType {
   protected getMdapiFormattedMetadataFileName(metadataFilePath: string): string {

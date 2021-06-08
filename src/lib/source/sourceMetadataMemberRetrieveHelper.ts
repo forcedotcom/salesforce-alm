@@ -1,22 +1,22 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
-import MdapiPackage = require('./mdapiPackage');
-import { MetadataTypeFactory } from './metadataTypeFactory';
 import { ForceIgnore } from '@salesforce/source-deploy-retrieve/lib/src/metadata-registry/forceIgnore';
+import { SfdxProject } from '@salesforce/core';
 import * as almError from '../core/almError';
 import logger = require('../core/logApi');
 import Messages = require('../../lib/messages');
+import MdapiPackage = require('./mdapiPackage');
+import { MetadataTypeFactory } from './metadataTypeFactory';
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import MetadataRegistry = require('./metadataRegistry');
 import { ChangeElement, RemoteSourceTrackingService } from './remoteSourceTrackingService';
 import { NonDecomposedElementsIndex } from './nonDecomposedElementsIndex';
-import { SfdxProject } from '@salesforce/core';
 const messages = Messages();
 
 interface MdapiPackages {
@@ -31,6 +31,7 @@ interface MdApiItem {
 
 /**
  * Helper that checks if the md item was set to obsolete in the org and returns true if so
+ *
  * @param mdApiItem
  * @param obsoleteNames
  * @param metadataRegistry
@@ -38,7 +39,7 @@ interface MdApiItem {
  * @returns {boolean} true - if the item is obsolete and should not be part of the md package
  * @private
  */
-const _shouldExcludeFromMetadataPackage = function(
+const _shouldExcludeFromMetadataPackage = function (
   mdApiItem: MdApiItem,
   obsoleteNames: MdApiItem[],
   metadataRegistry: MetadataRegistry,
@@ -95,6 +96,7 @@ class SourceMetadataMemberRetrieveHelper {
 
   /**
    * gets all source metadata revisions from the server from <fromRevision>.
+   *
    * @returns
    * "Package": {
    *   "$": {
@@ -112,16 +114,16 @@ class SourceMetadataMemberRetrieveHelper {
    */
   async getRevisionsAsPackage(obsoleteNames?: MdApiItem[]): Promise<MdapiPackages> {
     const remoteSourceTrackingService: RemoteSourceTrackingService = await RemoteSourceTrackingService.getInstance({
-      username: this.username
+      username: this.username,
     });
     const changedElements: ChangeElement[] = await remoteSourceTrackingService.retrieveUpdates();
     const nonDecomposedElementsIndex = await NonDecomposedElementsIndex.getInstance({
       username: this.username,
-      metadataRegistry: this.metadataRegistry
+      metadataRegistry: this.metadataRegistry,
     });
     const relatedElements = nonDecomposedElementsIndex.getRelatedNonDecomposedElements(changedElements);
     const allElements = changedElements.concat(relatedElements);
-    const parsePromises = allElements.map(sourceMember => {
+    const parsePromises = allElements.map((sourceMember) => {
       const memberType = sourceMember.type;
       const memberName = sourceMember.name;
 
@@ -150,8 +152,10 @@ class SourceMetadataMemberRetrieveHelper {
         packages[pkg] = new MdapiPackage();
       });
 
-    promisedResults.forEach(mdApiItem => {
-      if (!this.shouldAddMember(mdApiItem, obsoleteNames)) return;
+    promisedResults.forEach((mdApiItem) => {
+      if (!this.shouldAddMember(mdApiItem, obsoleteNames)) {
+        return;
+      }
 
       const pkg = this.determinePackage(mdApiItem);
       packages[pkg].addMember(mdApiItem.fullName, mdApiItem.type);

@@ -1,27 +1,27 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // 3pp
+import * as util from 'util';
 import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
-import * as util from 'util';
 import cli from 'cli-ux';
 
 // Local
+import { env, set } from '@salesforce/kit';
+import { Messages as MessagesCore } from '@salesforce/core';
 import logger = require('../core/logApi');
 import * as almError from '../core/almError';
 import Messages = require('../messages');
 const messages = Messages();
-import CheckStatus = require('./mdapiCheckStatusApi');
 import consts = require('../core/constants');
 import Stash = require('../core/stash');
-import { env, set } from '@salesforce/kit';
+import CheckStatus = require('./mdapiCheckStatusApi');
 // for messages in FCT/messages/
-import { Messages as MessagesCore } from '@salesforce/core';
 
 MessagesCore.importMessagesDirectory(__dirname);
 
@@ -52,7 +52,7 @@ class MdDeployReportApi {
       format: `${stashkey.split('_')[0]} PROGRESS | {bar} | {value}/{total} Components`,
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
-      linewrap: true
+      linewrap: true,
     });
   }
 
@@ -69,24 +69,26 @@ class MdDeployReportApi {
   }
 
   _printComponentFailures(result) {
-    if (result.details && result.details.componentFailures) {
+    if (result?.details?.componentFailures) {
       if (!util.isArray(result.details.componentFailures)) {
         result.details.componentFailures = [result.details.componentFailures];
       }
 
-      if (this.useProgressBar) this.progressBar.stop();
+      if (this.useProgressBar) {
+        this.progressBar.stop();
+      }
 
       // sort by filename then fullname
-      const failures: Array<string> = _.chain(result.details.componentFailures)
+      const failures: string[] = _.chain(result.details.componentFailures)
         .sortBy([
-          function(o) {
+          function (o) {
             return o.fileName ? o.fileName.toUpperCase() : o.fileName;
-          }
+          },
         ])
         .sortBy([
-          function(o) {
+          function (o) {
             return o.fullName ? o.fullName.toUpperCase() : o.fullName;
-          }
+          },
         ])
         .value();
 
@@ -97,8 +99,8 @@ class MdDeployReportApi {
           { key: 'problemType', label: 'Type' },
           { key: 'fileName', label: 'File' },
           { key: 'fullName', label: 'Name' },
-          { key: 'problem', label: 'Problem' }
-        ]
+          { key: 'problem', label: 'Problem' },
+        ],
       });
       this.logger.log('');
     }
@@ -111,16 +113,16 @@ class MdDeployReportApi {
           result.details.runTestResult.failures = [result.details.runTestResult.failures];
         }
 
-        const tests: Array<string> = _.chain(result.details.runTestResult.failures)
+        const tests: string[] = _.chain(result.details.runTestResult.failures)
           .sortBy([
-            function(o) {
+            function (o) {
               return o.methodName.toUpperCase();
-            }
+            },
           ])
           .sortBy([
-            function(o) {
+            function (o) {
               return o.name.toUpperCase();
-            }
+            },
           ])
           .value();
         this.progressBar.update(result.numberComponentsDeployed + result.numberTestsCompleted);
@@ -131,8 +133,8 @@ class MdDeployReportApi {
             { key: 'name', label: 'Name' },
             { key: 'methodName', label: 'Method' },
             { key: 'message', label: 'Message' },
-            { key: 'stackTrace', label: 'Stacktrace' }
-          ]
+            { key: 'stackTrace', label: 'Stacktrace' },
+          ],
         });
       }
 
@@ -141,16 +143,16 @@ class MdDeployReportApi {
           result.details.runTestResult.successes = [result.details.runTestResult.successes];
         }
 
-        const tests: Array<String> = _.chain(result.details.runTestResult.successes)
+        const tests: string[] = _.chain(result.details.runTestResult.successes)
           .sortBy([
-            function(o) {
+            function (o) {
               return o.methodName.toUpperCase();
-            }
+            },
           ])
           .sortBy([
-            function(o) {
+            function (o) {
               return o.name.toUpperCase();
-            }
+            },
           ])
           .value();
         this.progressBar.update(result.numberComponentsDeployed + result.numberTestsCompleted);
@@ -162,8 +164,8 @@ class MdDeployReportApi {
         this.logger.table(tests, {
           columns: [
             { key: 'name', label: 'Name' },
-            { key: 'methodName', label: 'Method' }
-          ]
+            { key: 'methodName', label: 'Method' },
+          ],
         });
       }
 
@@ -172,11 +174,11 @@ class MdDeployReportApi {
           result.details.runTestResult.codeCoverage = [result.details.runTestResult.codeCoverage];
         }
 
-        const coverage: Array<string> = _.chain(result.details.runTestResult.codeCoverage)
+        const coverage: string[] = _.chain(result.details.runTestResult.codeCoverage)
           .sortBy([
-            function(o) {
+            function (o) {
               return o.name.toUpperCase();
-            }
+            },
           ])
           .value();
 
@@ -199,7 +201,7 @@ class MdDeployReportApi {
                 }
 
                 let pctCovered = 100;
-                let coverageDecimal: number = parseFloat(
+                const coverageDecimal: number = parseFloat(
                   ((numLocations - numLocationsNotCovered) / numLocations).toFixed(2)
                 );
                 if (numLocations > 0) {
@@ -207,12 +209,12 @@ class MdDeployReportApi {
                 }
 
                 return color(`${pctCovered}%`);
-              }
+              },
             },
             {
               key: 'locationsNotCovered',
               label: 'Uncovered Lines',
-              format: locationsNotCovered => {
+              format: (locationsNotCovered) => {
                 if (!locationsNotCovered) {
                   return '';
                 }
@@ -222,14 +224,14 @@ class MdDeployReportApi {
                 }
 
                 const uncoveredLines = [];
-                locationsNotCovered.forEach(uncoveredLine => {
+                locationsNotCovered.forEach((uncoveredLine) => {
                   uncoveredLines.push(uncoveredLine.line);
                 });
 
                 return uncoveredLines.join(',');
-              }
-            }
-          ]
+              },
+            },
+          ],
         });
       }
 
@@ -248,23 +250,23 @@ class MdDeployReportApi {
 
       if (result.details.componentSuccesses.length > 0) {
         // sort by type then filename then fullname
-        const files: Array<string> =
+        const files: string[] =
           result.details.componentSuccesses.length > 0
             ? _.chain(result.details.componentSuccesses)
                 .sortBy([
-                  function(o) {
+                  function (o) {
                     return o.fullName ? o.fullName.toUpperCase() : o.fullName;
-                  }
+                  },
                 ])
                 .sortBy([
-                  function(o) {
+                  function (o) {
                     return o.fileName ? o.fileName.toUpperCase() : o.fileName;
-                  }
+                  },
                 ])
                 .sortBy([
-                  function(o) {
+                  function (o) {
                     return o.componentType ? o.componentType.toUpperCase() : o.componentType;
-                  }
+                  },
                 ])
                 .value()
             : [];
@@ -276,8 +278,8 @@ class MdDeployReportApi {
             { key: 'componentType', label: 'Type' },
             { key: 'fileName', label: 'File' },
             { key: 'fullName', label: 'Name' },
-            { key: 'id', label: 'Id' }
-          ]
+            { key: 'id', label: 'Id' },
+          ],
         });
       }
     }
@@ -304,7 +306,9 @@ class MdDeployReportApi {
       }
 
       if (result.timedOut) {
-        if (this.useProgressBar) this.progressBar.stop();
+        if (this.useProgressBar) {
+          this.progressBar.stop();
+        }
         this._log(messages.getMessage('mdDeployCommandCliWaitTimeExceededError', [options.wait]));
         return result;
       }
@@ -327,7 +331,9 @@ class MdDeployReportApi {
         }
       }
 
-      if (this.useProgressBar) this.progressBar.stop();
+      if (this.useProgressBar) {
+        this.progressBar.stop();
+      }
     }
 
     return result;
@@ -338,12 +344,14 @@ class MdDeployReportApi {
     this.loggingEnabled = options.source || options.verbose || (!options.json && !options.disableLogging);
     options.wait = +(options.wait || consts.DEFAULT_MDAPI_WAIT_MINUTES);
 
-    if (this.useProgressBar) this._log(`Job ID | ${options.jobid}`);
+    if (this.useProgressBar) {
+      this._log(`Job ID | ${options.jobid}`);
+    }
 
     return BBPromise.resolve()
       .then(() => this._doDeployStatus(options))
-      .then(result => this._throwErrorIfDeployFailed(result))
-      .catch(err => {
+      .then((result) => this._throwErrorIfDeployFailed(result))
+      .catch((err) => {
         if (err.name === 'sf:MALFORMED_ID') {
           throw almError('mdDeployCommandCliInvalidJobIdError', options.jobid);
         } else {
@@ -355,7 +363,7 @@ class MdDeployReportApi {
   async validate(context): BBPromise {
     const options = context.flags;
 
-    let stashedValues = await Stash.list(this.stashkey);
+    const stashedValues = await Stash.list(this.stashkey);
 
     if (!options.jobid) {
       options.jobid = options.jobid || stashedValues.jobid;
@@ -393,8 +401,10 @@ class MdDeployReportApi {
       this.pollIntervalStrategy
     )
       .handleStatus()
-      .then(res => {
-        if (this.useProgressBar) this.progressBar.stop();
+      .then((res) => {
+        if (this.useProgressBar) {
+          this.progressBar.stop();
+        }
         return res;
       });
   }

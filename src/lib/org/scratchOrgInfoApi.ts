@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { URL } from 'url';
+import { inspect } from 'util';
 import { Duration } from '@salesforce/kit';
 import { Logger, MyDomainResolver, SfdxError, AuthFields, AuthInfo } from '@salesforce/core';
 
 // Node
-import { URL } from 'url';
-import { inspect } from 'util';
 
 // Thirdparty
 import * as _ from 'lodash';
@@ -18,22 +18,23 @@ import * as BBPromise from 'bluebird';
 import * as optional from 'optional-js';
 
 // Local
+import { ensureString } from '@salesforce/ts-types';
 import * as almError from '../core/almError';
 import * as Force from '../core/force';
 import messages = require('../messages');
 import srcDevUtil = require('../core/srcDevUtil');
 import SettingsGenerator = require('./scratchOrgSettingsGenerator');
-import { ensureString } from '@salesforce/ts-types';
 
 /**
  * Returns the url to be used to authorize into the new scratch org
+ *
  * @param scratchOrgInfoComplete
  * @param force
  * @param useLoginUrl
  * @returns {*}
  * @private
  */
-const _getOrgInstanceAuthority = function(scratchOrgInfoComplete, appConfig, useLoginUrl, masterOrgLoginUrl) {
+const _getOrgInstanceAuthority = function (scratchOrgInfoComplete, appConfig, useLoginUrl, masterOrgLoginUrl) {
   const createdOrgInstance = scratchOrgInfoComplete.SignupInstance;
 
   let signupTargetLoginUrl;
@@ -58,6 +59,7 @@ const _getOrgInstanceAuthority = function(scratchOrgInfoComplete, appConfig, use
 
 /**
  * after we successfully signup an org we need to trade the auth token for access and refresh token.
+ *
  * @param scratchOrgInfoComplete - The completed ScratchOrgInfo which should contain an access token.
  * @param force - the force api
  * @param hubOrg - the environment hub org
@@ -67,7 +69,7 @@ const _getOrgInstanceAuthority = function(scratchOrgInfoComplete, appConfig, use
  * @returns {*}
  * @private
  */
-const _authorize = function(scratchOrgInfoComplete, force, hubOrg, scratchOrg, clientSecret, saveAsDefault, logger) {
+const _authorize = function (scratchOrgInfoComplete, force, hubOrg, scratchOrg, clientSecret, saveAsDefault, logger) {
   logger.debug(`_authorize - scratchOrgInfoComplete: ${JSON.stringify(scratchOrgInfoComplete, null, 4)}`);
   const appConfig = force.config.getAppConfigIfInWorkspace();
   const oauthConfig: AuthFields & {
@@ -76,16 +78,16 @@ const _authorize = function(scratchOrgInfoComplete, force, hubOrg, scratchOrg, c
     expirationDate?: string;
   } = {
     clientId: scratchOrgInfoComplete.ConnectedAppConsumerKey,
-    createdOrgInstance: scratchOrgInfoComplete.SignupInstance
+    createdOrgInstance: scratchOrgInfoComplete.SignupInstance,
   };
 
   return hubOrg
     .getConfig()
-    .then(configData => {
+    .then((configData) => {
       configData.isDevHub = true;
       return hubOrg.saveConfig(configData);
     })
-    .then(config => {
+    .then((config) => {
       const isJwtFlow = !!config.privateKey;
       oauthConfig.loginUrl = _getOrgInstanceAuthority(scratchOrgInfoComplete, appConfig, true, config.loginUrl);
 
@@ -113,14 +115,14 @@ const _authorize = function(scratchOrgInfoComplete, force, hubOrg, scratchOrg, c
 
       return force
         .authorizeAndSave(oauthConfig, scratchOrg, saveAsDefault)
-        .then(orgConfig => {
+        .then((orgConfig) => {
           logger.debug(`_authorize - orgConfig.loginUrl: ${orgConfig.loginUrl}`);
           logger.debug(`_authorize - orgConfig.instanceUrl: ${orgConfig.instanceUrl}`);
           if (scratchOrgInfoComplete.Snapshot) {
             // save snapshot w/ org config data
-            return scratchOrg.getConfig().then(decryptedConfig => {
+            return scratchOrg.getConfig().then((decryptedConfig) => {
               decryptedConfig.snapshot = scratchOrgInfoComplete.Snapshot;
-              return scratchOrg.saveConfig(decryptedConfig).then(orgConfigData => {
+              return scratchOrg.saveConfig(decryptedConfig).then((orgConfigData) => {
                 logger.debug(`_authorize - updated orgConfig: ${inspect(orgConfigData)}`);
                 return orgConfigData;
               });
@@ -128,7 +130,7 @@ const _authorize = function(scratchOrgInfoComplete, force, hubOrg, scratchOrg, c
           }
           return orgConfig;
         })
-        .catch(err => {
+        .catch((err) => {
           // If the custom domain url is not yet available,
           // the authorization above will fail. If this is the source of the error,
           // then retry the authorization using the instance url
@@ -145,21 +147,22 @@ const _authorize = function(scratchOrgInfoComplete, force, hubOrg, scratchOrg, c
 
 /**
  * Signup API object.
+ *
  * @constructor
  * @param configApi The app configuration
  * @param forceApi The force api
  * the scratchOrgInfo status is active.
  */
-const signup = function(forceApi?, hubOrg?) {
+const signup = function (forceApi?, hubOrg?) {
   this.force = optional.ofNullable(forceApi).orElse(new Force());
   this.hubOrg = hubOrg;
 
   this.orgSettings = new SettingsGenerator();
 };
 
-signup.checkOrgDoesntExists = async function(_scratchOrgInfo: any): Promise<void> {
+signup.checkOrgDoesntExists = async function (_scratchOrgInfo: any): Promise<void> {
   const usernameKey = Object.keys(_scratchOrgInfo).find((key: string) =>
-    key ? 'USERNAME' === key.toUpperCase() : false
+    key ? key.toUpperCase() === 'USERNAME' : false
   );
   if (!usernameKey) {
     return;
@@ -185,11 +188,12 @@ signup.checkOrgDoesntExists = async function(_scratchOrgInfo: any): Promise<void
 
 /**
  * This extracts orgPrefs/settings from the user input and performs a basic scratchOrgInfo request.
+ *
  * @param scratchOrgInfo - An object containing the fields of the ScratchOrgInfo.
  * @returns {*|promise}
  */
-signup.prototype.request = async function(scratchOrgInfo) {
-  //Look for any settings
+signup.prototype.request = async function (scratchOrgInfo) {
+  // Look for any settings
   await this.orgSettings.extract(scratchOrgInfo);
 
   // If these were present, they were already used to initialize the scratchOrgSettingsGenerator.
@@ -203,7 +207,7 @@ signup.prototype.request = async function(scratchOrgInfo) {
     throw almError('signupDuplicateSettingsSpecified');
   }
 
-  //See if we need to migrate and warn about using old style orgPreferences
+  // See if we need to migrate and warn about using old style orgPreferences
   if (scratchOrgInfo.orgPreferences) {
     await this.orgSettings.migrate(scratchOrgInfo);
   }
@@ -212,9 +216,9 @@ signup.prototype.request = async function(scratchOrgInfo) {
 
   await signup.checkOrgDoesntExists(_scratchOrgInfo); // throw if it does exists.
 
-  return Logger.child('scratchOrgInfoApi').then(logger => {
+  return Logger.child('scratchOrgInfoApi').then((logger) => {
     this.logger = logger;
-    return this.force.create(this.hubOrg, 'ScratchOrgInfo', _scratchOrgInfo).catch(err => {
+    return this.force.create(this.hubOrg, 'ScratchOrgInfo', _scratchOrgInfo).catch((err) => {
       if (err.errorCode === 'REQUIRED_FIELD_MISSING') {
         err['message'] = messages(this.force.config.getLocale()).getMessage(
           'signupFieldsMissing',
@@ -231,12 +235,13 @@ signup.prototype.request = async function(scratchOrgInfo) {
  * authenticated orgs. To do that we need to make sure jsforce doesn't submit a query that exceeds this limit. Which is
  * what could happen by calling retrieveScratchOrgInfosWhereInOrgIds with a criteria object such as
  * {ScratchOrg: {$in: [...]}}
+ *
  * @param {object} devHub - The devHub used to query ScratchOrgInfo objects.
  * @param {array} scratchOrgIds - List of org ids that will be chunked.
  * @param {number} chunkSize - The maximum number of ScratchOrgsIds to submit in one query.
  * @returns {BBPromise.<Map>} - See retrieveScratchOrgInfos
  */
-signup.prototype.retrieveScratchOrgInfosWhereInOrgIds = function(devHub, scratchOrgIds, chunkSize = 100) {
+signup.prototype.retrieveScratchOrgInfosWhereInOrgIds = function (devHub, scratchOrgIds, chunkSize = 100) {
   const maxChunkSize = _.isInteger(chunkSize) && chunkSize > 0 ? chunkSize : 100;
   const maxNumberOfIds = 2000;
 
@@ -250,12 +255,12 @@ signup.prototype.retrieveScratchOrgInfosWhereInOrgIds = function(devHub, scratch
 
       // Id list is chunked to ensure jsforce doesn't specify a query greater than 10K characters. And we won't submit more
       // than 1 request at a time.
-      return BBPromise.map(chunks, chunk => this.retrieveScratchOrgInfos(devHub, { ScratchOrg: { $in: chunk } }), {
-        concurrency: 1
-      }).then(arrayOfMaps => _.reduce(arrayOfMaps, (accum, value) => new Map([...accum, ...value]), new Map()));
+      return BBPromise.map(chunks, (chunk) => this.retrieveScratchOrgInfos(devHub, { ScratchOrg: { $in: chunk } }), {
+        concurrency: 1,
+      }).then((arrayOfMaps) => _.reduce(arrayOfMaps, (accum, value) => new Map([...accum, ...value]), new Map()));
     } else {
       return this.retrieveScratchOrgInfos(devHub, {
-        ScratchOrg: { $in: scratchOrgIds }
+        ScratchOrg: { $in: scratchOrgIds },
       });
     }
   }
@@ -264,12 +269,13 @@ signup.prototype.retrieveScratchOrgInfosWhereInOrgIds = function(devHub, scratch
 
 /**
  * retrieves a list of scratchOrgInfo's associated with a devHub
+ *
  * @param devHub - the dev hub associated with the infos.
  * @param {object} criteria - the query criteria. ex {Id: '1234233214'}
  * @param {array} fields - the fields expected for the return
  * @returns {BBPromise.<Map>} keys = SignupUsername, values = org data
  */
-signup.prototype.retrieveScratchOrgInfos = function(devHub, criteria, fields) {
+signup.prototype.retrieveScratchOrgInfos = function (devHub, criteria, fields) {
   // By default we will find all
   let _criteria = {};
 
@@ -293,7 +299,7 @@ signup.prototype.retrieveScratchOrgInfos = function(devHub, criteria, fields) {
     // if fields are specified
     if (!_.isNil(fields)) {
       // And it's an array of non-empty strings
-      if (_.isArray(fields) && fields.length > 0 && fields.every(elem => _.isString(elem) && elem.length > 0)) {
+      if (_.isArray(fields) && fields.length > 0 && fields.every((elem) => _.isString(elem) && elem.length > 0)) {
         _fields = fields;
       } else {
         const error = new Error(`fields must be an array: ${criteria}`);
@@ -311,10 +317,10 @@ signup.prototype.retrieveScratchOrgInfos = function(devHub, criteria, fields) {
 
     // Go to the server and get all the scratch orgs for the specified dev hub.
     // Return a map keyed by SignupUsername
-    return devHub.getConfig().then(orgConfig =>
-      this.force.find(devHub, 'ScratchOrgInfo', _criteria, _fields).then(data => {
+    return devHub.getConfig().then((orgConfig) =>
+      this.force.find(devHub, 'ScratchOrgInfo', _criteria, _fields).then((data) => {
         // convert head up camel case to head down camel case
-        const info = data.map(element => {
+        const info = data.map((element) => {
           const orgElement = _.mapKeys(element, (val, key) => _.camelCase(key));
           orgElement.devHubOrgId = orgConfig.orgId;
           // Store the dev hub reference since we have it and it's potentially expensive to get.
@@ -326,7 +332,7 @@ signup.prototype.retrieveScratchOrgInfos = function(devHub, criteria, fields) {
         });
 
         // index the scratch org infos by signupUsername
-        return new Map(info.map(element => [element[_.camelCase(returnKey)], element]));
+        return new Map(info.map((element) => [element[_.camelCase(returnKey)], element]));
       })
     );
   } else {
@@ -338,10 +344,11 @@ signup.prototype.retrieveScratchOrgInfos = function(devHub, criteria, fields) {
 
 /**
  * This retrieves the ScratchOrgInfo
+ *
  * @param scratchOrgInfoId - the id of the scratchOrgInfo that we are retrieving
  * @returns {BBPromise}
  */
-signup.prototype.retrieveScratchOrgInfo = async function(scratchOrgInfoId) {
+signup.prototype.retrieveScratchOrgInfo = async function (scratchOrgInfoId) {
   const request = await this.force.retrieve(this.hubOrg, 'ScratchOrgInfo', scratchOrgInfoId);
 
   if (!this.logger) {
@@ -376,13 +383,14 @@ signup.prototype.retrieveScratchOrgInfo = async function(scratchOrgInfoId) {
 
 /**
  * This authenticates into the newly created org and sets org preferences
+ *
  * @param scratchOrgInfoResult - an object containing the fields of the ScratchOrgInfo
  * @param clientSecret - the OAuth client secret. May be null for JWT OAuth flow
  * @param scratchOrg - The ScratchOrg configuration
  * @param saveAsDefault - Save the org as the default for commands to run against
  * @returns {*}
  */
-signup.prototype.processScratchOrgInfoResult = function(scratchOrgInfoResult, clientSecret, scratchOrg, setAsDefault) {
+signup.prototype.processScratchOrgInfoResult = function (scratchOrgInfoResult, clientSecret, scratchOrg, setAsDefault) {
   scratchOrg.setName(scratchOrgInfoResult.SignupUsername);
 
   return _authorize(
@@ -393,7 +401,7 @@ signup.prototype.processScratchOrgInfoResult = function(scratchOrgInfoResult, cl
     clientSecret,
     setAsDefault,
     this.logger
-  ).then(orgData => {
+  ).then((orgData) => {
     const resultingOrgData = orgData;
 
     const setPreferences = () => {
@@ -408,7 +416,7 @@ signup.prototype.processScratchOrgInfoResult = function(scratchOrgInfoResult, cl
       // set desired prefs on org
       setPreferences(),
       // send creds for apphub access
-      scratchOrg.getAppHub().then(appHubApi => appHubApi.postScratchOrgCreate(scratchOrgInfoResult, scratchOrg))
+      scratchOrg.getAppHub().then((appHubApi) => appHubApi.postScratchOrgCreate(scratchOrgInfoResult, scratchOrg)),
     ])
       .then(() => resultingOrgData)
       .then(() => {
@@ -416,7 +424,7 @@ signup.prototype.processScratchOrgInfoResult = function(scratchOrgInfoResult, cl
           `processScratchOrgInfoResult - scratchOrgInfoResult.LoginUrl: ${scratchOrgInfoResult.LoginUrl}`
         );
         if (scratchOrgInfoResult.LoginUrl) {
-          return scratchOrg.getConfig().then(config => {
+          return scratchOrg.getConfig().then((config) => {
             config.instanceUrl = scratchOrgInfoResult.LoginUrl;
             config.expirationDate = scratchOrgInfoResult.ExpirationDate;
             return scratchOrg.saveConfig(config);
@@ -424,7 +432,7 @@ signup.prototype.processScratchOrgInfoResult = function(scratchOrgInfoResult, cl
         }
         return resultingOrgData;
       })
-      .then(resultData => {
+      .then((resultData) => {
         if (resultData.instanceUrl) {
           this.logger.debug(
             `processScratchOrgInfoResult - resultData.instanceUrl: ${JSON.stringify(resultData.instanceUrl)}`
@@ -432,17 +440,17 @@ signup.prototype.processScratchOrgInfoResult = function(scratchOrgInfoResult, cl
           const options = {
             timeout: Duration.minutes(3),
             frequency: Duration.seconds(10),
-            url: new URL(resultData.instanceUrl)
+            url: new URL(resultData.instanceUrl),
           };
           return MyDomainResolver.create(options)
-            .then(resolver =>
-              resolver.resolve().catch(err => {
+            .then((resolver) =>
+              resolver.resolve().catch((err) => {
                 this.logger.debug(`processScratchOrgInfoResult - err: ${JSON.stringify(err, null, 4)}`);
                 if (err.name === 'MyDomainResolverTimeoutError') {
                   err.setData({
                     orgId: resultData.orgId,
                     username: resultData.username,
-                    instanceUrl: resultData.instanceUrl
+                    instanceUrl: resultData.instanceUrl,
                   });
                   this.logger.debug(`processScratchOrgInfoResult - err data: ${JSON.stringify(err.data, null, 4)}`);
                 }
@@ -453,7 +461,7 @@ signup.prototype.processScratchOrgInfoResult = function(scratchOrgInfoResult, cl
         }
         return resultData;
       })
-      .catch(err => BBPromise.reject(err));
+      .catch((err) => BBPromise.reject(err));
   });
 };
 

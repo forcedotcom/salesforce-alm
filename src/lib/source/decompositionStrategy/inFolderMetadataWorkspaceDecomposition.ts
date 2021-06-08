@@ -1,14 +1,15 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { Nullable } from '@salesforce/ts-types';
+import { MetadataDocumentAnnotation } from '../metadataDocument';
 import { DecompositionWorkspaceStrategy } from './decompositionWorkspaceStrategy';
 import { DecomposedSubtypeConfig } from './decompositionConfig';
-import { MetadataDocumentAnnotation } from '../metadataDocument';
-import { Nullable } from '@salesforce/ts-types';
 
 export class InFolderMetadataWorkspaceDecomposition implements DecompositionWorkspaceStrategy {
   getDecomposedFileName(

@@ -1,19 +1,20 @@
 /*
- * Copyright (c) 2018, Salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root  or https://opensource.org/licenses/BSD-3-Clause
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
+import { TypeDefObj } from '../typeDefObj';
+import * as PathUtil from '../sourcePathUtil';
+import * as almError from '../../core/almError';
+import { DefaultMetadataType } from './defaultMetadataType';
 const path = require('path');
 const glob = require('glob');
 
 const srcDevUtil = require('../../core/srcDevUtil');
 const MetadataRegistry = require('../metadataRegistry');
-
-import { DefaultMetadataType } from './defaultMetadataType';
-import { TypeDefObj } from '../typeDefObj';
-import * as PathUtil from '../sourcePathUtil';
-import * as almError from '../../core/almError';
 
 export class ExperienceBundleMetadataType extends DefaultMetadataType {
   CONTENT_FILE_FORMAT = '.json';
@@ -60,24 +61,26 @@ export class ExperienceBundleMetadataType extends DefaultMetadataType {
    * If its a meta file, we just strip the -meta.xml to get the siteName
    * if its a json file, we return the grandparent directory (site name)
    * Otherwise, we return fileName (site name)
+   *
    * @param filePath
    */
   getAggregateFullNameFromFilePath(filePath: string): string {
     if (filePath.endsWith(ExperienceBundleMetadataType.getMetadataFileExtWithSuffix())) {
-      //meta file
+      // meta file
       const fileDir = filePath.split(path.sep);
       return fileDir[fileDir.length - 1].split(ExperienceBundleMetadataType.getMetadataFileExtWithSuffix())[0];
     } else if (path.extname(filePath) === this.CONTENT_FILE_FORMAT) {
-      //content file (json)
+      // content file (json)
       return PathUtil.getGrandparentDirectoryName(filePath);
     }
 
-    //a path to the site dir
+    // a path to the site dir
     return PathUtil.getFileName(filePath);
   }
 
   /**
    * Given a file, we need to return the corresponding site's meta file
+   *
    * @param filePath
    */
   getAggregateMetadataFilePathFromWorkspacePath(filePath): string {
@@ -100,6 +103,7 @@ export class ExperienceBundleMetadataType extends DefaultMetadataType {
    * The path of every file. Given the file location in base working dir of the meta file and
    * the temp location of a file of the corresponding site, we need to give where the file (in temp location) will sit in the
    * base working dir
+   *
    * @param metadataFilePath
    * @param retrievedContentFilePath
    */
@@ -111,7 +115,7 @@ export class ExperienceBundleMetadataType extends DefaultMetadataType {
 
   getRetrievedMetadataPath(fileProperty, retrieveRoot: string, bundleFileProperties): string {
     const bundlePath = this.stripBundlePath(path.dirname(fileProperty.fileName));
-    //Get the site name from the given JSON file path by returning the grandparent directory (site name)
+    // Get the site name from the given JSON file path by returning the grandparent directory (site name)
     const siteName = PathUtil.getGrandparentDirectoryName(fileProperty.fileName);
     const retrievedMetadataPath = path.join(retrieveRoot, bundlePath, this.getMetaFileName(siteName));
     if (srcDevUtil.pathExistsSync(retrievedMetadataPath)) {
@@ -124,6 +128,7 @@ export class ExperienceBundleMetadataType extends DefaultMetadataType {
   /**
    * A bundlPath is of format /unpackaged/experiences/{siteName}/{type}
    * We just need /unpackaged/experiences, which is where the -meta.xml lives
+   *
    * @param bundlePath
    */
   stripBundlePath(bundlePath): string {
@@ -136,12 +141,15 @@ export class ExperienceBundleMetadataType extends DefaultMetadataType {
     const dirName = fileName.split(ExperienceBundleMetadataType.getMetadataFileExtWithSuffix())[0];
     const bundlePaths = glob.sync(path.join(path.dirname(metadataFilePath), dirName, '**'), { nodir: true });
     // Return normalized paths depending on the os
-    return bundlePaths.map(filePath => path.normalize(filePath)).filter(bundlePath => forceIgnore.accepts(bundlePath));
+    return bundlePaths
+      .map((filePath) => path.normalize(filePath))
+      .filter((bundlePath) => forceIgnore.accepts(bundlePath));
   }
 
   /**
    * fullName is of the format {siteName}/{type}/{componentName-WithoutSuffix}
    * To get -meta.xml, we just need {siteName} as it is of the format {siteName}-meta.xml
+   *
    * @param fullName
    */
   getMetaFileName(fullName: string): string {

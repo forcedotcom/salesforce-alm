@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -28,25 +28,25 @@ export class SourceConvertCommand extends ToolbeltCommand {
       char: 'r',
       description: messages.getMessage('rootParam', null, 'source_convert'),
       longDescription: messages.getMessage('rootParamLongDescription', null, 'source_convert'),
-      required: false
+      required: false,
     }),
     outputdir: flags.directory({
       char: 'd',
       description: messages.getMessage('outputDirectoryParam', null, 'source_convert'),
       longDescription: messages.getMessage('outputDirectoryParamLongDescription', null, 'source_convert'),
-      required: false
+      required: false,
     }),
     packagename: flags.string({
       char: 'n',
       description: messages.getMessage('packageNameParam', null, 'source_convert'),
       longDescription: messages.getMessage('packageNameParamLongDescription', null, 'source_convert'),
-      required: false
+      required: false,
     }),
     manifest: flags.string({
       char: 'x',
       description: messages.getMessage('manifestDescription', null, 'source_convert'),
       longDescription: messages.getMessage('manifestLongDescription', null, 'source_convert'),
-      required: false
+      required: false,
     }),
     sourcepath: flags.array({
       char: 'p',
@@ -54,15 +54,15 @@ export class SourceConvertCommand extends ToolbeltCommand {
       hidden: false,
       description: messages.getMessage('sourcePathDescription', null, 'source_convert'),
       longDescription: messages.getMessage('sourcePathLongDescription', null, 'source_convert'),
-      exclusive: ['manifest', 'metadata']
+      exclusive: ['manifest', 'metadata'],
     }),
     metadata: flags.array({
       char: 'm',
       description: messages.getMessage('metadataParamDescription', null, 'source_convert'),
       longDescription: messages.getMessage('metadataParamLongDescription', null, 'source_convert'),
       required: false,
-      exclusive: ['manifest', 'sourcepath']
-    })
+      exclusive: ['manifest', 'sourcepath'],
+    }),
   };
 
   public async run(): Promise<unknown> {

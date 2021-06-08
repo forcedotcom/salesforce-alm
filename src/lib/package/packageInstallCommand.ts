@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /**
@@ -11,9 +11,9 @@
  * and target subscriber orgs.
  **/
 
+import * as util from 'util';
 import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
-import * as util from 'util';
 
 // New messages (move to this)
 import { Messages } from '@salesforce/core';
@@ -63,7 +63,7 @@ APEX_COMPILE_MAP.set(APEX_COMPILE_KEY_PACKAGE, APEX_COMPILE_VALUE_PACKAGE);
 /**
  * Private utility to parse out errors from PackageInstallRequest as a user-readable string.
  */
-const readInstallErrorsAsString = function(request) {
+const readInstallErrorsAsString = function (request) {
   if (request.Errors && request.Errors.errors) {
     const errorsArray = request.Errors.errors;
     const len = errorsArray.length;
@@ -80,6 +80,7 @@ const readInstallErrorsAsString = function(request) {
 
 class PackageInstallCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor(stdinPrompt?) {
@@ -99,7 +100,7 @@ class PackageInstallCommand {
     this.configApi = this.org.config;
     this.force = this.org.force;
 
-    return this.force.toolingRetrieve(this.org, 'PackageInstallRequest', id).then(request => {
+    return this.force.toolingRetrieve(this.org, 'PackageInstallRequest', id).then((request) => {
       switch (request.Status) {
         case 'SUCCESS':
           return request;
@@ -176,6 +177,7 @@ class PackageInstallCommand {
 
   /**
    * This installs a package version into a target org.
+   *
    * @param context: heroku context
    * @returns {*|promise}
    */
@@ -186,8 +188,8 @@ class PackageInstallCommand {
 
     // either of the id or package flag is required, not both at the same time
     if ((!context.flags.id && !context.flags.package) || (context.flags.id && context.flags.package)) {
-      const idFlag = context.command.flags.find(x => x.name === 'id');
-      const packageFlag = context.command.flags.find(x => x.name === 'package');
+      const idFlag = context.command.flags.find((x) => x.name === 'id');
+      const packageFlag = context.command.flags.find((x) => x.name === 'package');
       throw new Error(
         messages.getMessage(
           'errorRequiredFlags',
@@ -312,6 +314,7 @@ class PackageInstallCommand {
 
   /**
    * Returns all RSS/CSP external third party websites
+   *
    * @param allPackageVersionId
    * @returns {object}
    *
@@ -349,8 +352,8 @@ class PackageInstallCommand {
 
     if (queryResult.records && queryResult.records.length > 0) {
       const record = queryResult.records[0];
-      const rssUrls = record.RemoteSiteSettings.settings.map(rss => rss.url);
-      const cspUrls = record.CspTrustedSites.settings.map(csp => csp.endpointUrl);
+      const rssUrls = record.RemoteSiteSettings.settings.map((rss) => rss.url);
+      const cspUrls = record.CspTrustedSites.settings.map((csp) => csp.endpointUrl);
 
       subscriberPackageValues.trustedSites = rssUrls.concat(cspUrls);
     }
@@ -360,6 +363,7 @@ class PackageInstallCommand {
 
   /**
    * returns a human readable message for a cli output
+   *
    * @returns {string}
    */
   getHumanSuccessMessage(result) {

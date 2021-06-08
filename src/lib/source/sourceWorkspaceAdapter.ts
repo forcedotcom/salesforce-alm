@@ -1,33 +1,34 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as util from 'util';
 import * as path from 'path';
 
+import { AsyncCreatable, env, isEmpty } from '@salesforce/kit';
+import { isString } from '@salesforce/ts-types';
+import { Logger, LoggerLevel, SfdxError, SfdxProject } from '@salesforce/core';
+import chalk = require('chalk');
 import { WorkspaceFileState } from './workspaceFileState';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { WorkspaceElement } from './workspaceElement';
 import { MetadataTypeFactory, FileProperty } from './metadataTypeFactory';
-import { AsyncCreatable, env, isEmpty } from '@salesforce/kit';
-import { isString } from '@salesforce/ts-types';
-import { Logger, LoggerLevel, SfdxError, SfdxProject } from '@salesforce/core';
 import { SourcePathStatusManager, SourcePathInfo } from './sourcePathStatusManager';
-import chalk = require('chalk');
 import { AggregateSourceElements } from './aggregateSourceElements';
 import { SourceLocations } from './sourceLocations';
 import MetadataRegistry = require('./metadataRegistry');
 
 /**
  * private helper to log when a metadata type isn't supported
+ *
  * @param {string} metadataName - the metadata type name
  * @param {string} filePath - the filepath to the metadata item
  * @private
  */
-const _logUnsupported = function(metadataName, filePath) {
+const _logUnsupported = function (metadataName, filePath) {
   if (!util.isNullOrUndefined(filePath)) {
     this.logger.warn(`Unsupported source member ${metadataName} at ${filePath}`);
   } else {
@@ -79,7 +80,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
     this.logger = await Logger.child(this.constructor.name);
     this.spsm = await SourcePathStatusManager.create({
       org: this.options.org,
-      isStateless: this.isStateless
+      isStateless: this.isStateless,
     });
 
     // If we only care about certain source paths (i.e., this.options.sourcePaths
@@ -102,7 +103,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
       metadataRegistry: this.metadataRegistry,
       sourcePathInfos,
       shouldBuildIndices: !this.fromConvert,
-      username: this.options.org.name
+      username: this.options.org.name,
     });
     this.wsPath = this.options.org.config.getProjectPath();
     this.namespace = this.options.org.config.getAppConfig().namespace;
@@ -146,9 +147,9 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
     if (packageName) {
       return Array.from(this.pendingSourcePathInfos.get(packageName).values());
     } else {
-      let elements = [];
-      this.pendingSourcePathInfos.forEach(sourceElements => {
-        sourceElements.forEach(value => elements.push(value));
+      const elements = [];
+      this.pendingSourcePathInfos.forEach((sourceElements) => {
+        sourceElements.forEach((value) => elements.push(value));
       });
       return elements;
     }
@@ -187,10 +188,10 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
     const pendingChanges = await this.spsm.getSourcePathInfos({
       changesOnly,
       packageDirectory,
-      sourcePath
+      sourcePath,
     });
 
-    pendingChanges.forEach(change => {
+    pendingChanges.forEach((change) => {
       // Skip the directories
       if (change.isDirectory) {
         if (updatePendingPathInfos) {
@@ -201,7 +202,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 
       if (isEmpty(change.sourcePath) || !isString(change.sourcePath)) {
         throw SfdxError.create('salesforce-alm', 'source_workspace_adapter', 'invalid_source_path', [
-          change.sourcePath
+          change.sourcePath,
         ]);
       }
 
@@ -278,6 +279,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 
   /**
    * Commit pending changed file infos
+   *
    * @returns {boolean} - Was the commit successful
    */
   public async commitPendingChanges(packageName: string): Promise<boolean> {
@@ -319,7 +321,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 
     this.logger.debug(`updateSource checkForDuplicates: ${checkForDuplicates}`);
 
-    for (let sourceElement of aggregateSourceElements.getAllSourceElements()) {
+    for (const sourceElement of aggregateSourceElements.getAllSourceElements()) {
       if (checkForDuplicates) {
         sourceElement.checkForDuplicates();
       }
@@ -407,7 +409,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
     this.logger.debug(`processMdapiFileProperty aggregateMetadataPath: ${aggregateMetadataPath}`);
 
     if (this.forceIgnore.accepts(aggregateMetadataPath)) {
-      this.logger.debug(`processMdapiFileProperty this.forceIgnore.accepts(aggregateMetadataPath): true`);
+      this.logger.debug('processMdapiFileProperty this.forceIgnore.accepts(aggregateMetadataPath): true');
       const newAggregateSourceElement = new AggregateSourceElement(
         aggregateMetadataType,
         aggregateFullName,
@@ -421,7 +423,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
         changedSourceElements.getSourceElement(newAggregateSourceElement.getPackageName(), key) ||
         newAggregateSourceElement;
       if (workspaceElementsToDelete.length > 0) {
-        workspaceElementsToDelete.forEach(deletedElement => {
+        workspaceElementsToDelete.forEach((deletedElement) => {
           aggregateSourceElement.addPendingDeletedWorkspaceElement(deletedElement);
         });
       }
@@ -451,6 +453,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 
   /**
    * Create a source element representation of a deleted metadata change in the local workspace
+   *
    * @returns {AggregateSourceElement} - A source element or null if metadataType is not supported
    */
   public handleObsoleteSource(
@@ -505,7 +508,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
           sourceMemberMetadataType.getMetadataName(),
           fullName
         );
-        sourcePathsToDelete.forEach(sourcePathToDelete => {
+        sourcePathsToDelete.forEach((sourcePathToDelete) => {
           const deletedWorkspaceElement = new WorkspaceElement(
             sourceMemberMetadataType.getMetadataName(),
             fullName,
@@ -548,6 +551,7 @@ export class SourceWorkspaceAdapter extends AsyncCreatable<SourceWorkspaceAdapte
 /**
  * Adapter between scratch org source metadata and a local workspace
  */
+// eslint-disable-next-line no-redeclare
 export namespace SourceWorkspaceAdapter {
   /**
    * Constructor Options for and Org.

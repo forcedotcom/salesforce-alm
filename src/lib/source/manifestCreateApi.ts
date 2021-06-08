@@ -1,37 +1,37 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
 import * as path from 'path';
-import { fs } from '@salesforce/core';
 import * as util from 'util';
+import { fs } from '@salesforce/core';
 
 // Thirdparty
 import * as optional from 'optional-js';
 import * as BBPromise from 'bluebird';
 import * as _ from 'lodash';
-const Builder = require('fast-xml-parser').j2xParser;
 // Local
-import MetadataRegistry = require('./metadataRegistry');
-import { MetadataTypeFactory } from './metadataTypeFactory';
 import logApi = require('../core/logApi');
 import * as almError from '../core/almError';
+import MetadataRegistry = require('./metadataRegistry');
+import { MetadataTypeFactory } from './metadataTypeFactory';
+const Builder = require('fast-xml-parser').j2xParser;
 
 function createOutputXmlManifestFile(fileName, packageManifestJson) {
   const builder = new Builder({
     format: true,
-    attrNodeName: '$'
+    attrNodeName: '$',
   });
-  const xmlDeclaration: string = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  const xmlDeclaration = '<?xml version="1.0" encoding="UTF-8"?>\n';
   const xml = xmlDeclaration.concat(builder.parse(packageManifestJson)).trim();
 
   return fs.writeFile(fileName, xml).then(() => ({
     file: fileName,
-    manifest: packageManifestJson
+    manifest: packageManifestJson,
   }));
 }
 
@@ -46,7 +46,7 @@ function generateMetadataManifestJson(packageName, typesAsKeyValuePairsArray, ap
     mdPackage.setPackageName(packageName);
   }
 
-  typesAsKeyValuePairsArray.forEach(typeNamePair => {
+  typesAsKeyValuePairsArray.forEach((typeNamePair) => {
     mdPackage.addMember(typeNamePair.name, typeNamePair.type);
   });
 
@@ -72,17 +72,17 @@ function processMetadataFile(dir, file, childLogger, metadataRegistry) {
 function readMetadataDirectoryContent(dir) {
   return fs
     .readdir(dir)
-    .then(files =>
-      BBPromise.map(files, file =>
-        fs.stat(path.resolve(dir, file)).then(stats => ({
+    .then((files) =>
+      BBPromise.map(files, (file) =>
+        fs.stat(path.resolve(dir, file)).then((stats) => ({
           name: file,
-          isDirectory: stats.isDirectory()
+          isDirectory: stats.isDirectory(),
         }))
       )
     )
-    .then(fileInfoArray => {
+    .then((fileInfoArray) => {
       const dirContent = { metadataFiles: [], dirs: [] };
-      fileInfoArray.forEach(fileInfo => {
+      fileInfoArray.forEach((fileInfo) => {
         if (fileInfo.isDirectory) {
           dirContent.dirs.push(fileInfo.name);
         } else if (fileInfo.name.endsWith(MetadataRegistry.getMetadataFileExt())) {
@@ -95,19 +95,19 @@ function readMetadataDirectoryContent(dir) {
 
 function processMetadataDirectory(dir, childLogger, metadataRegistry, manifestcreate?) {
   return readMetadataDirectoryContent(dir)
-    .then(entriesToBeProcessed =>
-      BBPromise.map(entriesToBeProcessed.metadataFiles, file =>
+    .then((entriesToBeProcessed) =>
+      BBPromise.map(entriesToBeProcessed.metadataFiles, (file) =>
         processMetadataFile(dir, file, childLogger, metadataRegistry)
-      ).then(resultFromFiles =>
+      ).then((resultFromFiles) =>
         BBPromise.all([
           resultFromFiles,
-          BBPromise.map(entriesToBeProcessed.dirs, childDir =>
+          BBPromise.map(entriesToBeProcessed.dirs, (childDir) =>
             processMetadataDirectory(path.resolve(dir, childDir), childLogger, metadataRegistry, manifestcreate)
-          )
+          ),
         ])
       )
     )
-    .then(resultAsKeyValuePairs => {
+    .then((resultAsKeyValuePairs) => {
       // Flatten result from previous step which contains multi-level arrays due
       // to the way promise combines results from files in current directory and files
       // in child directory.
@@ -138,10 +138,10 @@ function processMetadataDirectory(dir, childLogger, metadataRegistry, manifestcr
  *
  * @constructor
  */
-const manifestCreate = function(org, beforeManifestGenerationHook?) {
+const manifestCreate = function (org, beforeManifestGenerationHook?) {
   this.org = org;
   this.config = this.org.config;
-  this.apiVersion = this.config.getApiVersion();
+  this.apiVersion = this.config.getAppConfig().sourceApiVersion;
   this.logger = logApi.child('manifest-create');
   this._fsStat = fs.stat;
   this._fsMkdir = fs.mkdirp;
@@ -172,14 +172,14 @@ manifestCreate.prototype.execute = function execute(context) {
       this.metadataRegistry = new MetadataRegistry();
       return processMetadataDirectory(rootDirectory, this.logger, this.metadataRegistry);
     })
-    .then(resultAsKeyValuePairs => {
+    .then((resultAsKeyValuePairs) => {
       if (this.beforeManifestGenerationHook) {
         resultAsKeyValuePairs = this.beforeManifestGenerationHook(resultAsKeyValuePairs);
       }
       if (context.exclusions) {
-        resultAsKeyValuePairs = resultAsKeyValuePairs.filter(element =>
+        resultAsKeyValuePairs = resultAsKeyValuePairs.filter((element) =>
           _.isNil(
-            context.exclusions.find(exclusion => exclusion.type === element.type && exclusion.name === element.name)
+            context.exclusions.find((exclusion) => exclusion.type === element.type && exclusion.name === element.name)
           )
         );
       }
@@ -188,7 +188,7 @@ manifestCreate.prototype.execute = function execute(context) {
     });
 };
 
-manifestCreate.prototype.createManifest = function(context, packageName, typeFullNamePairs) {
+manifestCreate.prototype.createManifest = function (context, packageName, typeFullNamePairs) {
   const outputDir = optional.ofNullable(context.outputdir).orElse(this.config.getProjectPath());
   const outputFile = path.resolve(outputDir, optional.ofNullable(context.outputfile).orElse('package.xml'));
   const sourceApiVersion = !util.isNullOrUndefined(context.sourceApiVersion)
@@ -200,10 +200,11 @@ manifestCreate.prototype.createManifest = function(context, packageName, typeFul
 
 /**
  * Creates an mdapi compatible package.xml manifest from an mdapiPackage
+ *
  * @param {object} context - looking for context.outputdir; location for writing the package.xml
  * @param {object} mdapiPackage - The mdapi package
  */
-manifestCreate.prototype.createManifestForMdapiPackage = function(context, mdapiPackage, metadataRegistry) {
+manifestCreate.prototype.createManifestForMdapiPackage = function (context, mdapiPackage, metadataRegistry) {
   const outputFile = path.resolve(
     optional.ofNullable(context.outputdir).orElse(this.config.getProjectPath()),
     'package.xml'
@@ -211,15 +212,15 @@ manifestCreate.prototype.createManifestForMdapiPackage = function(context, mdapi
   return createOutputXmlManifestFile(outputFile, mdapiPackage.getPackage(metadataRegistry));
 };
 
-manifestCreate.prototype._validateDirectory = function(dir, failWithErr) {
+manifestCreate.prototype._validateDirectory = function (dir, failWithErr) {
   return this._fsStat(dir)
-    .then(dirStats => {
+    .then((dirStats) => {
       if (!dirStats.isDirectory()) {
         return BBPromise.reject(failWithErr);
       }
       return BBPromise.resolve();
     })
-    .catch(err => {
+    .catch((err) => {
       if (err.code === 'ENOENT') {
         return BBPromise.reject(almError('PathDoesNotExist', dir));
       }
@@ -227,15 +228,18 @@ manifestCreate.prototype._validateDirectory = function(dir, failWithErr) {
     });
 };
 
-manifestCreate.prototype._createDirIfNotExists = function(dir) {
-  return this._fsStat(dir)
-    .then(() => {})
-    .catch(err => {
-      if (err.code === 'ENOENT') {
-        return this._fsMkdir(dir);
-      }
-      return BBPromise.reject(err);
-    });
+manifestCreate.prototype._createDirIfNotExists = function (dir) {
+  return (
+    this._fsStat(dir)
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      .then(() => {})
+      .catch((err) => {
+        if (err.code === 'ENOENT') {
+          return this._fsMkdir(dir);
+        }
+        return BBPromise.reject(err);
+      })
+  );
 };
 
 export = manifestCreate;

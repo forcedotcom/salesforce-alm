@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -14,31 +14,30 @@
  * contact the CLI team at alm-cli@salesforce.com.
  * ----------------------------------------------------------------------------------------------------------------- */
 
+import cli = require('heroku-cli-util');
 import * as ResponseParser from './force-cli-responseParser';
 import * as Messages from './force-cli-messages';
 import { Command } from './force-cli-command';
 
-import cli = require('heroku-cli-util');
-
 // TODO Deprecate this file
 
-export let errorMessage = function(msg: string): void {
+export const errorMessage = function (msg: string): void {
   msg = checkIfFaultStringFromXml(msg);
   cli.error(cli.color.bold(Messages.get('ErrorError')) + msg);
 };
 
-export let exitWithMessage = function(msg: string): never {
+export const exitWithMessage = function (msg: string): never {
   msg = checkIfFaultStringFromXml(msg);
   throw new Error(msg);
 };
 
-export let exitDisplayHelp = function(command: Command): never {
+export const exitDisplayHelp = function (command: Command): never {
   cli.log('\n' + command.help);
   // @ts-ignore exit throws instead of returning any
   return cli.exit(1);
 };
 
-export let abort = function(): never {
+export const abort = function (): never {
   // @ts-ignore exit throws instead of returning any
   return cli.exit(1, cli.color.bold(Messages.get('ErrorAbort')));
 };
@@ -46,10 +45,11 @@ export let abort = function(): never {
 /**
  * parses the xml faultstring if needed
  * exposed for unit testing
+ *
  * @param msg
  * @returns {string}
  */
-export let checkIfFaultStringFromXml = function(msg: string): string {
+export const checkIfFaultStringFromXml = function (msg: string): string {
   if (ResponseParser.hasFaultString(msg)) {
     return ResponseParser.getFaultString(msg);
   }

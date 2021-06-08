@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Local
@@ -19,6 +19,7 @@ const QUERY =
 
 class PackageListCommand {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
   constructor() {
@@ -28,7 +29,7 @@ class PackageListCommand {
   }
 
   execute(context) {
-    return this._execute(context).catch(err => {
+    return this._execute(context).catch((err) => {
       // TODO:
       // until package2 is GA, wrap perm-based errors w/ 'contact sfdc' action (REMOVE once package2 is GA'd)
       throw pkgUtils.applyErrorAction(err);
@@ -40,7 +41,7 @@ class PackageListCommand {
     this.force = this.org.force;
     this.verbose = context.flags.verbose;
 
-    return this.force.toolingQuery(this.org, QUERY).then(queryResult => {
+    return this.force.toolingQuery(this.org, QUERY).then((queryResult) => {
       const records = queryResult.records;
       if (records && records.length > 0) {
         this.results = records.map(
@@ -53,7 +54,7 @@ class PackageListCommand {
             ContainerOptions,
             ConvertedFromPackageId,
             IsOrgDependent,
-            PackageErrorUsername
+            PackageErrorUsername,
           }) => {
             const aliases = pkgUtils.getPackageAliasesFromId(Id, this.force);
             const Alias = aliases.join();
@@ -68,7 +69,7 @@ class PackageListCommand {
               ConvertedFromPackageId,
               Alias,
               IsOrgDependent,
-              PackageErrorUsername
+              PackageErrorUsername,
             };
           }
         );
@@ -82,37 +83,37 @@ class PackageListCommand {
     const columns = [
       {
         key: 'NamespacePrefix',
-        label: messages.getMessage('namespace', [], 'package_list')
+        label: messages.getMessage('namespace', [], 'package_list'),
       },
       { key: 'Name', label: messages.getMessage('name', [], 'package_list') },
       { key: 'Id', label: messages.getMessage('id', [], 'package_list') },
       { key: 'Alias', label: messages.getMessage('alias', [], 'package_list') },
       {
         key: 'Description',
-        label: messages.getMessage('description', [], 'package_list')
+        label: messages.getMessage('description', [], 'package_list'),
       },
       {
         key: 'ContainerOptions',
-        label: messages.getMessage('packageType', [], 'package_list')
-      }
+        label: messages.getMessage('packageType', [], 'package_list'),
+      },
     ];
 
     if (this.verbose) {
       columns.push({
         key: 'SubscriberPackageId',
-        label: messages.getMessage('packageId', [], 'package_list')
+        label: messages.getMessage('packageId', [], 'package_list'),
       });
       columns.push({
         key: 'ConvertedFromPackageId',
-        label: messages.getMessage('convertedFromPackageId', [], 'package_list')
+        label: messages.getMessage('convertedFromPackageId', [], 'package_list'),
       });
       columns.push({
         key: 'IsOrgDependent',
-        label: messages.getMessage('isOrgDependent', [], 'package_list')
+        label: messages.getMessage('isOrgDependent', [], 'package_list'),
       });
       columns.push({
         key: 'PackageErrorUsername',
-        label: messages.getMessage('errorNotificationUsername', [], 'package_list')
+        label: messages.getMessage('errorNotificationUsername', [], 'package_list'),
       });
     }
 

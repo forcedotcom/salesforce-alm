@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -28,26 +28,26 @@ export class MdapiConvertCommand extends ToolbeltCommand {
       char: 'r',
       description: messages.getMessage('rootParam', null, 'mdapiConvertCommand'),
       longDescription: messages.getMessage('rootParamLongDescription', null, 'mdapiConvertCommand'),
-      required: true
+      required: true,
     }),
     outputdir: flags.directory({
       char: 'd',
       description: messages.getMessage('outputDirectoryParam', null, 'mdapiConvertCommand'),
       longDescription: messages.getMessage('outputDirectoryParamLongDescription', null, 'mdapiConvertCommand'),
-      required: false
+      required: false,
     }),
     manifest: flags.string({
       char: 'x',
       description: messages.getMessage('manifestDescription', null, 'mdapiConvertCommand'),
       longDescription: messages.getMessage('manifestLongDescription', null, 'mdapiConvertCommand'),
-      required: false
+      required: false,
     }),
     metadata: flags.array({
       char: 'm',
       description: messages.getMessage('metadataParamDescription', null, 'mdapiConvertCommand'),
       longDescription: messages.getMessage('metadataParamLongDescription', null, 'mdapiConvertCommand'),
       required: false,
-      exclusive: ['manifest', 'metadatapath']
+      exclusive: ['manifest', 'metadatapath'],
     }),
     metadatapath: flags.array({
       char: 'p',
@@ -55,8 +55,8 @@ export class MdapiConvertCommand extends ToolbeltCommand {
       hidden: false,
       description: messages.getMessage('sourcePathDescription', null, 'mdapiConvertCommand'),
       longDescription: messages.getMessage('sourcePathLongDescription', null, 'mdapiConvertCommand'),
-      exclusive: ['manifest', 'metadata']
-    })
+      exclusive: ['manifest', 'metadata'],
+    }),
   };
 
   public async run(): Promise<unknown> {

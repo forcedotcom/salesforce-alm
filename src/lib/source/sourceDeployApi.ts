@@ -1,43 +1,34 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import * as path from 'path';
+import * as os from 'os';
 import cli from 'cli-ux';
 
 // Node
-import * as path from 'path';
 import * as fsExtra from 'fs-extra';
 
 // Local
-import MetadataRegistry = require('./metadataRegistry');
+import { Logger, SfdxError, Messages, fs, SfdxProject } from '@salesforce/core';
 import MdapiDeployApi = require('../mdapi/mdapiDeployApi');
+import consts = require('../core/constants');
+import MetadataRegistry = require('./metadataRegistry');
 import * as syncCommandHelper from './syncCommandHelper';
 import { WorkspaceFileState } from './workspaceFileState';
 
-import { Logger, SfdxError, Messages, fs, SfdxProject } from '@salesforce/core';
 import { MetadataTypeFactory } from './metadataTypeFactory';
 import { SourceDeployApiBase } from './sourceDeployApiBase';
 import { WorkspaceElementObj } from './workspaceElement';
-import { SourceOptions } from './types';
-import * as SourceUtil from './sourceUtil';
+import { getSourceElementsFromSourcePath, createOutputDir, cleanupOutputDir } from './sourceUtil';
 import { AggregateSourceElement } from './aggregateSourceElement';
 import { AggregateSourceElements } from './aggregateSourceElements';
 import * as PathUtils from './sourcePathUtil';
-import * as os from 'os';
-import consts = require('../core/constants');
 import { SourceWorkspaceAdapter } from './sourceWorkspaceAdapter';
 import { SourceElementsResolver } from './sourceElementsResolver';
-
-export interface SourceDeployOptions extends SourceOptions {
-  delete?: boolean;
-  deploydir?: string;
-  noprompt?: boolean;
-  wait?: number;
-  ignorewarnings?: boolean;
-}
 
 export interface DeployResult {
   outboundFiles: WorkspaceElementObj[];
@@ -71,18 +62,18 @@ export class SourceDeployApi extends SourceDeployApiBase {
       metadataRegistryImpl: MetadataRegistry,
       defaultPackagePath: sfdxProject.getDefaultPackage().name,
       fromConvert: true,
-      sourceMode: mode
+      sourceMode: mode,
     };
     this.swa = await SourceWorkspaceAdapter.create(swaOptions);
     const packageNames = sfdxProject.getUniquePackageNames();
 
-    let tmpOutputDir = await SourceUtil.createOutputDir('sourceDeploy');
+    const tmpOutputDir = await createOutputDir('sourceDeploy');
 
     try {
       const sourceElementsResolver = new SourceElementsResolver(this.orgApi, this.swa);
       if (options.sourcepath) {
         this.logger.info(`Deploying metadata in sourcepath '${options.sourcepath}' to org: '${this.orgApi.name}'`);
-        aggregateSourceElements = await SourceUtil.getSourceElementsFromSourcePath(options.sourcepath, this.swa);
+        aggregateSourceElements = await getSourceElementsFromSourcePath(options.sourcepath, this.swa);
 
         // sourcepaths can be outside of a packageDirectory, in which case the packageName will be undefined.
         // Add `undefined` as a valid package to deploy for this case.
@@ -110,7 +101,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
         if (options.sourcepath) {
           _handleDeleteResult = await this._handleDelete(options.noprompt, aggregateSourceElements, options.sourcepath);
         } else {
-          //if it is the metadata option, options.sourcepath was empty. Create a path to the "source" from the MD name
+          // if it is the metadata option, options.sourcepath was empty. Create a path to the "source" from the MD name
           _handleDeleteResult = await this._handleDelete(
             options.noprompt,
             aggregateSourceElements,
@@ -143,7 +134,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
 
             try {
               // Create a temp directory
-              tmpPkgOutputDir = await SourceUtil.createOutputDir('sourceDeploy_pkg');
+              tmpPkgOutputDir = await createOutputDir('sourceDeploy_pkg');
               deployOptions.deploydir = tmpPkgOutputDir;
               // change the manifest path to point to the package.xml from the
               // package tmp deploy dir
@@ -165,7 +156,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
               }
               // NOTE: This object assign is unfortunate and wrong, but we have to do it to maintain
               // JSON output backwards compatibility between pre-mpd and mpd deploys.
-              let outboundFiles = results.outboundFiles;
+              const outboundFiles = results.outboundFiles;
               Object.assign(results, result);
               if (result.outboundFiles && result.outboundFiles.length) {
                 results.outboundFiles = [...outboundFiles, ...result.outboundFiles];
@@ -175,30 +166,37 @@ export class SourceDeployApi extends SourceDeployApiBase {
             } finally {
               // Remove the sourcePathInfos.json file and delete any temp dirs
               this.orgApi.getSourcePathInfos().delete();
-              await SourceUtil.cleanupOutputDir(tmpPkgOutputDir);
-              await SourceUtil.cleanupOutputDir(this.tmpBackupDeletions);
+              await cleanupOutputDir(tmpPkgOutputDir);
+              await cleanupOutputDir(this.tmpBackupDeletions);
             }
           }
         }
       }
       return results;
     } finally {
-      await SourceUtil.cleanupOutputDir(tmpOutputDir);
+      await cleanupOutputDir(tmpOutputDir);
     }
   }
 
   private async _doLocalDelete(ases: AggregateSourceElements) {
-    this.tmpBackupDeletions = await SourceUtil.createOutputDir('sourceDelete');
+    this.tmpBackupDeletions = await createOutputDir('sourceDelete');
     const cleanedCache = new Map<string, boolean>();
     ases.getAllSourceElements().forEach((ase: AggregateSourceElement) => {
       ase
         .getPendingDeletedWorkspaceElements()
-        .forEach(we =>
+        .forEach((we) =>
           fsExtra.copySync(we.getSourcePath(), path.join(this.tmpBackupDeletions, path.basename(we.getSourcePath())))
         );
       ase.commitDeletes([]);
       const dirname = path.dirname(ase.getMetadataFilePath());
       if (!cleanedCache.get(dirname)) {
+        const contentPaths = ase.getContentPaths(ase.getMetadataFilePath());
+        contentPaths.forEach((content) => {
+          if (content.includes('__tests__') && content.includes('lwc')) {
+            fs.unlinkSync(content);
+          }
+        });
+
         // This should only be called once per type. For example if there are 1000 static resources then
         // cleanEmptyDirs should be called once not 1000 times.
         PathUtils.cleanEmptyDirs(dirname);
@@ -212,7 +210,7 @@ export class SourceDeployApi extends SourceDeployApiBase {
     const typedefObj = MetadataTypeFactory.getMetadataTypeFromSourcePath(sourcepath, this.swa.metadataRegistry);
     const metadataType = typedefObj ? typedefObj.getMetadataName() : null;
 
-    /**delete of static resources file is not supported by cli */
+    /** delete of static resources file is not supported by cli */
 
     if (this.DELETE_NOT_SUPPORTED_IN_CONTENT.includes(metadataType)) {
       const data = fsExtra.statSync(sourcepath);
@@ -221,8 +219,8 @@ export class SourceDeployApi extends SourceDeployApiBase {
       }
     }
 
-    ases.getAllSourceElements().forEach(ase => {
-      ase.getWorkspaceElements().some(we => {
+    ases.getAllSourceElements().forEach((ase) => {
+      ase.getWorkspaceElements().some((we) => {
         const type = we.getMetadataName();
         const sourceMemberMetadataType = MetadataTypeFactory.getMetadataTypeFromMetadataName(
           type,
@@ -236,14 +234,14 @@ export class SourceDeployApi extends SourceDeployApiBase {
         } else {
           // the type is decomposed and we only want to delete components of an aggregate element
           const sourcepaths = sourcepath.split(',');
-          if (sourcepaths.some(sp => we.getSourcePath().includes(sp.trim()))) {
+          if (sourcepaths.some((sp) => we.getSourcePath().includes(sp.trim()))) {
             we.setState(WorkspaceFileState.DELETED);
             ase.addPendingDeletedWorkspaceElement(we);
           }
         }
       });
       pendingDelPathsForPrompt = pendingDelPathsForPrompt.concat(
-        ase.getPendingDeletedWorkspaceElements().map(el => `${os.EOL}${el.getSourcePath()}`)
+        ase.getPendingDeletedWorkspaceElements().map((el) => `${os.EOL}${el.getSourcePath()}`)
       );
     });
 
@@ -254,11 +252,14 @@ export class SourceDeployApi extends SourceDeployApiBase {
     return this._handlePrompt(pendingDelPathsForPrompt);
   }
 
-  private async _handlePrompt(pathsToPrompt) {
+  private async _handlePrompt(pathsToPrompt: string[]): Promise<boolean> {
     // @todo this prompt should no be in the API. Need to remove.
     const messages = Messages.loadMessages('salesforce-alm', 'source_delete');
-    const promptMessage = messages.getMessage('sourceDeletePrompt', [pathsToPrompt]);
-    const answer = await cli.prompt(promptMessage);
+    // the pathsToPrompt looks like [ '\n/path/to/metadata', '\n/path/to/metadata/two']
+    // move the \n from the front to in between each entry for proper output
+    const paths = pathsToPrompt.map((p) => p.substr(2)).join('\n');
+    const promptMessage = messages.getMessage('sourceDeletePrompt', [paths]);
+    const answer: string = await cli.prompt(promptMessage);
     return answer.toUpperCase() === 'YES' || answer.toUpperCase() === 'Y';
   }
 

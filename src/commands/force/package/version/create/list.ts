@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -28,15 +28,15 @@ export class PackageVersionCreateListCommand extends ToolbeltCommand {
       char: 'c',
       description: messages.getMessage('createdLastDaysDescription', [], 'packaging'),
       longDescription: messages.getMessage('createdLastDaysLongDescription', [], 'packaging'),
-      required: false
+      required: false,
     }),
     status: flags.enum({
       char: 's',
       description: messages.getMessage('statusDescription', [], 'package_version_create_list'),
       longDescription: messages.getMessage('statusLongDescription', [], 'package_version_create_list'),
       required: false,
-      options: ['Queued', 'InProgress', 'Success', 'Error']
-    })
+      options: ['Queued', 'InProgress', 'Success', 'Error'],
+    }),
   };
 
   public async run(): Promise<unknown> {

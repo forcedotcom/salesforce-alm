@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { DefaultMetadataType } from './defaultMetadataType';
@@ -19,7 +19,7 @@ export class NondecomposedTypesWithChildrenMetadataType extends DefaultMetadataT
   }
 
   getAggregateFullNameFromSourceMemberName(sourceMemberName): string {
-    return sourceMemberName.split('.').length == 1 ? this.getMetadataName() : sourceMemberName.split('.')[0]; //if only passed the name, return the type
+    return sourceMemberName.split('.').length == 1 ? this.getMetadataName() : sourceMemberName.split('.')[0]; // if only passed the name, return the type
   }
 
   /**
@@ -36,7 +36,9 @@ export class NondecomposedTypesWithChildrenMetadataType extends DefaultMetadataT
 
   parseSourceMemberForMetadataRetrieve(
     sourceMemberName: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     sourceMemberType: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     isNameObsolete: boolean
   ): any {
     const fullName = this.getAggregateFullNameFromSourceMemberName(sourceMemberName);

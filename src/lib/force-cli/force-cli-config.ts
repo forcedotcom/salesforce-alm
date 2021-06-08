@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -16,18 +16,18 @@
 
 import { Connection } from 'jsforce';
 
-export let importScratchOrgCred = async function(context: any): Promise<Connection> {
+export const importScratchOrgCred = async function (context: any): Promise<Connection> {
   // Here be 🐉
   /* _getConnection only sets up the listener for a token refresh but does
    * not actually check if the token is old. Need to do a subsequent call
    * with the connection object for it to check and do a refresh.
    */
-  let conn = await context.org.force._getConnection(context.org, context.org.config);
+  const conn = await context.org.force._getConnection(context.org, context.org.config);
   await conn.requestGet(conn._baseUrl());
   return conn;
 };
 
-export let getActiveConnection = async function(context?: any): Promise<Connection> {
+export const getActiveConnection = async function (context?: any): Promise<Connection> {
   // if (TestUtil.isIntegrationTesting()) {
   //     let loginUrl = TestUtil.getTestInstance();
   //     let username = TestUtil.getTestUsername();

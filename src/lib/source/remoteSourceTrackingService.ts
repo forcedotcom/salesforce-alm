@@ -1,8 +1,14 @@
+/*
+ * Copyright (c) 2020, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import * as path from 'path';
+import { join as pathJoin } from 'path';
 import { ConfigFile, Connection, fs, Logger, Org, SfdxError } from '@salesforce/core';
 import { Dictionary, Optional } from '@salesforce/ts-types';
 import { Duration, env, sleep, toNumber } from '@salesforce/kit';
-import * as path from 'path';
-import { join as pathJoin } from 'path';
 import MetadataRegistry = require('./metadataRegistry');
 
 type MemberRevision = {
@@ -36,8 +42,8 @@ export namespace RemoteSourceTrackingService {
  * This service handles source tracking of metadata between a local project and an org.
  * Source tracking state is persisted to .sfdx/orgs/<username>/maxRevision.json.
  * This JSON file keeps track of `SourceMember` objects and the `serverMaxRevisionCounter`,
- * which is the highest `serverRevisionCounter` value of all the tracked elements. 
- * 
+ * which is the highest `serverRevisionCounter` value of all the tracked elements.
+ *
  * Each SourceMember object has 4 fields:
  *    serverRevisionCounter: the current RevisionCounter on the server for this object
  *    lastRetrievedFromServer: the RevisionCounter last retrieved from the server for this object
@@ -68,6 +74,7 @@ export namespace RemoteSourceTrackingService {
  * from the `lastRetrievedFromServer`. When a pull is performed, all of the pulled members will have their counters set
  * to the corresponding `RevisionCounter` from the `SourceMember` of the org.
  */
+// eslint-disable-next-line no-redeclare
 export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTrackingService.Options> {
   logger!: Logger;
   private org: Org;
@@ -87,6 +94,7 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
 
   /**
    * Get the singleton instance for a given user.
+   *
    * @param {RemoteSourceTrackingService.Options} options that contain the org's username
    * @returns {Promise<RemoteSourceTrackingService>} the remoteSourceTrackingService object for the given username
    */
@@ -99,6 +107,7 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
 
   /**
    * Returns the name of the file used for remote source tracking persistence.
+   *
    * @override
    */
   public static getFileName(): string {
@@ -176,7 +185,7 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
    */
   public getTrackedElements(): ChangeElement[] {
     const sourceTrackedKeys = Object.keys(this.getSourceMembers());
-    return sourceTrackedKeys.map(key => this.getTrackedElement(key));
+    return sourceTrackedKeys.map((key) => this.getTrackedElement(key));
   }
 
   /**
@@ -247,7 +256,7 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
     return this['contents'].serverMaxRevisionCounter;
   }
 
-  private setServerMaxRevision(revision: number = 0) {
+  private setServerMaxRevision(revision = 0) {
     this['contents'].serverMaxRevisionCounter = revision;
   }
 
@@ -291,7 +300,7 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
     }
 
     let serverMaxRevisionCounter = this.getServerMaxRevision();
-    sourceMembers.forEach(change => {
+    sourceMembers.forEach((change) => {
       // try accessing the sourceMembers object at the index of the change's name
       // if it exists, we'll update the fields - if it doesn't, we'll create and insert it
       const key = MetadataRegistry.getMetadataKey(change.MemberType, change.MemberName);
@@ -300,7 +309,9 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
         // We are already tracking this element so we'll update it
         if (!quiet) {
           let msg = `Updating ${key} to RevisionCounter: ${change.RevisionCounter}`;
-          if (sync) msg += ' and syncing';
+          if (sync) {
+            msg += ' and syncing';
+          }
           this.logger.debug(msg);
         }
         sourceMember.serverRevisionCounter = change.RevisionCounter;
@@ -309,14 +320,16 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
         // We are not yet tracking it so we'll insert a new record
         if (!quiet) {
           let msg = `Inserting ${key} with RevisionCounter: ${change.RevisionCounter}`;
-          if (sync) msg += ' and syncing';
+          if (sync) {
+            msg += ' and syncing';
+          }
           this.logger.debug(msg);
         }
         sourceMember = {
           serverRevisionCounter: change.RevisionCounter,
           lastRetrievedFromServer: null,
           memberType: change.MemberType,
-          isNameObsolete: change.IsNameObsolete
+          isNameObsolete: change.IsNameObsolete,
         };
       }
 
@@ -343,7 +356,7 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
     return {
       type: memberRevision.memberType,
       name: memberKey.replace(`${memberRevision.memberType}__`, ''),
-      deleted: memberRevision.isNameObsolete
+      deleted: memberRevision.isNameObsolete,
     };
   }
 
@@ -383,6 +396,7 @@ export class RemoteSourceTrackingService extends ConfigFile<RemoteSourceTracking
    * Polls the org for SourceMember objects matching the provided metadata member names,
    * stopping when all members have been matched or the polling timeout is met or exceeded.
    * NOTE: This can be removed when the Team Dependency (TD-0085369) for W-7737094 is delivered.
+   *
    * @param memberNames Array of metadata names to poll
    * @param pollingTimeout maximum amount of time in seconds to poll for SourceMembers
    */

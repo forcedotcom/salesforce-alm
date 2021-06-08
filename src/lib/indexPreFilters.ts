@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as _ from 'lodash';
@@ -30,7 +30,7 @@ export = {
         'SFDX_PRECOMPILE_DISABLE',
         {
           version: 41,
-          to: 'SFDX_PRECOMPILE_ENABLE=true to enable Apex pre-compilation.'
+          to: 'SFDX_PRECOMPILE_ENABLE=true to enable Apex pre-compilation.',
         },
         'environment variable'
       );
@@ -42,7 +42,7 @@ export = {
         'SFDX_DISABLE_ENCRYPTION',
         {
           version: 41,
-          to: 'sfdx force:auth to re-authorize your orgs'
+          to: 'sfdx force:auth to re-authorize your orgs',
           // I wanted to create an enum for DeprecationTypes but string mappings are only supported in TS 2.4 and above.
         },
         'environment variable'
@@ -58,12 +58,12 @@ export = {
       );
       logger.warnUser(context, msg);
     } else if (context.flags) {
-      _.each(command.flags, flag => {
+      _.each(command.flags, (flag) => {
         if (flag.deprecated && !_.isNil(context.flags[flag.name])) {
           const msg = logger.formatDeprecationWarning(flag.name, flag.deprecated, 'flag');
           logger.warnUser(context, msg);
         }
       });
     }
-  }
+  },
 };

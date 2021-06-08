@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -16,21 +16,20 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import * as _ from 'lodash';
+import * as util from 'util';
 
+import * as BBPromise from 'bluebird';
 import * as almError from './almError';
 import * as keychain from './keyChain';
 import logApi = require('./logApi');
 import srcDevUtil = require('./srcDevUtil');
-import * as util from 'util';
-import * as BBPromise from 'bluebird';
 
 const logger = logApi.child('keyChainImpl');
 
 const fsOpenPromise = util.promisify(fs.open);
 let Org;
 
-const _usingGenericKeychain = function() {
+const _usingGenericKeychain = function () {
   const keyPath = path.join(srcDevUtil.getGlobalHiddenFolder(), 'key.json');
   logger.debug(`keyPath: ${keyPath}`);
   return fsOpenPromise(keyPath, 'r')
@@ -38,7 +37,7 @@ const _usingGenericKeychain = function() {
       logger.debug('keyPath found.');
       return true;
     })
-    .catch(err => {
+    .catch((err) => {
       if (err.code === 'ENOENT') {
         logger.debug('keyPath not found');
         return false;
@@ -50,7 +49,7 @@ const _usingGenericKeychain = function() {
 
 export const DEPRECATED_KEYCHAIN = 'DEPRECATED_KEYCHAIN';
 
-export const retrieveKeychainImpl = function(platform) {
+export const retrieveKeychainImpl = function (platform) {
   if (!Org) {
     Org = require('./scratchOrgApi'); // eslint-disable-line global-require
   }

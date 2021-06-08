@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { Config } from '../../lib/core/configApi';
@@ -135,7 +135,7 @@ const orgPreferenceApiMapPre47 = new Map([
   ['CompileOnDeploy', OrganizationSettingsDetailApi],
   ['VoiceEnabled', OrganizationSettingsDetailApi],
   ['TerritoryManagement2Enable', OrganizationSettingsDetailApi],
-  ['ApexApprovalLockUnlock', OrganizationSettingsDetailApi]
+  ['ApexApprovalLockUnlock', OrganizationSettingsDetailApi],
 ]);
 
 // This map is used in the migration from orgPreferences -> settings types before 47.0
@@ -219,7 +219,7 @@ const orgPreferenceMdMapPre47 = new Map([
   ['CompileOnDeploy', 'compileOnDeploy'],
   ['VoiceEnabled', 'voiceEnabled'],
   ['TerritoryManagement2Enable', 'territoryManagement2Enable'],
-  ['ApexApprovalLockUnlock', 'apexApprovalLockUnlock']
+  ['ApexApprovalLockUnlock', 'apexApprovalLockUnlock'],
 ]);
 
 // This map is used in the migration from orgPreferences -> settings types
@@ -301,7 +301,7 @@ const orgPreferenceApiMap = new Map([
   ['NotesReservedPref01', EnhancedNotesSettingsApi],
   ['CompileOnDeploy', ApexSettingsApi],
   ['TerritoryManagement2Enable', Territory2SettingsApi],
-  ['ApexApprovalLockUnlock', ApexSettingsApi]
+  ['ApexApprovalLockUnlock', ApexSettingsApi],
 ]);
 
 // This map is used in the migration from orgPreferences -> settings types
@@ -385,7 +385,7 @@ const orgPreferenceMdMap = new Map([
   ['CompileOnDeploy', 'enableCompileOnDeploy'],
   ['VoiceEnabled', 'voiceEnabled'],
   ['TerritoryManagement2Enable', 'territoryManagement2Enable'],
-  ['ApexApprovalLockUnlock', 'enableApexApprovalLockUnlock']
+  ['ApexApprovalLockUnlock', 'enableApexApprovalLockUnlock'],
 ]);
 
 // this maps the old orgPreferenceSettings preference names to the
@@ -440,7 +440,7 @@ const orgPreferenceSettingsPrefNameMigrateMap = new Map([
   ['voiceLocalPresenceEnabled', 'enableVoiceLocalPresence'],
   ['voiceMailDropEnabled', 'enableVoiceMailDrop'],
   ['voiceMailEnabled', 'enableVoiceMail'],
-  ['xssProtection', 'enableXssProtection']
+  ['xssProtection', 'enableXssProtection'],
 ]);
 
 // this maps the old orgPreferenceSettings preferences
@@ -502,7 +502,7 @@ const orgPreferenceSettingsTypeMigrateMap = new Map([
   ['redirectionWarning', SecuritySessionSettingsApi],
   ['referrerPolicy', SecuritySessionSettingsApi],
   ['useLanguageFallback', LanguageSettingsApi],
-  ['voiceEnabled', DeprecatedSettingsApi]
+  ['voiceEnabled', DeprecatedSettingsApi],
 ]);
 
 function getCurrentApiVersion(): string {
@@ -568,6 +568,7 @@ export = {
   /**
    *
    * Return true if this preference was deprected in the migration from org preference settings to concreate settings types.
+   *
    * @param apiVersion
    */
   isMigrationDeprecated(prefType): boolean {
@@ -576,6 +577,7 @@ export = {
 
   /**
    * Takes in an org preference name and returns the MD-API name
+   *
    * @param prefName The org preference name
    * @returns the MDAPI name for the org preference
    */
@@ -590,6 +592,7 @@ export = {
 
   /**
    * Takes in an org preference name and returns the API through which it is set
+   *
    * @param prefName The org preference name
    * @returns the API name for the org preference
    */
@@ -604,6 +607,7 @@ export = {
 
   /**
    * Convenience method for testing to get Org Preference Map
+   *
    * @returns the Org Preference Map
    */
   allPrefsMap(apiVersion: string = getCurrentApiVersion()) {
@@ -613,5 +617,5 @@ export = {
     } else {
       return orgPreferenceApiMapPre47;
     }
-  }
+  },
 };

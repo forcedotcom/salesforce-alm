@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
@@ -12,11 +12,12 @@ import srcDevUtil = require('../../core/srcDevUtil');
 import { WorkspaceFileState } from '../workspaceFileState';
 import * as PathUtil from '../sourcePathUtil';
 
-import { DefaultMetadataType } from './defaultMetadataType';
 import { WorkspaceElement } from '../workspaceElement';
+import { DefaultMetadataType } from './defaultMetadataType';
 
 export class FolderMetadataType extends DefaultMetadataType {
-  /**Return the path of the metadata file excluding the metadatatype folder. It also appends the metadata file extension : -meta.xml
+  /** Return the path of the metadata file excluding the metadatatype folder. It also appends the metadata file extension : -meta.xml
+   *
    * @param metadataFilePath - The full path of the metadata file including the workspace  and the metadatatype extension. eg : projectPath/force-app/main/default/reports/Parent/child.reportFolder-meta.xml
    * Returns : Parent/child-meta.xml
    */
@@ -29,6 +30,7 @@ export class FolderMetadataType extends DefaultMetadataType {
   }
 
   /** Returns the relative path of the metadata file excluding the metatadata type folder
+   *
    * @param filePath - the path to report folder including the workspace path.eg: projectPath/force-app/main/default/reports/Parent/Child.reportFolder-meta.xml
    * returns : Parent/Child
    */
@@ -41,9 +43,11 @@ export class FolderMetadataType extends DefaultMetadataType {
   }
 
   /** Returns the path of the folder provided for metadata conversion, eg : Users/test/projectName/path provided for MDAPI conversion.
+   *
    * @param retrieveRoot
    * @param fileProperty
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getRetrievedMetadataPath(fileProperty, retrieveRoot: string, bundleFileProperties): string {
     let fileName: string;
     if (fileProperty.fileName.endsWith(MetadataRegistry.getMetadataFileExt())) {
@@ -56,6 +60,7 @@ export class FolderMetadataType extends DefaultMetadataType {
   }
 
   /** Returns the path of the folder excluding the metadatatype
+   *
    * @param mdapiPackagePath - includes the path from the metadatype to the folder.eg : reports/ParentFolder/childFolder, returns : ParentFolder/childFolder
    */
   getAggregateFullNameFromMdapiPackagePath(mdapiPackagePath: string): string {
@@ -79,13 +84,14 @@ export class FolderMetadataType extends DefaultMetadataType {
 
   /**
    * Returns true if a new folder type is being created; false if a folder type is being deleted or changed
+   *
    * @param workspaceElements
    * @param {string} metadataFilePath
    * @returns {boolean}
    */
   private static isCreatingNewFolder(workspaceElements: WorkspaceElement[], metadataFilePath: string): boolean {
     const metadataFileElement = workspaceElements.find(
-      workspaceElement => workspaceElement.getSourcePath() === metadataFilePath
+      (workspaceElement) => workspaceElement.getSourcePath() === metadataFilePath
     );
     if (metadataFileElement) {
       return metadataFileElement.getState() === WorkspaceFileState.NEW;

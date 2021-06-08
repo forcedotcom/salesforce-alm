@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import * as path from 'path';
-import { DefaultMetadataType } from './defaultMetadataType';
 import * as PathUtil from '../sourcePathUtil';
 
 import MetadataRegistry = require('../metadataRegistry');
+import { DefaultMetadataType } from './defaultMetadataType';
 
 const territory2ModelDefaultDir = 'territory2Models'; // This should not need to be hardcoded when the MetadataRegistry becomes static
 
@@ -21,10 +21,11 @@ export class Territory2AndTerritory2RuleMetadataType extends DefaultMetadataType
   getAggregateFullNameFromFilePath(filePath: string): string {
     const modelName = PathUtil.getGrandparentDirectoryName(filePath);
     const territoryName = PathUtil.getFileName(filePath);
-    //need to check modelName for a windows specific issue
+    // need to check modelName for a windows specific issue
     return modelName === 'undefined' ? territoryName : `${modelName}.${territoryName}`;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getDefaultAggregateMetadataPath(fullName: string, defaultSourceDir: string, bundleFileProperties): string {
     const nameParts = fullName.split('.');
     const modelName = nameParts[0];
@@ -50,6 +51,7 @@ export class Territory2AndTerritory2RuleMetadataType extends DefaultMetadataType
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getAggregateFullNameFromFileProperty(fileProperty, namespace: string): string {
     if (fileProperty.fullName) {
       return fileProperty.fullName;

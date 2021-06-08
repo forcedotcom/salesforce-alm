@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -11,11 +11,14 @@ import * as fs from 'fs';
 import * as glob from 'glob';
 
 // Thirdparty
-import { DOMParser } from 'xmldom-sfdx-encoding';
-import { XMLSerializer } from 'xmldom-sfdx-encoding';
+import { DOMParser, XMLSerializer } from 'xmldom-sfdx-encoding';
+import { Messages } from '@salesforce/core';
 
 // Local
-import logApi = require('../core/logApi');
+
+Messages.importMessagesDirectory(__dirname);
+
+const profileApiMessages = Messages.loadMessages('salesforce-alm', 'packaging');
 
 /*
  * This class provides functions used to re-write .profiles in the workspace when creating a package2 version.
@@ -24,14 +27,17 @@ import logApi = require('../core/logApi');
  */
 class ProfileApi {
   // TODO: proper property typing
+  // eslint-disable-next-line no-undef
   [property: string]: any;
 
-  constructor(org, includeUserLicenses) {
+  constructor(org, includeUserLicenses, generateProfileInformation = false) {
     this.org = org;
     this.includeUserLicenses = includeUserLicenses;
     this.config = this.org.config;
     this.apiVersion = this.config.getApiVersion();
-    this.logger = logApi.child('profile');
+    this.profiles = [];
+    this.generateProfileInformation = generateProfileInformation;
+
     this.includeUserLicenses = includeUserLicenses;
 
     // nodeEntities is used to determine which elements in the profile are relevant to the source being packaged.
@@ -54,13 +60,13 @@ class ProfileApi {
         'layoutAssignments',
         'tabVisibilities',
         'applicationVisibilities',
-        'classAccesses'
+        'classAccesses',
       ],
-      childElement: ['object', 'field', 'layout', 'tab', 'application', 'apexClass']
+      childElement: ['object', 'field', 'layout', 'tab', 'application', 'apexClass'],
     };
   }
 
-  _copyNodes(originalDom, parentElement, childElement, members, appendToNode) {
+  _copyNodes(originalDom, parentElement, childElement, members, appendToNode, profileName) {
     let nodesAdded = false;
 
     const nodes = originalDom.getElementsByTagName(parentElement);
@@ -76,13 +82,27 @@ class ProfileApi {
         const currentNode = nodes[i].cloneNode(true);
         appendToNode.appendChild(currentNode);
         nodesAdded = true;
+      } else {
+        // Tell the user which profile setting has been removed from the package
+        if (this.generateProfileInformation) {
+          let profile = this.profiles.find(({ ProfileName }) => ProfileName === profileName);
+          if (profile) {
+            profile.appendRemovedSetting(name);
+          }
+        }
       }
     }
     return nodesAdded;
   }
 
-  _findAllProfiles() {
-    return glob.sync(path.join(this.config.getProjectPath(), '**', '*.profile-meta.xml'));
+  _findAllProfiles(excludedDirectories = []) {
+    for (let i = 0; i < excludedDirectories.length; i++) {
+      excludedDirectories[i] = '**/' + excludedDirectories[i] + '/**';
+    }
+
+    return glob.sync(path.join(this.config.getProjectPath(), '**', '*.profile-meta.xml'), {
+      ignore: excludedDirectories,
+    });
   }
 
   /**
@@ -90,17 +110,20 @@ class ProfileApi {
    * to items in the manifest.
    *
    * @param destPath location of new profiles
-   * @param package manifest json object
+   * @param manifest
+   * @param excludedDirectories Directories to not include profiles from
    */
-  generateProfiles(destPath, manifest) {
+  generateProfiles(destPath, manifest, excludedDirectories = []) {
     const excludedProfiles = [];
 
-    const profilePaths = this._findAllProfiles();
+    const profilePaths = this._findAllProfiles(excludedDirectories);
+
     if (!profilePaths) {
       return excludedProfiles;
     }
 
-    profilePaths.forEach(profilePath => {
+    profilePaths.forEach((profilePath) => {
+      const profileName = profilePath.match(/(.*profiles.)(.*)(\.profile-meta.xml)/)[2];
       const profileDom = new DOMParser().parseFromString(fs.readFileSync(profilePath, 'utf-8'));
       const newDom = new DOMParser().parseFromString(
         '<?xml version="1.0" encoding="UTF-8"?><Profile xmlns="http://soap.sforce.com/2006/04/metadata"></Profile>'
@@ -108,7 +131,7 @@ class ProfileApi {
       const profileNode = newDom.getElementsByTagName('Profile')[0];
       let hasNodes = false;
 
-      manifest.Package.types.forEach(element => {
+      manifest.Package.types.forEach((element) => {
         const name = element['name'];
         const members = element['members'];
 
@@ -120,14 +143,15 @@ class ProfileApi {
               this.nodeEntities.parentElement[idx],
               this.nodeEntities.childElement[idx],
               members,
-              profileNode
+              profileNode,
+              profileName
             ) || hasNodes;
         }
       });
 
-      //add userLicenses to the profile
+      // add userLicenses to the profile
       if (this.includeUserLicenses === true) {
-        let userLicenses = profileDom.getElementsByTagName('userLicense');
+        const userLicenses = profileDom.getElementsByTagName('userLicense');
         if (userLicenses) {
           hasNodes = true;
           for (let i = 0; i < userLicenses.length; i++) {
@@ -145,7 +169,15 @@ class ProfileApi {
         fs.writeFileSync(destFilePath, serializer.serializeToString(newDom), 'utf-8');
       } else {
         // remove from manifest
-        excludedProfiles.push(xmlFile.replace(/(.*)(\.profile)/, '$1'));
+        const profileName = xmlFile.replace(/(.*)(\.profile)/, '$1');
+        excludedProfiles.push(profileName);
+        if (this.generateProfileInformation) {
+          let profile = this.profiles.find(({ ProfileName }) => ProfileName === profileName);
+          if (profile) {
+            profile.setIsPackaged(false);
+          }
+        }
+
         try {
           fs.unlinkSync(destFilePath);
         } catch (err) {
@@ -164,20 +196,24 @@ class ProfileApi {
    * Filter out all profiles in the manifest and if any profiles exists in the workspace, add them to the manifest.
    *
    * @param typesArr array of objects { name[], members[] } that represent package types JSON.
+   * @param excludedDirectories Direcotires not to generate profiles for
    */
-  filterAndGenerateProfilesForManifest(typesArr) {
-    const profilePaths = this._findAllProfiles();
+  filterAndGenerateProfilesForManifest(typesArr, excludedDirectories = []) {
+    const profilePaths = this._findAllProfiles(excludedDirectories);
 
     // Filter all profiles
-    typesArr = typesArr.filter(kvp => kvp.name[0] !== 'Profile');
+    typesArr = typesArr.filter((kvp) => kvp.name[0] !== 'Profile');
 
     if (profilePaths) {
       const members = [];
 
-      profilePaths.forEach(profilePath => {
+      profilePaths.forEach((profilePath) => {
         // this assumes profile metadata is in directory "profiles"
         const profileName = profilePath.replace(/(.*profiles.)(.*)(\.profile-meta.xml)/, '$2');
         members.push(profileName);
+        if (this.generateProfileInformation) {
+          this.profiles.push(new ProfileInformation(profileName, profilePath, true, []));
+        }
       });
       if (members.length > 0) {
         typesArr.push({ name: ['Profile'], members });
@@ -185,6 +221,52 @@ class ProfileApi {
     }
 
     return typesArr;
+  }
+
+  getProfileInformation(): ProfileInformation[] {
+    return this.profiles;
+  }
+}
+
+class ProfileInformation {
+  ProfileName: string;
+  ProfilePath: string;
+  IsPackaged: boolean;
+  settingsRemoved: string[];
+
+  constructor(ProfileName: string, ProfilePath: string, IsPackaged: boolean, settingsRemoved: string[]) {
+    this.ProfileName = ProfileName;
+    this.ProfilePath = ProfilePath;
+    this.IsPackaged = IsPackaged;
+    this.settingsRemoved = settingsRemoved;
+  }
+
+  setIsPackaged(IsPackaged: boolean): void {
+    this.IsPackaged = IsPackaged;
+  }
+
+  appendRemovedSetting(setting: string): void {
+    this.settingsRemoved.push(setting);
+  }
+
+  logDebug(): string {
+    let info = profileApiMessages.getMessage('profile_api.addProfileToPackage', [this.ProfileName, this.ProfilePath]);
+    this.settingsRemoved.forEach((setting) => {
+      info += '\n\t' + profileApiMessages.getMessage('profile_api.removeProfileSetting', [setting, this.ProfileName]);
+    });
+    if (!this.IsPackaged) {
+      info += '\n\t' + profileApiMessages.getMessage('profile_api.removeProfile', [this.ProfileName]);
+    }
+    info += '\n';
+    return info;
+  }
+
+  logInfo(): string {
+    if (this.IsPackaged) {
+      return profileApiMessages.getMessage('profile_api.addProfileToPackage', [this.ProfileName, this.ProfilePath]);
+    } else {
+      return profileApiMessages.getMessage('profile_api.profileNotIncluded', [this.ProfileName]);
+    }
   }
 }
 

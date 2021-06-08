@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 import * as os from 'os';
 import * as _ from 'lodash';
@@ -12,7 +12,7 @@ import logApi = require('../core/logApi');
 // endpoint registry
 export const APPHUB_ENDPOINTS = {
   discover: 'discover',
-  envAcccess: 'environmentAccesses'
+  envAcccess: 'environmentAccesses',
 };
 
 const LOGGER = logApi.child('AppHub');
@@ -25,7 +25,7 @@ export class AppHubInfo {
     return this.appHubAppConfig;
   }
 
-  getVersions(): String[] {
+  getVersions(): string[] {
     return this.appHubAppConfig.versions;
   }
 }
@@ -55,7 +55,7 @@ class BaseAppHubApiImpl implements AppHubApi {
       try {
         this.username = process.env['USER'];
       } catch (err) {
-        LOGGER.warn(`Unable to get username.`);
+        LOGGER.warn('Unable to get username.');
         this.username = 'n/a';
       }
     }
@@ -67,7 +67,7 @@ class BaseAppHubApiImpl implements AppHubApi {
       try {
         this.hostname = process.env['HOSTNAME'];
       } catch (err) {
-        LOGGER.warn(`Unable to get hostname.`);
+        LOGGER.warn('Unable to get hostname.');
         this.hostname = 'n/a';
       }
     }
@@ -77,6 +77,7 @@ class BaseAppHubApiImpl implements AppHubApi {
     return this.appHubInfo;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unused-vars
   async postScratchOrgCreate(scratchOrgInfoResponse: any, scratchOrg: any): Promise<any> {
     throw new Error('Not implemented!');
   }
@@ -110,6 +111,7 @@ export class NoOpAppHubApiImpl implements AppHubApi {
     return this.appHubInfo;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unused-vars
   async postScratchOrgCreate(scratchOrgInfoResponse: any, scratchOrg: any): Promise<any> {
     // apphub not installed or general no-op
   }
@@ -146,7 +148,7 @@ class AppHubApiImpl extends BaseAppHubApiImpl {
         RefreshToken__c: scratchOrgConfig.refreshToken,
         Username__c: scratchOrgInfoResponse.SignupUsername,
         ClientUsername__c: this.username,
-        ClientHostname__c: this.hostname
+        ClientHostname__c: this.hostname,
       };
 
       // send access to apphub

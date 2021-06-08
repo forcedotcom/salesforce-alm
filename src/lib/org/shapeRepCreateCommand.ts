@@ -1,14 +1,14 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { Messages, SfdxError } from '@salesforce/core';
 import VarargsCommand from '../core/varargsCommand';
 
 import ShapeRepApi = require('./shapeRepApi');
-import { Messages, SfdxError } from '@salesforce/core';
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('salesforce-alm', 'org_shape');
@@ -30,6 +30,7 @@ class ShapeRepCreateCommand extends VarargsCommand {
   /**
    * secondary validation from the cli interface. this is a protocol style function intended to be represented by other
    * commands
+   *
    * @param context - this cli context
    * @returns {Promise}
    */
@@ -45,7 +46,7 @@ class ShapeRepCreateCommand extends VarargsCommand {
     }
   }
 
-  async execute(context, stdinValues): Promise<ShapeResult> {
+  async execute(): Promise<ShapeResult> {
     const logger = await this.getLogger();
 
     // example response: { id: '3SRxx0000004D6iGAE', success: true, errors: [] }
@@ -58,9 +59,9 @@ class ShapeRepCreateCommand extends VarargsCommand {
 
     const shapeId = createShapeResponse['id'];
 
-    var scratchDefFileName;
+    let scratchDefFileName;
 
-    return { shapeId: shapeId, shapeFile: scratchDefFileName, success: true, errors: [] };
+    return { shapeId, shapeFile: scratchDefFileName, success: true, errors: [] };
   }
 
   getHumanSuccessMessage(shape) {

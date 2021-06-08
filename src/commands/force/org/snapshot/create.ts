@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // This is the legacy converted command file. Ignoring code-coverage since this is generated.
@@ -29,20 +29,20 @@ export class OrgSnapshotCreateCommand extends ToolbeltCommand {
       char: 'o',
       description: messages.getMessage('createSnapshotCmdSourceOrgDescription', [], 'orgSnapshot'),
       longDescription: messages.getMessage('createSnapshotCmdSourceOrgDescriptionLong', [], 'orgSnapshot'),
-      required: true
+      required: true,
     }),
     snapshotname: flags.string({
       char: 'n',
       description: messages.getMessage('createSnapshotCmdNameDescription', [], 'orgSnapshot'),
       longDescription: messages.getMessage('createSnapshotCmdNameDescriptionLong', [], 'orgSnapshot'),
-      required: true
+      required: true,
     }),
     description: flags.string({
       char: 'd',
       description: messages.getMessage('createSnapshotCmdDescriptionDescription', [], 'orgSnapshot'),
       longDescription: messages.getMessage('createSnapshotCmdDescriptionDescriptionLong', [], 'orgSnapshot'),
-      required: false
-    })
+      required: false,
+    }),
   };
 
   public async run(): Promise<unknown> {

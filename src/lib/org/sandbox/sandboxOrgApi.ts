@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { SfdxError, Org, Messages, Logger } from '@salesforce/core';
@@ -83,8 +83,8 @@ export class SandboxOrgApi {
    */
   public async querySandboxProcessById(processId: string): Promise<SandboxProcessObject> {
     this.logger.debug('QuerySandboxProcessById called with SandboxProcessId: %s ', processId);
-    const queryStr: string = `SELECT ${SandboxOrgApi.QUERY_SANDBOXPROCESS_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXPROCESS} WHERE Id='${processId}' AND Status != 'D' ORDER BY CreatedDate DESC LIMIT 1`;
-    let record: SandboxProcessObject = await this.queryToolingApi(
+    const queryStr = `SELECT ${SandboxOrgApi.QUERY_SANDBOXPROCESS_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXPROCESS} WHERE Id='${processId}' AND Status != 'D' ORDER BY CreatedDate DESC LIMIT 1`;
+    const record: SandboxProcessObject = await this.queryToolingApi(
       queryStr,
       'SandboxProcessNotFoundById',
       'MultiSandboxProcessFoundById',
@@ -97,8 +97,8 @@ export class SandboxOrgApi {
 
   public async querySandboxProcessBySandboxOrgId(sandboxOrgId: string): Promise<SandboxProcessObject> {
     this.logger.debug('QuerySandboxProcessById called with SandboxOrgId: %s ', sandboxOrgId);
-    const queryStr: string = `SELECT ${SandboxOrgApi.QUERY_SANDBOXPROCESS_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXPROCESS} WHERE SandboxOrganization ='${sandboxOrgId}' AND Status NOT IN ('D', 'E') ORDER BY CreatedDate DESC LIMIT 1`;
-    let record: SandboxProcessObject = await this.queryToolingApi(
+    const queryStr = `SELECT ${SandboxOrgApi.QUERY_SANDBOXPROCESS_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXPROCESS} WHERE SandboxOrganization ='${sandboxOrgId}' AND Status NOT IN ('D', 'E') ORDER BY CreatedDate DESC LIMIT 1`;
+    const record: SandboxProcessObject = await this.queryToolingApi(
       queryStr,
       'sandboxProcessNotFoundByOrgId',
       'multiSandboxProcessFoundByOrgId',
@@ -111,8 +111,14 @@ export class SandboxOrgApi {
 
   public async queryUserId(userNameIn: string): Promise<string> {
     this.logger.debug('QueryUserId called with UserName: %s ', userNameIn);
-    const queryStr: string = `SELECT Id FROM User WHERE Username='${userNameIn}'`;
-    let userRecord = await this.queryToolingApi(queryStr, 'UserNotFound', 'MultiUserFound', [userNameIn], [userNameIn]);
+    const queryStr = `SELECT Id FROM User WHERE Username='${userNameIn}'`;
+    const userRecord = await this.queryToolingApi(
+      queryStr,
+      'UserNotFound',
+      'MultiUserFound',
+      [userNameIn],
+      [userNameIn]
+    );
     this.logger.debug('Return from calling queryToolingApi: %s ', userRecord);
     return userRecord.Id;
   }
@@ -124,8 +130,8 @@ export class SandboxOrgApi {
    */
   public async querySandboxInfoIdBySandboxName(sandboxNameIn: string): Promise<string> {
     this.logger.debug('QuerySandboxInfoIdBySandboxName called with SandboxName: %s ', sandboxNameIn);
-    const queryStr: string = `SELECT ${SandboxOrgApi.QUERY_SANDBOXINFO_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXINFO} WHERE SandboxName='${sandboxNameIn}'`;
-    let record = await this.queryToolingApi(
+    const queryStr = `SELECT ${SandboxOrgApi.QUERY_SANDBOXINFO_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXINFO} WHERE SandboxName='${sandboxNameIn}'`;
+    const record = await this.queryToolingApi(
       queryStr,
       'SandboxInfoNotFound',
       'MultiSandboxInfoFound',
@@ -138,8 +144,8 @@ export class SandboxOrgApi {
 
   public async queryLatestSandboxProcessBySandboxName(sandboxNameIn: string): Promise<SandboxProcessObject> {
     this.logger.debug('QueryLatestSandboxProcessBySandboxName called with SandboxName: %s ', sandboxNameIn);
-    const queryStr: string = `SELECT ${SandboxOrgApi.QUERY_SANDBOXPROCESS_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXPROCESS} WHERE SandboxName='${sandboxNameIn}' AND Status != 'D' ORDER BY CreatedDate DESC LIMIT 1`;
-    let record: SandboxProcessObject = await this.queryToolingApi(
+    const queryStr = `SELECT ${SandboxOrgApi.QUERY_SANDBOXPROCESS_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXPROCESS} WHERE SandboxName='${sandboxNameIn}' AND Status != 'D' ORDER BY CreatedDate DESC LIMIT 1`;
+    const record: SandboxProcessObject = await this.queryToolingApi(
       queryStr,
       'SandboxProcessNotFoundBySandboxName',
       'MultiSandboxProcessNotFoundBySandboxName',
@@ -152,8 +158,8 @@ export class SandboxOrgApi {
 
   private async queryLatestSandboxProcessBySandboxInfo(sandboxInfoIdIn: string): Promise<SandboxProcessObject> {
     this.logger.debug('QueryLatestSandboxProcessBySandboxInfo called with SandboxInfoId: %s ', sandboxInfoIdIn);
-    const queryStr: string = `SELECT ${SandboxOrgApi.QUERY_SANDBOXPROCESS_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXPROCESS} WHERE SandboxInfoId='${sandboxInfoIdIn}' AND Status != 'D' ORDER BY CreatedDate DESC LIMIT 1`;
-    let record: SandboxProcessObject = await this.queryToolingApi(
+    const queryStr = `SELECT ${SandboxOrgApi.QUERY_SANDBOXPROCESS_FIELDS} FROM ${SandboxOrgApi.SOBJECT_SANDBOXPROCESS} WHERE SandboxInfoId='${sandboxInfoIdIn}' AND Status != 'D' ORDER BY CreatedDate DESC LIMIT 1`;
+    const record: SandboxProcessObject = await this.queryToolingApi(
       queryStr,
       'SandboxProcessNotFoundByInfoId',
       'MultiSandboxProcessFoundByInfoId',
@@ -193,15 +199,15 @@ export class SandboxOrgApi {
 
   public async sandboxAuth(request: SandboxUserAuthRequest): Promise<SandboxUserAuthResponse> {
     this.logger.debug('SandboxAuth called with SandboxUserAuthRequest: %s', request);
-    let url = [this.tooling._baseUrl(), 'sandboxAuth'].join('/');
-    let params = {
+    const url = [this.tooling._baseUrl(), 'sandboxAuth'].join('/');
+    const params = {
       method: 'POST',
-      url: url,
+      url,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request)
+      body: JSON.stringify(request),
     };
 
-    return <SandboxUserAuthResponse>await this.tooling.request(params);
+    return (await this.tooling.request(params)) as SandboxUserAuthResponse;
   }
 
   public async deleteSandbox(sandboxInfoId: string): Promise<SandboxProcessObject> {

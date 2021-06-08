@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /* --------------------------------------------------------------------------------------------------------------------
@@ -28,11 +28,11 @@ import * as bunyan from 'bunyan-sfdx-no-dtrace';
 import * as h from 'heroku-cli-util';
 import * as _ from 'lodash';
 import { isPlainObject } from '@salesforce/ts-types';
+import Messages = require('../messages');
 const { env } = require('@salesforce/kit');
 
 const almError = require('./almError');
 const _constants = require('./constants');
-import Messages = require('../messages');
 const messages = Messages();
 
 import stripAnsi = require('strip-ansi');
@@ -54,17 +54,17 @@ const FILTERED_KEYS = [
   { name: 'refresh_token', regex: 'refresh[^\'"]*token' },
   'clientsecret',
   // Any json attribute that contains the words "sfdx", "auth", and "url" will have the attribute/value hidden
-  { name: 'sfdxauthurl', regex: 'sfdx[^\'"]*auth[^\'"]*url' }
+  { name: 'sfdxauthurl', regex: 'sfdx[^\'"]*auth[^\'"]*url' },
 ];
 
 const loggerRegistry = {}; // store so we reuse and properly close
 
 const serializers = bunyan.stdSerializers;
 
-serializers.config = obj => {
+serializers.config = (obj) => {
   const configCopy = {};
 
-  Object.keys(obj).forEach(key => {
+  Object.keys(obj).forEach((key) => {
     const val = obj[key];
     if (_.isString(val) || _.isNumber(val) || _.isBoolean(val)) {
       configCopy[key] = val;
@@ -76,13 +76,13 @@ serializers.config = obj => {
 
 // close streams
 // FIXME: sadly, this does not work when process.exit is called; for now, disabled process.exit
-const closeStreams = fn => {
-  Object.keys(loggerRegistry).forEach(key => {
+const closeStreams = (fn) => {
+  Object.keys(loggerRegistry).forEach((key) => {
     loggerRegistry[key].close(fn);
   });
 };
 
-const uncaughtExceptionHandler = err => {
+const uncaughtExceptionHandler = (err) => {
   // log the exception
   const logger = _getLogger(ROOT_LOGGER_NAME, false); // eslint-disable-line no-use-before-define
   if (logger) {
@@ -95,7 +95,7 @@ const uncaughtExceptionHandler = err => {
 
 // Never show tokens or connect app information in the logs
 const _filter = (...args) =>
-  args.map(arg => {
+  args.map((arg) => {
     if (_.isArray(arg)) {
       return _filter(...arg);
     }
@@ -110,7 +110,7 @@ const _filter = (...args) =>
 
       const HIDDEN = 'HIDDEN';
 
-      FILTERED_KEYS.forEach(key => {
+      FILTERED_KEYS.forEach((key) => {
         let expElement = key;
         let expName = key;
 
@@ -157,7 +157,7 @@ const _filter = (...args) =>
     }
   });
 
-const _registerLogger = function(logger, name) {
+const _registerLogger = function (logger, name) {
   if (_.isNil(name)) {
     throw new Error('Logger name required');
   }
@@ -178,7 +178,7 @@ class Mode {
     mode = mode && mode.toLowerCase();
     this.mode = Mode.types.includes(mode) ? mode : 'production';
 
-    Mode.types.forEach(modeType => {
+    Mode.types.forEach((modeType) => {
       this[`is${_.capitalize(modeType)}`] = () => modeType === this.mode;
     });
   }
@@ -246,15 +246,15 @@ class Logger extends bunyan {
       // create log file, if not exists
       if (!fs.existsSync(logFile)) {
         mkdirp.sync(path.dirname(logFile), {
-          mode: _constants.DEFAULT_USER_DIR_MODE
+          mode: _constants.DEFAULT_USER_DIR_MODE,
         });
         fs.writeFileSync(logFile, '', {
-          mode: _constants.DEFAULT_USER_FILE_MODE
+          mode: _constants.DEFAULT_USER_FILE_MODE,
         });
       }
 
       // avoid multiple streams to same log file
-      if (!this.streams.find(stream => stream.type === 'file' && stream.path === logFile)) {
+      if (!this.streams.find((stream) => stream.type === 'file' && stream.path === logFile)) {
         // TODO: rotating-file
         // https://github.com/trentm/node-bunyan#stream-type-rotating-file
         try {
@@ -308,6 +308,7 @@ class Logger extends bunyan {
 
   /**
    * Turns on in memory logging
+   *
    * @param {boolean} val
    */
   set useRingBuffer(val) {
@@ -316,6 +317,7 @@ class Logger extends bunyan {
 
   /**
    * Returns an array of log line objects. Each element is an object the corresponds to a log line.
+   *
    * @returns {Array}
    */
   getBufferedRecords() {
@@ -324,6 +326,7 @@ class Logger extends bunyan {
 
   /**
    * Returns a text blob of all the log lines contained in memory.
+   *
    * @returns {*}
    */
   getLogContentsAsText() {
@@ -343,6 +346,7 @@ class Logger extends bunyan {
 
   /**
    * Adds a filter to the array
+   *
    * @param filter - function defined in the command constructor
    * that manipulates log messages
    */
@@ -353,11 +357,12 @@ class Logger extends bunyan {
   /**
    * When logging messages to the DEFAULT_LOG_FILE, this method
    * calls the filters defined in the executed commands.
+   *
    * @param args - this can be an array of strings, objects, etc.
    */
   applyFilters(logLevel, ...args) {
     if (this.shouldLog(logLevel)) {
-      this.filters.forEach(filter => {
+      this.filters.forEach((filter) => {
         args = filter(...args);
       });
     }
@@ -381,7 +386,7 @@ class Logger extends bunyan {
   close(fn?) {
     if (this.streams) {
       try {
-        this.streams.forEach(stream => {
+        this.streams.forEach((stream) => {
           if (fn && _.isFunction(fn)) {
             fn(stream);
           }
@@ -559,6 +564,7 @@ class Logger extends bunyan {
   /**
    * Set the command name for this node process by seeing it statically accross
    * all logger instances.
+   *
    * @param {string} cmdName The command name
    */
   setCommandName(cmdName) {
@@ -575,7 +581,7 @@ class Logger extends bunyan {
     const colorizedArgs = [];
     const runningWith = _.isString(Logger.commandName) ? ` running ${Logger.commandName}` : '';
     colorizedArgs.push(this.color.bold(`ERROR${runningWith}: `));
-    args.forEach(arg => {
+    args.forEach((arg) => {
       colorizedArgs.push(`${this.color.red(arg)}`);
     });
     return colorizedArgs;
@@ -614,14 +620,14 @@ class Logger extends bunyan {
     if (this.humanConsumable) {
       const columns = _.get(args, '[1].columns');
       if (columns) {
-        args[1].columns = _.map(columns, col => {
+        args[1].columns = _.map(columns, (col) => {
           if (_.isString(col)) {
             return { key: col, label: _.toUpper(col) };
           }
           return {
             key: col.key,
             label: _.toUpper(col.label),
-            format: col.format
+            format: col.format,
           };
         });
       }
@@ -652,8 +658,8 @@ class Logger extends bunyan {
 
   get color() {
     const colorFns: any = {};
-    Object.keys(chalkStyles).forEach(style => {
-      colorFns[style] = msg => {
+    Object.keys(chalkStyles).forEach((style) => {
+      colorFns[style] = (msg) => {
         if (this.colorEnabled) {
           const colorfn = chalk[style] as (msg: string) => string;
           return colorfn(msg);
@@ -686,7 +692,7 @@ class Logger extends bunyan {
   // reset stream(s) and log file(s) to support testing with test workspaces
   reset() {
     this.close();
-    this.streams.forEach(stream => {
+    this.streams.forEach((stream) => {
       if (stream.path) {
         try {
           if (process.platform === 'win32') {
@@ -709,7 +715,7 @@ class Logger extends bunyan {
   }
 }
 
-const _getLogger = function(name, initGlobalLoggerIfNotFound = true) {
+const _getLogger = function (name, initGlobalLoggerIfNotFound = true) {
   if (_.isNil(name)) {
     throw new Error('Logger name required');
   }
@@ -721,7 +727,7 @@ const _getLogger = function(name, initGlobalLoggerIfNotFound = true) {
       level: 'error',
       serializers,
       // No streams for now, not until it is enabled
-      streams: []
+      streams: [],
     });
 
     globalLogger.addFilter((...args) => _filter(...args));

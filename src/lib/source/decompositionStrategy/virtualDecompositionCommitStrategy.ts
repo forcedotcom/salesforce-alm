@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -18,7 +18,8 @@ import { MetadataDocument } from '../metadataDocument';
  * When we don't have fine grain tracking we most likely aren't decomposing into "real" (mdapi addressable) metadata entities.
  * In these virtual decomposition cases deletions become the responsibility of the decomposition.
  */
-export class VirtualDecompositionCommitStrategy extends FineGrainTrackingCommitStrategy
+export class VirtualDecompositionCommitStrategy
+  extends FineGrainTrackingCommitStrategy
   implements DecompositionCommitStrategy {
   constructor(decompositionConfig: DecompositionConfig) {
     super(decompositionConfig);
@@ -42,7 +43,7 @@ export class VirtualDecompositionCommitStrategy extends FineGrainTrackingCommitS
     );
 
     deletedPaths = this.getDeletedPaths(documents, existingPaths); // No fine grain tracking to help us here.
-    deletedPaths.map(deletedPath => fs.unlinkSync(deletedPath));
+    deletedPaths.map((deletedPath) => fs.unlinkSync(deletedPath));
 
     return [newPaths, updatedPaths, deletedPaths, dupPaths];
   }

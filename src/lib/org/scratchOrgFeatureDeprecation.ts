@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 /**
@@ -20,10 +20,10 @@ const messages = Messages();
 import { isString } from '@salesforce/ts-types';
 
 const FEATURE_TYPES = {
-  //simpleFeatureMapping holds a set of direct replacement values for features.
+  // simpleFeatureMapping holds a set of direct replacement values for features.
   simpleFeatureMapping: {
     SALESWAVE: ['DEVELOPMENTWAVE'],
-    SERVICEWAVE: ['DEVELOPMENTWAVE']
+    SERVICEWAVE: ['DEVELOPMENTWAVE'],
   },
   quantifiedFeatureMapping: {},
   deprecatedFeatures: [
@@ -35,8 +35,8 @@ const FEATURE_TYPES = {
     'OldNewRecordFlowStd',
     'DesktopLayoutStandardOff',
     'SplitViewOnStandardOff',
-    'PopOutUtilities'
-  ]
+    'PopOutUtilities',
+  ],
 };
 
 interface FeatureTypes {
@@ -47,13 +47,13 @@ interface FeatureTypes {
 
 export class ScratchOrgFeatureDeprecation {
   private featureTypes: FeatureTypes;
-  //Allow override for testing.
+  // Allow override for testing.
   constructor(options: FeatureTypes = FEATURE_TYPES) {
     this.featureTypes = options;
-    this.featureTypes.deprecatedFeatures = this.featureTypes.deprecatedFeatures.map(v => _.toUpper(v));
-    //Make all of the keys in simpleFeatureMapping upper case.
-    let sfm = {};
-    Object.keys(this.featureTypes.simpleFeatureMapping).forEach(key => {
+    this.featureTypes.deprecatedFeatures = this.featureTypes.deprecatedFeatures.map((v) => _.toUpper(v));
+    // Make all of the keys in simpleFeatureMapping upper case.
+    const sfm = {};
+    Object.keys(this.featureTypes.simpleFeatureMapping).forEach((key) => {
       sfm[_.toUpper(key)] = this.featureTypes.simpleFeatureMapping[key];
     });
     this.featureTypes.simpleFeatureMapping = sfm;
@@ -61,6 +61,7 @@ export class ScratchOrgFeatureDeprecation {
 
   /**
    * Gets list of feature warnings that should be logged
+   *
    * @param features The requested features.
    * @returns List of string feature warnings.
    */
@@ -71,7 +72,7 @@ export class ScratchOrgFeatureDeprecation {
       const requestedFeatures = _.toUpper(isString(features) ? features : features.join(';'));
 
       /* If a public quantified feature is defined without a quantity, throw a warning.*/
-      Object.keys(this.featureTypes.quantifiedFeatureMapping).forEach(key => {
+      Object.keys(this.featureTypes.quantifiedFeatureMapping).forEach((key) => {
         if (new RegExp(`${key};|${key},|${key}$`, 'i').test(requestedFeatures)) {
           featureWarningMessages.push(
             messages.getMessage(
@@ -83,19 +84,19 @@ export class ScratchOrgFeatureDeprecation {
         }
       });
       /* If a simply mapped feature is defined, log a warning.*/
-      Object.keys(this.featureTypes.simpleFeatureMapping).forEach(key => {
+      Object.keys(this.featureTypes.simpleFeatureMapping).forEach((key) => {
         if (new RegExp(`${key};|${key},|${key}$`, 'i').test(requestedFeatures)) {
           featureWarningMessages.push(
             messages.getMessage(
               'mappedFeatureWarning',
-              [key, '[' + this.featureTypes.simpleFeatureMapping[key].map(v => "'" + v + "'").join(',') + ']'],
+              [key, '[' + this.featureTypes.simpleFeatureMapping[key].map((v) => "'" + v + "'").join(',') + ']'],
               'signup'
             )
           );
         }
       });
       /* If a deprecated feature is identified as deprecated, throw a warning.*/
-      this.featureTypes.deprecatedFeatures.forEach(deprecatedFeature => {
+      this.featureTypes.deprecatedFeatures.forEach((deprecatedFeature) => {
         if (requestedFeatures.includes(deprecatedFeature)) {
           featureWarningMessages.push(messages.getMessage('deprecatedFeatureWarning', deprecatedFeature, 'signup'));
         }
@@ -106,19 +107,20 @@ export class ScratchOrgFeatureDeprecation {
 
   /**
    * Removes all deprecated features for the organization.
+   *
    * @param features List of features to filter
    * @returns feature array with proper mapping.
    */
   filterDeprecatedFeatures(features: string[]): string[] {
     const _features: string[] = [];
-    features.forEach(feature => {
-      let _feature = _.toUpper(feature);
+    features.forEach((feature) => {
+      const _feature = _.toUpper(feature);
       /* If deprecated feature is specified, remove feature from the request. */
       if (this.featureTypes.deprecatedFeatures.includes(_feature)) {
         return;
       } else if (this.featureTypes.simpleFeatureMapping[_feature]) {
         /* If a simply mapped feature is specified, then perform the mapping.  */
-        this.featureTypes.simpleFeatureMapping[_feature].forEach(f => {
+        this.featureTypes.simpleFeatureMapping[_feature].forEach((f) => {
           _features.push(f);
         });
       } else {

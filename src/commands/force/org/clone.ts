@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
@@ -42,32 +42,32 @@ export class OrgCloneCommand extends SfdxCommand {
       description: messages.getMessage('typeFlagDescription'),
       longDescription: messages.getMessage('typeFlagLongDescription'),
       required: true,
-      options: [OrgTypes.Sandbox]
+      options: [OrgTypes.Sandbox],
     }),
     definitionfile: flags.filepath({
       char: 'f',
       description: messages.getMessage('definitionfileFlagDescription'),
       longDescription: messages.getMessage('definitionfileFlagLongDescription'),
-      required: false
+      required: false,
     }),
     definitionjson: flags.string({
       char: 'j',
       description: messages.getMessage('definitionjsonFlagDescription'),
       longDescription: messages.getMessage('definitionjsonFlagLongDescription'),
       hidden: true,
-      required: false
+      required: false,
     }),
     setdefaultusername: flags.boolean({
       char: 's',
       description: messages.getMessage('setdefaultusernameFlagDescription'),
       longDescription: messages.getMessage('setdefaultusernameFlagLongDescription'),
-      required: false
+      required: false,
     }),
     setalias: flags.string({
       char: 'a',
       description: messages.getMessage('setaliasFlagDescription'),
       longDescription: messages.getMessage('setaliasFlagLongDescription'),
-      required: false
+      required: false,
     }),
     wait: flags.minutes({
       char: 'w',
@@ -75,8 +75,8 @@ export class OrgCloneCommand extends SfdxCommand {
       longDescription: sfdxCommonMessages.getMessage('streamingWaitLong', []),
       required: false,
       min: Duration.minutes(consts.MIN_STREAM_TIMEOUT_MINUTES),
-      default: Duration.minutes(consts.DEFAULT_STREAM_TIMEOUT_MINUTES)
-    })
+      default: Duration.minutes(consts.DEFAULT_STREAM_TIMEOUT_MINUTES),
+    }),
   };
 
   async readJsonDefFile(): Promise<AnyJson> {
@@ -84,23 +84,24 @@ export class OrgCloneCommand extends SfdxCommand {
     if (this.flags.definitionfile) {
       this.logger.debug('Reading JSON DefFile %s ', this.flags.definitionfile);
       return fs.readJson(this.flags.definitionfile);
-    } else return;
+    }
+    return;
   }
 
   public async run(): Promise<unknown> {
     this.logger.debug('Clone started with args %s ', this.flags);
-    let defFileContents: AnyJson = await this.readJsonDefFile();
+    const defFileContents: AnyJson = await this.readJsonDefFile();
 
     if (this.flags.type === OrgTypes.Sandbox) {
-      const sandboxOrg = await SandboxOrg.getInstance(this.org, this.flags.wait, this.logger, this.flags.clientid);
+      const sandboxOrg = SandboxOrg.getInstance(this.org, this.flags.wait, this.logger, this.flags.clientid);
 
       // Keep all console output in the command
-      sandboxOrg.on(SandboxEventNames.EVENT_ASYNCRESULT, results => {
+      sandboxOrg.on(SandboxEventNames.EVENT_ASYNCRESULT, (results) => {
         this.ux.log(
           messages.getMessage('commandSuccess', [results.sandboxProcessObj.Id, results.sandboxProcessObj.SandboxName])
         );
       });
-      sandboxOrg.on(SandboxEventNames.EVENT_STATUS, results => {
+      sandboxOrg.on(SandboxEventNames.EVENT_STATUS, (results) => {
         SandboxProgressReporter.logSandboxProgress(
           this.ux,
           results.sandboxProcessObj,
@@ -109,20 +110,20 @@ export class OrgCloneCommand extends SfdxCommand {
           results.waitingOnAuth
         );
       });
-      sandboxOrg.on(SandboxEventNames.EVENT_RESULT, results => {
+      sandboxOrg.on(SandboxEventNames.EVENT_RESULT, (results) => {
         SandboxProgressReporter.logSandboxProcessResult(this.ux, results.sandboxProcessObj, results.sandboxRes);
         if (results.sandboxRes && results.sandboxRes.authUserName) {
           if (this.flags.setalias) {
-            Alias.set(this.flags.setalias, results.sandboxRes.authUserName).then(result =>
+            Alias.set(this.flags.setalias, results.sandboxRes.authUserName).then((result) =>
               this.logger.debug('Set Alias: %s result: %s', this.flags.setalias, result)
             );
           }
           if (this.flags.setdefaultusername) {
-            let globalConfig: Config = this.configAggregator.getGlobalConfig();
+            const globalConfig: Config = this.configAggregator.getGlobalConfig();
             globalConfig.set(Config.DEFAULT_USERNAME, results.sandboxRes.authUserName);
             globalConfig
               .write()
-              .then(result =>
+              .then((result) =>
                 this.logger.debug('Set defaultUsername: %s result: %s', this.flags.setdefaultusername, result)
               );
           }
@@ -131,25 +132,25 @@ export class OrgCloneCommand extends SfdxCommand {
 
       this.logger.debug('Clone Varargs: %s ', this.varargs);
 
-      let sandboxReq: SandboxRequest = new SandboxRequest();
+      const sandboxReq: SandboxRequest = new SandboxRequest();
       // definitionjson and varargs override file input
       Object.assign(sandboxReq, defFileContents, this.varargs);
 
       this.logger.debug('SandboxRequest after merging DefFile and Varargs: %s ', sandboxReq);
 
-      //try to find the source sandbox name either from the definition file or the commandline arg
-      //NOTE the name and the case "SourceSandboxName" must match exactly
-      let srcSandboxName: string = sandboxReq[SANDBOXDEF_SRC_SANDBOXNAME];
+      // try to find the source sandbox name either from the definition file or the commandline arg
+      // NOTE the name and the case "SourceSandboxName" must match exactly
+      const srcSandboxName: string = sandboxReq[SANDBOXDEF_SRC_SANDBOXNAME];
       if (srcSandboxName) {
-        //we have to delete this property from the sandboxRequest object,
-        //because sandboxRequest object represent the POST request to create SandboxInfo bpo,
-        //sandboxInfo does not have a column named  SourceSandboxName, this field will be converted to sourceId in the clone call below
+        // we have to delete this property from the sandboxRequest object,
+        // because sandboxRequest object represent the POST request to create SandboxInfo bpo,
+        // sandboxInfo does not have a column named  SourceSandboxName, this field will be converted to sourceId in the clone call below
         delete sandboxReq[SANDBOXDEF_SRC_SANDBOXNAME];
       } else {
-        //error - we need SourceSandboxName to know which sandbox to clone from
+        // error - we need SourceSandboxName to know which sandbox to clone from
         throw SfdxError.create(
           new SfdxErrorConfig('salesforce-alm', 'org_clone', 'missingSourceSandboxName', [
-            SANDBOXDEF_SRC_SANDBOXNAME
+            SANDBOXDEF_SRC_SANDBOXNAME,
           ]).addAction('missingSourceSandboxNameAction', [SANDBOXDEF_SRC_SANDBOXNAME])
         );
       }
@@ -159,7 +160,7 @@ export class OrgCloneCommand extends SfdxCommand {
     } else {
       throw SfdxError.create(
         new SfdxErrorConfig('salesforce-alm', 'org_clone', 'commandOrganizationTypeNotSupport', [
-          OrgTypes.Sandbox
+          OrgTypes.Sandbox,
         ]).addAction('commandOrganizationTypeNotSupportAction', [OrgTypes.Sandbox])
       );
     }

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2018, salesforce.com, inc.
+ * Copyright (c) 2020, salesforce.com, inc.
  * All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- * For full license text, see the LICENSE file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
 // Node
@@ -16,12 +16,13 @@ const DEFAULT_COMPANY = 'Company';
 
 /**
  * Helper method to read the namespace configured for this workspace.
+ *
  * @param configApi
  * @throws Formatting exceptions associated with reading the workspace config.
  * @returns {*} The namespace associated with the workspace.
  * @private
  */
-const _getNamespace = function(configApi) {
+const _getNamespace = function (configApi) {
   const apiVersion = configApi.getApiVersion();
 
   let namespace;
@@ -43,6 +44,7 @@ const _getNamespace = function(configApi) {
 
 /**
  * Helper method to generate a unique username based on the orgType and the current time
+ *
  * @param orgType
  * @returns {*} a unique username
  * @private
@@ -58,6 +60,7 @@ const _generateUsername = (orgType, company) => {
 const signupRequestGenerator = {
   /**
    * Takes in a signup request and fills in the missing fields
+   *
    * @param force
    * @param signupRequest - the signupRequest passed in by the user
    * @param orgType
@@ -93,7 +96,7 @@ const signupRequestGenerator = {
 
     return masterOrg
       .getConfig()
-      .then(hubConfig => {
+      .then((hubConfig) => {
         // Use the Hub org's client ID value, if one wasn't provided to us
         if (util.isNullOrUndefined(signupRequest.ConnectedAppConsumerKey)) {
           signupRequest.ConnectedAppConsumerKey = hubConfig.clientId;
@@ -115,7 +118,7 @@ const signupRequestGenerator = {
         signupRequest.ConnectedAppCallbackUrl = masterOrg.force.getConfig().getOauthCallbackUrl();
         return signupRequest;
       });
-  }
+  },
 };
 
 export = signupRequestGenerator;
